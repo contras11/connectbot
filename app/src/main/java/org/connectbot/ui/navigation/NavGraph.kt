@@ -38,7 +38,7 @@ import org.connectbot.ui.screens.generatepubkey.GeneratePubkeyScreen
 import org.connectbot.ui.screens.help.HelpScreen
 import org.connectbot.ui.screens.hints.HintsScreen
 import org.connectbot.ui.screens.hosteditor.HostEditorScreen
-import org.connectbot.ui.screens.hostlist.HostListScreen
+import org.connectbot.ui.screens.main.MainScreen
 import org.connectbot.ui.screens.portforwardlist.PortForwardListScreen
 import org.connectbot.ui.screens.profiles.ProfileEditorScreen
 import org.connectbot.ui.screens.profiles.ProfileListScreen
@@ -64,8 +64,11 @@ fun ConnectBotNavHost(
         startDestination = startDestination,
         modifier = modifier
     ) {
+        // 変更理由: HostListScreen を MainScreen (BottomNavigationBar付き) に変更。
+        // ホスト一覧・ショートカット管理・設定の3タブをMainScreen内で切替可能にする。
+        // サブ画面 (HostEditor, PubkeyList等) は従来通りNavGraphで遷移する。
         composable(NavDestinations.HOST_LIST) {
-            HostListScreen(
+            MainScreen(
                 makingShortcut = makingShortcut,
                 onNavigateToConsole = onNavigateToConsole,
                 onSelectShortcut = onSelectShortcut,
@@ -75,9 +78,6 @@ fun ConnectBotNavHost(
                     } else {
                         navController.navigateSafely(NavDestinations.HOST_EDITOR)
                     }
-                },
-                onNavigateToSettings = {
-                    navController.navigateSafely(NavDestinations.SETTINGS)
                 },
                 onNavigateToPubkeys = {
                     navController.navigateSafely(NavDestinations.PUBKEY_LIST)

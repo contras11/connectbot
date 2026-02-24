@@ -178,15 +178,22 @@ fun ShortcutBar(
  */
 private data class ProfileTab(val id: String?, val label: String)
 
-/** プロファイルタブ行の高さ (dp) */
-private const val PROFILE_ROW_HEIGHT_DP = 40
+/**
+ * プロファイルタブ行の高さ (dp)。
+ * 変更理由: Material3の最小タッチターゲット48dpを満たすよう40→48に拡大。
+ */
+private const val PROFILE_ROW_HEIGHT_DP = 48
 
-/** ショートカットチップ行の高さ (dp) */
-private const val SHORTCUT_ROW_HEIGHT_DP = 44
+/**
+ * ショートカットチップ行の高さ (dp)。
+ * 変更理由: 親指操作での誤タップ防止のため44→56に拡大。
+ */
+private const val SHORTCUT_ROW_HEIGHT_DP = 56
 
 /**
  * ShortcutBarのコンテンツ領域の高さ (dp)。
  * navigationBarsのinsets分は含まない（ScaffoldまたはColumn内で別途処理）。
  * SessionScreenのInlinePromptボトムパディング計算に使用する。
+ * 変更理由: 48 + 56 + 1(divider) = 105dp
  */
 const val SHORTCUT_BAR_HEIGHT_DP = PROFILE_ROW_HEIGHT_DP + SHORTCUT_ROW_HEIGHT_DP + 1

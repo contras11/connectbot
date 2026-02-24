@@ -76,15 +76,16 @@ import org.connectbot.terminal.VTermKey
 /**
  * Height of the virtual keyboard key row in dp.
  *
- * 変更理由: ShortcutBar の PROFILE_ROW_HEIGHT_DP (40dp) と統一し、
- * 上段バーと下段バーで同じ高さリズムを実現する。
+ * 変更理由: Material3の最小タッチターゲット48dpを満たすよう40→48に拡大。
+ * ShortcutBar の PROFILE_ROW_HEIGHT_DP (48dp) と統一。
  */
-const val TERMINAL_KEYBOARD_HEIGHT_DP = 40
+const val TERMINAL_KEYBOARD_HEIGHT_DP = 48
 
 /**
  * Width of the virtual keyboard keys in dp.
+ * 変更理由: 高さ48dpに合わせて正方形ボタンに統一。
  */
-private const val TERMINAL_KEYBOARD_WIDTH_DP = 45
+private const val TERMINAL_KEYBOARD_WIDTH_DP = 48
 
 /**
  * Size of the content (icons and text) for the virtual keyboard keys in dp.

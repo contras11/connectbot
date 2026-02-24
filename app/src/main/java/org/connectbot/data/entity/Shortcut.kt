@@ -102,12 +102,19 @@ data class Shortcut(
             Shortcut(label = "git diff", command = "git diff\n", category = "git", order = 11),
             Shortcut(label = "git log", command = "git log --oneline -10\n", category = "git", order = 12),
             Shortcut(label = "git pull", command = "git pull\n", category = "git", order = 13),
-            // Claude Code / Codex
+            // Claude Code
             Shortcut(label = "claude", command = "claude\n", category = "claude_code", order = 20),
             Shortcut(label = "/help", command = "/help\n", category = "claude_code", order = 21),
             Shortcut(label = "/compact", command = "/compact\n", category = "claude_code", order = 22),
             Shortcut(label = "/cost", command = "/cost\n", category = "claude_code", order = 23),
-            Shortcut(label = "/status", command = "/status\n", category = "claude_code", order = 24)
+            Shortcut(label = "/status", command = "/status\n", category = "claude_code", order = 24),
+            // 変更理由: Codexカテゴリのデフォルトプリセットを追加。
+            // 設定画面とSSH接続後のプロファイルタブの両方でCodexが
+            // 表示されるよう、初回起動時からCodexコマンドを含める。
+            Shortcut(label = "codex", command = "codex\n", category = "codex", order = 30),
+            Shortcut(label = "codex -q", command = "codex -q \"", category = "codex", order = 31),
+            Shortcut(label = "/diff", command = "/diff\n", category = "codex", order = 32),
+            Shortcut(label = "/undo", command = "/undo\n", category = "codex", order = 33)
         )
     }
 }

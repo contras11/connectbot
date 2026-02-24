@@ -98,8 +98,8 @@ private const val AUTO_RETRY_SECONDS = 5
  *   Scaffold (TopBar + content padding で navigationBars を処理)
  *     Column {
  *       Terminal         (weight=1f, 残り全領域)
- *       TerminalKeyboard (上段: Ctrl/Esc/矢印キー等, 30dp)
- *       ShortcutBar      (下段: プロファイルタブ + ショートカット, 85dp)
+ *       TerminalKeyboard (上段: Ctrl/Esc/矢印キー等, 48dp)
+ *       ShortcutBar      (下段: プロファイルタブ + ショートカット, 105dp)
  *     }
  *     InlinePrompt (BottomCenter overlay, 両バー合計高さ分パディング)
  */
@@ -396,7 +396,7 @@ private fun TerminalContent(
             // ConsoleScreenではオーバーレイとして配置されているが、
             // SessionScreenではColumnに固定配置することでターミナル領域が
             // 正しくリサイズされ、ナビゲーションバーとの干渉を防ぐ。
-            // TERMINAL_KEYBOARD_HEIGHT_DP = 30dp
+            // TERMINAL_KEYBOARD_HEIGHT_DP = 48dp
             TerminalKeyboard(
                 bridge = bridge,
                 onInteraction = {},  // SessionScreenでは自動非表示タイマーなし
@@ -408,7 +408,7 @@ private fun TerminalContent(
             )
 
             // 変更理由: 下段バー - プロファイルタブ + ショートカット (2段構成)。
-            // SHORTCUT_BAR_HEIGHT_DP = PROFILE_ROW_HEIGHT_DP(40) + SHORTCUT_ROW_HEIGHT_DP(44) + 1 = 85dp
+            // SHORTCUT_BAR_HEIGHT_DP = PROFILE_ROW_HEIGHT_DP(48) + SHORTCUT_ROW_HEIGHT_DP(56) + 1 = 105dp
             ShortcutBar(
                 customShortcuts = customShortcuts,
                 selectedProfileId = selectedProfileId,
@@ -418,7 +418,7 @@ private fun TerminalContent(
         }
 
         // 認証プロンプト（パスワード入力、ホスト鍵確認等）のオーバーレイ。
-        // 変更理由: TerminalKeyboard(30dp) + ShortcutBar(85dp) の合計高さ分だけ
+        // 変更理由: TerminalKeyboard(48dp) + ShortcutBar(105dp) の合計高さ分だけ
         // 下から浮かせることで、両バーに隠れずプロンプトが表示される。
         val promptState by bridge.promptManager.promptState.collectAsState()
 

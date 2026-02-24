@@ -94,6 +94,9 @@ import org.connectbot.session.CliCommandRegistry
 fun ShortcutListScreen(
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
+    // 変更理由: MainScreenのタブとして使用する際はナビゲーションアイコンを非表示にする。
+    // SessionScreenからの単独遷移時はtrueでArrowBackを表示する。
+    showNavigationIcon: Boolean = true,
     viewModel: ShortcutListViewModel = hiltViewModel()
 ) {
     val shortcuts by viewModel.shortcuts.collectAsState()
@@ -125,11 +128,14 @@ fun ShortcutListScreen(
             TopAppBar(
                 title = { Text("ショートカット設定") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "戻る"
-                        )
+                    // 変更理由: タブ表示時はArrowBackを非表示にする
+                    if (showNavigationIcon) {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "戻る"
+                            )
+                        }
                     }
                 },
                 actions = {

@@ -82,6 +82,8 @@ fun SettingsScreen(
     onNavigateBack: () -> Unit,
     onNavigateToShortcuts: () -> Unit = {},
     modifier: Modifier = Modifier,
+    // 変更理由: MainScreenのタブとして使用する際はナビゲーションアイコンを非表示にする。
+    showNavigationIcon: Boolean = true,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -152,6 +154,7 @@ fun SettingsScreen(
         uiState = uiState,
         onNavigateBack = onNavigateBack,
         onNavigateToShortcuts = onNavigateToShortcuts,
+        showNavigationIcon = showNavigationIcon,
         onAuthOnLaunchChange = viewModel::updateAuthOnLaunch,
         onMemkeysChange = viewModel::updateMemkeys,
         onConnPersistChange = viewModel::updateConnPersist,
@@ -196,6 +199,8 @@ fun SettingsScreenContent(
     uiState: SettingsUiState,
     onNavigateBack: () -> Unit,
     onNavigateToShortcuts: () -> Unit = {},
+    // 変更理由: MainScreenのタブ表示時はArrowBackアイコンを非表示にする
+    showNavigationIcon: Boolean = true,
     onAuthOnLaunchChange: (Boolean) -> Unit,
     onMemkeysChange: (Boolean) -> Unit,
     onConnPersistChange: (Boolean) -> Unit,
@@ -237,8 +242,11 @@ fun SettingsScreenContent(
             TopAppBar(
                 title = { Text(stringResource(R.string.title_settings)) },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                    // 変更理由: タブ表示時はArrowBackを非表示にする
+                    if (showNavigationIcon) {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        }
                     }
                 }
             )
