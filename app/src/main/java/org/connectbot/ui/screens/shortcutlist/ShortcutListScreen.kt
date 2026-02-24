@@ -265,7 +265,9 @@ fun ShortcutListScreen(
     // カテゴリ別インポートダイアログ
     if (showImportDialog) {
         ImportCategoryDialog(
-            existingLabels = shortcuts.map { it.label }.toSet(),
+            // 変更理由: label単独ではClaude CodeとCodexで"/help"等が衝突するため
+            // (label, category)ペアで重複判定に変更。異なるカテゴリなら同名ラベルも追加可。
+            existingPairs = shortcuts.map { it.label to it.category }.toSet(),
             onDismiss = { showImportDialog = false },
             onImport = { category ->
                 viewModel.importCategory(category.id)
@@ -419,10 +421,14 @@ private fun ShortcutListItem(
  *
  * 変更理由: Claude Code / Codex / Git / Docker 等の既知コマンドを
  * カテゴリ別に一括インポートできる機能を提供する。
+ *
+ * 変更理由: label単独の重複判定から(label, category)ペアに変更。
+ * Claude CodeとCodexが同名コマンド("/help"等)を持つ場合でも
+ * カテゴリが異なればインポート可能になる。
  */
 @Composable
 private fun ImportCategoryDialog(
-    existingLabels: Set<String>,
+    existingPairs: Set<Pair<String, String?>>,
     onDismiss: () -> Unit,
     onImport: (CliCommandRegistry.ToolCategory) -> Unit
 ) {
@@ -432,7 +438,7 @@ private fun ImportCategoryDialog(
         text = {
             LazyColumn {
                 items(CliCommandRegistry.categories) { category ->
-                    val newCount = category.commands.count { it.label !in existingLabels }
+                    val newCount = category.commands.count { (it.label to category.id) !in existingPairs }
                     ListItem(
                         headlineContent = { Text(category.displayName) },
                         supportingContent = {

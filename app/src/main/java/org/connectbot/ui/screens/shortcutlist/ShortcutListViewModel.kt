@@ -77,21 +77,26 @@ class ShortcutListViewModel @Inject constructor(
 
     /**
      * カテゴリ別にテンプレートコマンドを一括インポートする。
-     * 既存のラベルと重複するものはスキップする。
+     * 同一カテゴリ内で同じラベルを持つものはスキップする。
      *
      * 変更理由: Claude Code / Codex / Git / Docker 等の既知コマンドを
      * ワンタップで追加できるようにするため。
+     *
+     * 変更理由: label単独の重複判定から(label, category)ペアに変更。
+     * Claude CodeとCodexが同名コマンド("/help"等)を持つ場合でも
+     * カテゴリが異なれば正しくインポートできるようにする。
      */
     fun importCategory(categoryId: String) {
         val category = CliCommandRegistry.findCategory(categoryId) ?: return
         viewModelScope.launch {
             val existing = shortcutRepository.loadAll()
-            val existingLabels = existing.map { it.label }.toSet()
+            // (label, category)ペアで重複チェック
+            val existingPairs = existing.map { it.label to it.category }.toSet()
             val maxOrder = existing.maxOfOrNull { it.order } ?: 0
             // 変更理由: インポート時にcategoryIdを設定し、
             // ShortcutListScreenでカテゴリ別グルーピング表示に対応する
             category.commands
-                .filter { it.label !in existingLabels }
+                .filter { (it.label to categoryId) !in existingPairs }
                 .forEachIndexed { index, cmd ->
                     shortcutRepository.save(
                         cmd.copy(
