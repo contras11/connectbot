@@ -82,8 +82,9 @@ class SessionViewModel @Inject constructor(
     /**
      * 変更理由: プロファイル別ショートカット切替のための状態。
      * nullはカスタム(ShortcutRepository)、文字列はCliCommandRegistryのカテゴリID。
+     * デフォルトは "claude_code" に設定 (ユーザ要望: Claude Codeを初期選択)。
      */
-    private val _selectedProfileId = MutableStateFlow<String?>(null)
+    private val _selectedProfileId = MutableStateFlow<String?>("claude_code")
 
     /** 選択中のプロファイルID */
     val selectedProfileId: StateFlow<String?> = _selectedProfileId.asStateFlow()

@@ -48,8 +48,15 @@ import org.connectbot.session.CliCommandRegistry
  * 変更理由: プロファイル別ショートカット切替とコマンドの
  * クイック実行UIを提供するため、1段から2段レイアウトに拡張。
  *
- * 段1: プロファイルタブ (カスタム, 汎用, Git, Docker, Claude Code, Codex)
+ * 段1: プロファイルタブ (カスタム, 汎用, Git, Docker, Cloudflare, Claude Code, Codex)
  * 段2: 選択中プロファイルのショートカットチップ一覧
+ *
+ * WindowInsets対応:
+ * windowInsetsPadding(WindowInsets.navigationBars) をSurface外ではなく
+ * Column内に適用することで、Surfaceの背景色がナビゲーションバー領域まで
+ * 拡張される（edge-to-edge対応）。コンテンツ行のみパディング対象とする。
+ * Scaffoldがnavigationバーinsetsをconsumeしている場合は実質0pxとなり
+ * 二重適用を防ぐ。
  *
  * @param customShortcuts ShortcutRepositoryから取得したユーザのカスタムショートカット
  * @param selectedProfileId 選択中のプロファイルID (null = カスタム)
@@ -80,17 +87,22 @@ fun ShortcutBar(
         CliCommandRegistry.findCategory(selectedProfileId)?.commands ?: emptyList()
     }
 
-    // 変更理由: navigationBars insetsを適用して、キーボード非表示時に
-    // Androidのナビゲーションバーとショートカットバーが干渉しないようにする。
-    // 2段構成のため十分な高さを確保する。
+    // 変更理由: Surfaceにwindow insets paddingを置くと背景色がナビゲーション
+    // バー領域まで届かない（edge-to-edge不完全）。
+    // Surfaceはfillmaxwidthのみとし、navigationBars insetsはColumn内に適用する。
+    // ScaffoldがconsumeWindowInsetsしている場合はColumnのpaddingが実質0になり
+    // 二重パディングは発生しない。
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        modifier = modifier
-            .fillMaxWidth()
-            .windowInsetsPadding(WindowInsets.navigationBars)
+        modifier = modifier.fillMaxWidth()
     ) {
-        Column {
-            // 段1: プロファイルタブ (FilterChip)
+        // 変更理由: navigationBars insetsをColumn内に適用することで
+        // Surfaceの背景はナビバー領域まで塗りつぶしつつ、
+        // コンテンツはナビバー上部に収まる（edge-to-edge正対応）
+        Column(
+            modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars)
+        ) {
+            // 段1: プロファイルタブ (FilterChip) - 横スクロール可能
             Row(
                 modifier = Modifier
                     .horizontalScroll(rememberScrollState())
@@ -116,7 +128,7 @@ fun ShortcutBar(
 
             HorizontalDivider(thickness = 0.5.dp)
 
-            // 段2: ショートカットチップ一覧
+            // 段2: ショートカットチップ一覧 - 横スクロール可能
             if (displayedShortcuts.isNotEmpty()) {
                 Row(
                     modifier = Modifier
@@ -172,5 +184,9 @@ private const val PROFILE_ROW_HEIGHT_DP = 40
 /** ショートカットチップ行の高さ (dp) */
 private const val SHORTCUT_ROW_HEIGHT_DP = 44
 
-/** ShortcutBarの合計高さ (dp)。TerminalContentのpadding計算に使用 */
+/**
+ * ShortcutBarのコンテンツ領域の高さ (dp)。
+ * navigationBarsのinsets分は含まない（ScaffoldまたはColumn内で別途処理）。
+ * SessionScreenのInlinePromptボトムパディング計算に使用する。
+ */
 const val SHORTCUT_BAR_HEIGHT_DP = PROFILE_ROW_HEIGHT_DP + SHORTCUT_ROW_HEIGHT_DP + 1

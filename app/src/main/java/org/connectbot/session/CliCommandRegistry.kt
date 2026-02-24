@@ -28,6 +28,9 @@ import org.connectbot.data.entity.Shortcut
  *
  * 各ツールのコマンド一覧は公式ドキュメントに基づく。
  * 末尾の \n は自動実行を意味する。
+ *
+ * カテゴリ一覧: general / git / docker / cloudflare / claude_code / codex
+ * 変更理由: Cloudflareカテゴリを追加 (wrangler + cloudflared コマンド群)
  */
 object CliCommandRegistry {
 
@@ -50,6 +53,8 @@ object CliCommandRegistry {
         generalCommands(),
         gitCommands(),
         dockerCommands(),
+        // 変更理由: Cloudflare Workers / Tunnelコマンドのカテゴリを追加
+        cloudflareCommands(),
         claudeCodeCommands(),
         codexCommands()
     )
@@ -114,6 +119,37 @@ object CliCommandRegistry {
             Shortcut(label = "docker compose up", command = "docker compose up -d\n", order = 4),
             Shortcut(label = "docker compose down", command = "docker compose down\n", order = 5),
             Shortcut(label = "docker stats", command = "docker stats\n", order = 6)
+        )
+    )
+
+    /**
+     * Cloudflare Workers (wrangler) および Cloudflare Tunnel (cloudflared) のコマンド。
+     *
+     * 変更理由: ユーザ要望によりCloudflareカテゴリを追加。
+     * probeBinary は "wrangler" とし、Workers CLIの存在を検出対象とする。
+     * cloudflared コマンドも同カテゴリに含め、トンネル操作を一元管理する。
+     */
+    private fun cloudflareCommands() = ToolCategory(
+        id = "cloudflare",
+        displayName = "Cloudflare",
+        probeBinary = "wrangler",
+        commands = listOf(
+            // Cloudflare Workers (wrangler)
+            Shortcut(label = "wrangler dev", command = "wrangler dev\n", order = 0),
+            Shortcut(label = "wrangler deploy", command = "wrangler deploy\n", order = 1),
+            Shortcut(label = "wrangler tail", command = "wrangler tail\n", order = 2),
+            Shortcut(label = "wrangler publish", command = "wrangler publish\n", order = 3),
+            Shortcut(label = "wrangler login", command = "wrangler login\n", order = 4),
+            Shortcut(label = "wrangler whoami", command = "wrangler whoami\n", order = 5),
+            Shortcut(label = "wrangler secret", command = "wrangler secret put ", order = 6),
+            Shortcut(label = "wrangler kv list", command = "wrangler kv key list --binding=KV\n", order = 7),
+            // Cloudflare Tunnel (cloudflared)
+            Shortcut(label = "cf tunnel login", command = "cloudflared tunnel login\n", order = 10),
+            Shortcut(label = "cf tunnel create", command = "cloudflared tunnel create ", order = 11),
+            Shortcut(label = "cf tunnel list", command = "cloudflared tunnel list\n", order = 12),
+            Shortcut(label = "cf tunnel run", command = "cloudflared tunnel run ", order = 13),
+            Shortcut(label = "cf tunnel --url", command = "cloudflared tunnel --url http://localhost:8080\n", order = 14),
+            Shortcut(label = "cf tunnel delete", command = "cloudflared tunnel delete ", order = 15)
         )
     )
 

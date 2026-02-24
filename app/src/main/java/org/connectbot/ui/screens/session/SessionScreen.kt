@@ -75,6 +75,8 @@ import org.connectbot.ui.LocalTerminalManager
 import org.connectbot.ui.components.InlinePrompt
 import org.connectbot.ui.components.SHORTCUT_BAR_HEIGHT_DP
 import org.connectbot.ui.components.ShortcutBar
+import org.connectbot.ui.components.TERMINAL_KEYBOARD_HEIGHT_DP
+import org.connectbot.ui.components.TerminalKeyboard
 import org.connectbot.util.rememberTerminalTypefaceResultFromStoredValue
 
 /** 非意図的切断時の自動リトライまでの秒数 */
@@ -87,9 +89,19 @@ private const val AUTO_RETRY_SECONDS = 5
  * SessionControllerパターンによる最小限のターミナル表示画面を新設。
  *
  * 機能拡充:
- * - ShortcutBar を画面下部に2段構成で追加（プロファイルタブ＋ショートカット）。
+ * - TerminalKeyboard (Ctrl/Esc/矢印等) を上段バーとして常時表示。
+ * - ShortcutBar をプロファイルタブ＋ショートカット2段構成で下段に配置。
  * - Disconnected状態で意図的切断は選択肢表示、非意図的切断は自動リトライ。
  * - プロファイル別ショートカット切替をサポート。
+ *
+ * レイアウト構造 (TerminalContent):
+ *   Scaffold (TopBar + content padding で navigationBars を処理)
+ *     Column {
+ *       Terminal         (weight=1f, 残り全領域)
+ *       TerminalKeyboard (上段: Ctrl/Esc/矢印キー等, 30dp)
+ *       ShortcutBar      (下段: プロファイルタブ + ショートカット, 85dp)
+ *     }
+ *     InlinePrompt (BottomCenter overlay, 両バー合計高さ分パディング)
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -129,6 +141,9 @@ fun SessionScreen(
         }
     }
 
+    // 変更理由: ScaffoldのcontentWindowInsetsにnavigationBarsが含まれるため、
+    // innerPaddingがナビゲーションバー分のボトムパディングを持つ。
+    // consumeWindowInsetsと組み合わせることで子Composableへのinsets二重適用を防ぐ。
     Scaffold(
         topBar = {
             SessionTopBar(
@@ -168,7 +183,7 @@ fun SessionScreen(
                 }
 
                 is SessionController.SessionState.Active -> {
-                    // ターミナル表示 + ショートカットバー + 認証プロンプト
+                    // ターミナル表示 + TerminalKeyboard(上段) + ShortcutBar(下段) + 認証プロンプト
                     TerminalContent(
                         bridge = state.bridge,
                         customShortcuts = shortcuts,
@@ -309,17 +324,30 @@ private fun LoadingContent(modifier: Modifier = Modifier) {
 }
 
 /**
- * ターミナル表示 + ショートカットバー + 認証プロンプト。
+ * ターミナル表示 + TerminalKeyboard(上段) + ShortcutBar(下段) + 認証プロンプト。
  *
  * レイアウト構造:
- *   Column {
- *     Terminal (weight=1f, 残り全領域)
- *     ShortcutBar (2段構成: プロファイルタブ + ショートカット)
+ *   Box(fillMaxSize) {
+ *     Column(fillMaxSize) {
+ *       Terminal          (weight=1f, 残り全領域)
+ *       TerminalKeyboard  (上段: Ctrl/Esc/矢印等, TERMINAL_KEYBOARD_HEIGHT_DP=30dp)
+ *       ShortcutBar       (下段: プロファイルタブ+ショートカット, SHORTCUT_BAR_HEIGHT_DP=85dp)
+ *     }
+ *     InlinePrompt (BottomCenter overlay)
  *   }
- *   InlinePrompt (BottomCenter overlay)
  *
- * 変更理由: ショートカットバーを2段構成に拡張し、
- * プロファイル別のショートカット切替を追加。
+ * WindowInsets対応:
+ * - ScaffoldのcontentWindowInsetsがnavigationBarsを含む → innerPaddingがボトムパディングを持つ
+ * - consumeWindowInsetsにより子Composableへのinsets二重適用を防ぐ
+ * - ShortcutBar内のwindowInsetsPadding(navigationBars)はScaffoldで消費済みのため実質0
+ * - TerminalKeyboardはオーバーレイではなくColumnの固定要素として配置 (ConsoleScreenとは異なる)
+ *
+ * 変更理由:
+ * - TerminalKeyboard(Ctrl/Esc/矢印)をColumnに追加し、ConsoleScreenと同等の
+ *   特殊キー操作をSessionScreenでも提供する。
+ * - オーバーレイではなくColumn内配置にすることでターミナル領域が正しく縮小し、
+ *   ナビゲーションバーとの干渉を防ぐ。
+ * - InlinePromptのbottomPaddingを両バー合計高さに更新。
  */
 @Composable
 private fun TerminalContent(
@@ -331,6 +359,7 @@ private fun TerminalContent(
     modifier: Modifier = Modifier
 ) {
     val termFocusRequester = remember { FocusRequester() }
+    // IMEの表示状態をTerminalKeyboardと共有するための状態
     var showSoftwareKeyboard by remember { mutableStateOf(true) }
 
     val fontResult = rememberTerminalTypefaceResultFromStoredValue(bridge.fontFamily)
@@ -343,6 +372,7 @@ private fun TerminalContent(
     Box(modifier = modifier) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Terminal Composable: termlib が提供するCompose対応ターミナル描画
+            // weight(1f) で残り全領域を使用し、下段バーに押し上げられない
             Terminal(
                 terminalEmulator = bridge.terminalEmulator,
                 modifier = Modifier
@@ -362,7 +392,23 @@ private fun TerminalContent(
                 }
             )
 
-            // 変更理由: 2段構成ショートカットバー (プロファイルタブ + ショートカット)
+            // 変更理由: 上段バー - Ctrl/Esc/矢印キー等の特殊キーバー。
+            // ConsoleScreenではオーバーレイとして配置されているが、
+            // SessionScreenではColumnに固定配置することでターミナル領域が
+            // 正しくリサイズされ、ナビゲーションバーとの干渉を防ぐ。
+            // TERMINAL_KEYBOARD_HEIGHT_DP = 30dp
+            TerminalKeyboard(
+                bridge = bridge,
+                onInteraction = {},  // SessionScreenでは自動非表示タイマーなし
+                onHideIme = { showSoftwareKeyboard = false },
+                onShowIme = { showSoftwareKeyboard = true },
+                onOpenTextInput = {},  // TODO: FloatingTextInputDialogへの連携
+                imeVisible = showSoftwareKeyboard,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // 変更理由: 下段バー - プロファイルタブ + ショートカット (2段構成)。
+            // SHORTCUT_BAR_HEIGHT_DP = PROFILE_ROW_HEIGHT_DP(40) + SHORTCUT_ROW_HEIGHT_DP(44) + 1 = 85dp
             ShortcutBar(
                 customShortcuts = customShortcuts,
                 selectedProfileId = selectedProfileId,
@@ -371,7 +417,9 @@ private fun TerminalContent(
             )
         }
 
-        // 認証プロンプト（パスワード入力、ホスト鍵確認等）
+        // 認証プロンプト（パスワード入力、ホスト鍵確認等）のオーバーレイ。
+        // 変更理由: TerminalKeyboard(30dp) + ShortcutBar(85dp) の合計高さ分だけ
+        // 下から浮かせることで、両バーに隠れずプロンプトが表示される。
         val promptState by bridge.promptManager.promptState.collectAsState()
 
         InlinePrompt(
@@ -388,7 +436,7 @@ private fun TerminalContent(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(bottom = SHORTCUT_BAR_HEIGHT_DP.dp)
+                .padding(bottom = (SHORTCUT_BAR_HEIGHT_DP + TERMINAL_KEYBOARD_HEIGHT_DP).dp)
         )
     }
 }
