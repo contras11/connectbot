@@ -80,6 +80,7 @@ import java.util.Locale
 @Composable
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
+    onNavigateToShortcuts: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
@@ -150,6 +151,7 @@ fun SettingsScreen(
     SettingsScreenContent(
         uiState = uiState,
         onNavigateBack = onNavigateBack,
+        onNavigateToShortcuts = onNavigateToShortcuts,
         onAuthOnLaunchChange = viewModel::updateAuthOnLaunch,
         onMemkeysChange = viewModel::updateMemkeys,
         onConnPersistChange = viewModel::updateConnPersist,
@@ -193,6 +195,7 @@ fun SettingsScreen(
 fun SettingsScreenContent(
     uiState: SettingsUiState,
     onNavigateBack: () -> Unit,
+    onNavigateToShortcuts: () -> Unit = {},
     onAuthOnLaunchChange: (Boolean) -> Unit,
     onMemkeysChange: (Boolean) -> Unit,
     onConnPersistChange: (Boolean) -> Unit,
@@ -479,6 +482,27 @@ fun SettingsScreenContent(
                     checked = uiState.keepalive,
                     onCheckedChange = onKeepAliveChange
                 )
+            }
+
+            // 変更理由: ショートカット設定画面への導線を追加
+            item {
+                PreferenceCategory(title = "ショートカット")
+            }
+
+            item {
+                ListItem(
+                    headlineContent = { Text("ショートカット設定") },
+                    supportingContent = { Text("コマンドショートカットの追加・編集・削除") },
+                    leadingContent = {
+                        Icon(
+                            Icons.Default.Terminal,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    modifier = Modifier.clickable(onClick = onNavigateToShortcuts)
+                )
+                HorizontalDivider()
             }
 
             item {

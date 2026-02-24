@@ -34,6 +34,12 @@ object NavDestinations {
     const val EULA = "eula"
     const val HINTS = "hints"
     const val CONTACT = "contact"
+
+    // 変更理由: SessionController経由の新しいセッション画面ルートを追加
+    const val SESSION = "session"
+
+    // 変更理由: ショートカット設定画面へのルートを追加
+    const val SHORTCUT_LIST = "shortcut_list"
 }
 
 object NavArgs {

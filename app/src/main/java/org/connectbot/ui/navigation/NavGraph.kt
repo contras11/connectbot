@@ -44,7 +44,9 @@ import org.connectbot.ui.screens.profiles.ProfileEditorScreen
 import org.connectbot.ui.screens.profiles.ProfileListScreen
 import org.connectbot.ui.screens.pubkeyeditor.PubkeyEditorScreen
 import org.connectbot.ui.screens.pubkeylist.PubkeyListScreen
+import org.connectbot.ui.screens.session.SessionScreen
 import org.connectbot.ui.screens.settings.SettingsScreen
+import org.connectbot.ui.screens.shortcutlist.ShortcutListScreen
 import org.connectbot.util.IconStyle
 import timber.log.Timber
 
@@ -160,7 +162,10 @@ fun ConnectBotNavHost(
 
         composable(NavDestinations.SETTINGS) {
             SettingsScreen(
-                onNavigateBack = { navController.safePopBackStack() }
+                onNavigateBack = { navController.safePopBackStack() },
+                onNavigateToShortcuts = {
+                    navController.navigateSafely(NavDestinations.SHORTCUT_LIST)
+                }
             )
         }
 
@@ -244,6 +249,30 @@ fun ConnectBotNavHost(
 
         composable(NavDestinations.HINTS) {
             HintsScreen(
+                onNavigateBack = { navController.safePopBackStack() }
+            )
+        }
+
+        // 変更理由: SessionController経由のセッション画面を追加。
+        // hostIdをパスパラメータで受け取り、SessionViewModelが自動接続を開始する。
+        composable(
+            route = "${NavDestinations.SESSION}/{${NavArgs.HOST_ID}}",
+            arguments = listOf(
+                navArgument(NavArgs.HOST_ID) { type = NavType.LongType }
+            )
+        ) {
+            SessionScreen(
+                onNavigateBack = { navController.safePopBackStack() },
+                onNavigateToShortcutSettings = {
+                    navController.navigateSafely(NavDestinations.SHORTCUT_LIST)
+                }
+            )
+        }
+
+        // 変更理由: ショートカット設定画面を追加。
+        // Settings画面およびSessionScreen TopBarから遷移する。
+        composable(NavDestinations.SHORTCUT_LIST) {
+            ShortcutListScreen(
                 onNavigateBack = { navController.safePopBackStack() }
             )
         }
