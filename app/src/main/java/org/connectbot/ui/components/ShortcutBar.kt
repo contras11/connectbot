@@ -1,0 +1,176 @@
+/*
+ * ConnectBot: simple, powerful, open-source SSH client for Android
+ * Copyright 2025 Kenny Root
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.connectbot.ui.components
+
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import org.connectbot.data.entity.Shortcut
+import org.connectbot.session.CliCommandRegistry
+
+/**
+ * ターミナル画面下部に表示する2段構成ショートカットバー。
+ *
+ * 変更理由: プロファイル別ショートカット切替とコマンドの
+ * クイック実行UIを提供するため、1段から2段レイアウトに拡張。
+ *
+ * 段1: プロファイルタブ (カスタム, 汎用, Git, Docker, Claude Code, Codex)
+ * 段2: 選択中プロファイルのショートカットチップ一覧
+ *
+ * @param customShortcuts ShortcutRepositoryから取得したユーザのカスタムショートカット
+ * @param selectedProfileId 選択中のプロファイルID (null = カスタム)
+ * @param onProfileChange プロファイルタブ切替時のコールバック
+ * @param onShortcutClick ショートカットがタップされた時のコールバック
+ * @param modifier Modifier
+ */
+@Composable
+fun ShortcutBar(
+    customShortcuts: List<Shortcut>,
+    selectedProfileId: String?,
+    onProfileChange: (String?) -> Unit,
+    onShortcutClick: (Shortcut) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // 変更理由: プロファイルタブ定義。カスタム + CliCommandRegistryの全カテゴリ
+    val profiles = buildList {
+        add(ProfileTab(id = null, label = "カスタム"))
+        CliCommandRegistry.categories.forEach {
+            add(ProfileTab(id = it.id, label = it.displayName))
+        }
+    }
+
+    // 変更理由: 選択プロファイルに応じて表示するショートカットを切り替え
+    val displayedShortcuts = if (selectedProfileId == null) {
+        customShortcuts
+    } else {
+        CliCommandRegistry.findCategory(selectedProfileId)?.commands ?: emptyList()
+    }
+
+    // 変更理由: navigationBars insetsを適用して、キーボード非表示時に
+    // Androidのナビゲーションバーとショートカットバーが干渉しないようにする。
+    // 2段構成のため十分な高さを確保する。
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        modifier = modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.navigationBars)
+    ) {
+        Column {
+            // 段1: プロファイルタブ (FilterChip)
+            Row(
+                modifier = Modifier
+                    .horizontalScroll(rememberScrollState())
+                    .height(PROFILE_ROW_HEIGHT_DP.dp)
+                    .padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                profiles.forEach { profile ->
+                    FilterChip(
+                        selected = selectedProfileId == profile.id,
+                        onClick = { onProfileChange(profile.id) },
+                        label = {
+                            Text(
+                                text = profile.label,
+                                maxLines = 1,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    )
+                }
+            }
+
+            HorizontalDivider(thickness = 0.5.dp)
+
+            // 段2: ショートカットチップ一覧
+            if (displayedShortcuts.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .horizontalScroll(rememberScrollState())
+                        .height(SHORTCUT_ROW_HEIGHT_DP.dp)
+                        .padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    displayedShortcuts.forEach { shortcut ->
+                        SuggestionChip(
+                            onClick = { onShortcutClick(shortcut) },
+                            label = {
+                                Text(
+                                    text = shortcut.label,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        )
+                    }
+                }
+            } else {
+                // 変更理由: ショートカット未登録時の案内表示
+                Row(
+                    modifier = Modifier
+                        .height(SHORTCUT_ROW_HEIGHT_DP.dp)
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "ショートカットなし",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * プロファイルタブのデータ。
+ * @param id CliCommandRegistryのカテゴリID (nullはカスタム)
+ * @param label 表示ラベル
+ */
+private data class ProfileTab(val id: String?, val label: String)
+
+/** プロファイルタブ行の高さ (dp) */
+private const val PROFILE_ROW_HEIGHT_DP = 40
+
+/** ショートカットチップ行の高さ (dp) */
+private const val SHORTCUT_ROW_HEIGHT_DP = 44
+
+/** ShortcutBarの合計高さ (dp)。TerminalContentのpadding計算に使用 */
+const val SHORTCUT_BAR_HEIGHT_DP = PROFILE_ROW_HEIGHT_DP + SHORTCUT_ROW_HEIGHT_DP + 1
