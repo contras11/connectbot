@@ -33,6 +33,11 @@ import java.util.UUID
  *               プレースホルダ (例: {{hostname}}) を含めることができる。
  * @param hostId ホスト固有のショートカットの場合はホストID、
  *               グローバルショートカットの場合はnull
+ * @param category CliCommandRegistryのカテゴリID (例: "git", "docker", "claude_code")。
+ *                 カテゴリなし(カスタム)の場合はnull。
+ *                 変更理由: ShortcutListScreenでカテゴリ別グルーピング表示を
+ *                 実現するためフィールドを追加。既存JSONにcategoryキーがない場合は
+ *                 optString でnullとして扱うため後方互換を維持する。
  * @param order 表示順序 (昇順)
  */
 data class Shortcut(
@@ -40,6 +45,7 @@ data class Shortcut(
     val label: String,
     val command: String,
     val hostId: Long? = null,
+    val category: String? = null,
     val order: Int = 0
 ) {
     /** JSONObjectへの変換 */
@@ -49,6 +55,8 @@ data class Shortcut(
         put(KEY_COMMAND, command)
         // hostId が null の場合は JSONObject.NULL を設定
         put(KEY_HOST_ID, hostId ?: JSONObject.NULL)
+        // category が null の場合は JSONObject.NULL を設定
+        put(KEY_CATEGORY, category ?: JSONObject.NULL)
         put(KEY_ORDER, order)
     }
 
@@ -57,14 +65,20 @@ data class Shortcut(
         private const val KEY_LABEL = "label"
         private const val KEY_COMMAND = "command"
         private const val KEY_HOST_ID = "hostId"
+        private const val KEY_CATEGORY = "category"
         private const val KEY_ORDER = "order"
 
-        /** JSONObjectからShortcutを復元 */
+        /**
+         * JSONObjectからShortcutを復元。
+         * 変更理由: categoryフィールドを追加。旧データにはcategoryキーがないため
+         * optString(KEY_CATEGORY, null) で安全にnullとして読み込む（後方互換）。
+         */
         fun fromJson(json: JSONObject): Shortcut = Shortcut(
             id = json.getString(KEY_ID),
             label = json.getString(KEY_LABEL),
             command = json.getString(KEY_COMMAND),
             hostId = if (json.isNull(KEY_HOST_ID)) null else json.getLong(KEY_HOST_ID),
+            category = if (json.isNull(KEY_CATEGORY)) null else json.optString(KEY_CATEGORY),
             order = json.optInt(KEY_ORDER, 0)
         )
 
@@ -73,25 +87,27 @@ data class Shortcut(
          *
          * 変更理由: よく使うコマンドを幅広くカバーするよう拡充。
          * 汎用操作、制御文字、Git基本操作、Claude Code / Codex 起動を含む。
+         * 変更理由: categoryフィールドを各ショートカットに設定し、
+         * グルーピング表示に対応。
          */
         fun createDefaults(): List<Shortcut> = listOf(
             // 汎用コマンド
-            Shortcut(label = "ls -la", command = "ls -la\n", order = 0),
-            Shortcut(label = "pwd", command = "pwd\n", order = 1),
-            Shortcut(label = "clear", command = "clear\n", order = 2),
-            Shortcut(label = "Ctrl+C", command = "\u0003", order = 3),
-            Shortcut(label = "Ctrl+D", command = "\u0004", order = 4),
+            Shortcut(label = "ls -la", command = "ls -la\n", category = "general", order = 0),
+            Shortcut(label = "pwd", command = "pwd\n", category = "general", order = 1),
+            Shortcut(label = "clear", command = "clear\n", category = "general", order = 2),
+            Shortcut(label = "Ctrl+C", command = "\u0003", category = "general", order = 3),
+            Shortcut(label = "Ctrl+D", command = "\u0004", category = "general", order = 4),
             // Git基本操作
-            Shortcut(label = "git st", command = "git status\n", order = 10),
-            Shortcut(label = "git diff", command = "git diff\n", order = 11),
-            Shortcut(label = "git log", command = "git log --oneline -10\n", order = 12),
-            Shortcut(label = "git pull", command = "git pull\n", order = 13),
+            Shortcut(label = "git st", command = "git status\n", category = "git", order = 10),
+            Shortcut(label = "git diff", command = "git diff\n", category = "git", order = 11),
+            Shortcut(label = "git log", command = "git log --oneline -10\n", category = "git", order = 12),
+            Shortcut(label = "git pull", command = "git pull\n", category = "git", order = 13),
             // Claude Code / Codex
-            Shortcut(label = "claude", command = "claude\n", order = 20),
-            Shortcut(label = "/help", command = "/help\n", order = 21),
-            Shortcut(label = "/compact", command = "/compact\n", order = 22),
-            Shortcut(label = "/cost", command = "/cost\n", order = 23),
-            Shortcut(label = "/status", command = "/status\n", order = 24)
+            Shortcut(label = "claude", command = "claude\n", category = "claude_code", order = 20),
+            Shortcut(label = "/help", command = "/help\n", category = "claude_code", order = 21),
+            Shortcut(label = "/compact", command = "/compact\n", category = "claude_code", order = 22),
+            Shortcut(label = "/cost", command = "/cost\n", category = "claude_code", order = 23),
+            Shortcut(label = "/status", command = "/status\n", category = "claude_code", order = 24)
         )
     }
 }

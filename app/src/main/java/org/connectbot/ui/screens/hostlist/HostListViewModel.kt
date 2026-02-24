@@ -87,6 +87,16 @@ class HostListViewModel @Inject constructor(
      */
     private val intentionallyDisconnected = mutableSetOf<Long>()
 
+    /**
+     * 変更理由: 接続「失敗」(ServiceError.ConnectionFailed) が発生したホストの
+     * nicknameを追跡する。正常切断との区別に使用する。
+     * - 接続失敗 → DISCONNECTED (赤！アイコン)
+     * - 正常切断 (exit, 戻るボタン等) → UNKNOWN (アイコンなし)
+     * nicknameで追跡するのは ServiceError.ConnectionFailed が hostname/nickname のみを
+     * 保持しており hostId を持たないため。
+     */
+    private val failedHostNicknames = mutableSetOf<String>()
+
     private val _uiState = MutableStateFlow(
         HostListUiState(
             isLoading = true,
@@ -148,6 +158,14 @@ class HostListViewModel @Inject constructor(
         viewModelScope.launch {
             manager.serviceErrors.collect { error ->
                 val errorMessage = formatServiceError(error)
+                // 変更理由: 接続失敗ホストを追跡し、正常切断と区別する。
+                // ServiceError.ConnectionFailed のみ赤アイコン対象とする。
+                // 正常切断 (exit, back, disconnect menu) は UNKNOWN を返すため
+                // failedHostNicknames に含まれない限り赤アイコンを表示しない。
+                if (error is ServiceError.ConnectionFailed) {
+                    failedHostNicknames.add(error.hostNickname)
+                    updateConnectionStates(_uiState.value.hosts)
+                }
                 _uiState.update { it.copy(error = errorMessage) }
             }
         }
@@ -196,18 +214,27 @@ class HostListViewModel @Inject constructor(
 
         // Check if connected by ID
         if (manager.bridgesFlow.value.any { it.host.id == host.id }) {
-            // 変更理由: 再接続したら意図的切断のトラッキングをクリア
+            // 変更理由: 再接続したら意図的切断・接続失敗のトラッキングをクリア
             intentionallyDisconnected.remove(host.id)
+            failedHostNicknames.remove(host.nickname)
             return ConnectionState.CONNECTED
         }
 
         // Check if in disconnected list by comparing ID
         if (manager.disconnectedFlow.value.any { it.id == host.id }) {
-            // 変更理由: 意図的に切断されたホストはエラー表示しない
+            // 変更理由: 意図的切断 (メニューからの切断) はアイコンなし (UNKNOWN)
             if (host.id in intentionallyDisconnected) {
                 return ConnectionState.UNKNOWN
             }
-            return ConnectionState.DISCONNECTED
+            // 変更理由: 接続「失敗」(ServiceError.ConnectionFailed) の場合のみ
+            // 赤！アイコン (DISCONNECTED) を表示する。
+            // 正常切断 (exit コマンド, 戻るボタン等) は UNKNOWN (アイコンなし) を返す。
+            // これにより「接続に失敗した時だけ赤丸が出る」という期待動作を実現する。
+            if (host.nickname in failedHostNicknames) {
+                return ConnectionState.DISCONNECTED
+            }
+            // 正常切断 → アイコンなし
+            return ConnectionState.UNKNOWN
         }
 
         return ConnectionState.UNKNOWN

@@ -226,13 +226,15 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            // Navigate to console when pending host connection is set
+            // Navigate to session when pending host connection is set
+            // 変更理由: SessionScreenが2段ショートカットバーを持つため、
+            // 旧ConsoleScreenではなく新SessionScreenに遷移するよう変更
             LaunchedEffect(pendingHostConnection, appUiState) {
                 if (appUiState is AppUiState.Ready) {
                     pendingHostConnection?.let { host ->
-                        Timber.d("Navigating to console for pending host: ${host.nickname}")
+                        Timber.d("Navigating to session for pending host: ${host.nickname}")
                         pendingHostConnection = null
-                        navController.navigate("${NavDestinations.CONSOLE}/${host.id}")
+                        navController.navigate("${NavDestinations.SESSION}/${host.id}")
                     }
                 }
             }
@@ -249,8 +251,9 @@ class MainActivity : AppCompatActivity() {
                                 appViewModel.clearPendingConnectionUri()
                             }
                             // Also handle pending host connection
+                            // 変更理由: SessionScreenに遷移 (ConsoleScreenから変更)
                             pendingHostConnection?.let { host ->
-                                navController.navigate("${NavDestinations.CONSOLE}/${host.id}")
+                                navController.navigate("${NavDestinations.SESSION}/${host.id}")
                                 pendingHostConnection = null
                             }
                         },
@@ -265,7 +268,8 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            // Callback to check permission before navigating to console
+            // Callback to check permission before navigating to session screen
+            // 変更理由: 旧ConsoleScreenからSessionScreen (2段ショートカットバー搭載) に変更
             val onNavigateToConsole: (Host) -> Unit = { host ->
                 Timber.d("onNavigateToConsole called for host: ${host.nickname}")
 
@@ -275,7 +279,7 @@ class MainActivity : AppCompatActivity() {
 
                 if (!persistConnections || NotificationPermissionHelper.isNotificationPermissionGranted(context)) {
                     // Either persistence is disabled (no permission needed) or permission granted, navigate immediately
-                    navController.navigate("${NavDestinations.CONSOLE}/${host.id}")
+                    navController.navigate("${NavDestinations.SESSION}/${host.id}")
                 } else {
                     // Persistence is enabled but no permission - need to request permission
                     Timber.d("Requesting notification permission before connection")
@@ -360,7 +364,8 @@ class MainActivity : AppCompatActivity() {
                     bridge = manager.openConnection(uri)
                 }
 
-                controller.navigate("${NavDestinations.CONSOLE}/${bridge.host.id}") {
+                // 変更理由: URI経由の接続もSessionScreenに遷移 (ConsoleScreenから変更)
+                controller.navigate("${NavDestinations.SESSION}/${bridge.host.id}") {
                     launchSingleTop = true
                 }
             } catch (e: Exception) {

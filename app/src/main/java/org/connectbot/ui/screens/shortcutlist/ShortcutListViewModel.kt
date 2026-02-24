@@ -88,11 +88,16 @@ class ShortcutListViewModel @Inject constructor(
             val existing = shortcutRepository.loadAll()
             val existingLabels = existing.map { it.label }.toSet()
             val maxOrder = existing.maxOfOrNull { it.order } ?: 0
+            // 変更理由: インポート時にcategoryIdを設定し、
+            // ShortcutListScreenでカテゴリ別グルーピング表示に対応する
             category.commands
                 .filter { it.label !in existingLabels }
                 .forEachIndexed { index, cmd ->
                     shortcutRepository.save(
-                        cmd.copy(order = maxOrder + index + 1)
+                        cmd.copy(
+                            order = maxOrder + index + 1,
+                            category = categoryId
+                        )
                     )
                 }
         }

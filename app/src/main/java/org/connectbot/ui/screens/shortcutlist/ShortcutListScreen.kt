@@ -28,12 +28,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -45,12 +46,14 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -69,12 +72,22 @@ import org.connectbot.session.CliCommandRegistry
  * 存在しなかったため新設。Settings画面およびSessionScreen TopBarから
  * ナビゲーションで到達する。
  *
- * 機能:
- * - 一覧表示（ラベル + コマンドプレビュー + スコープ表示）
- * - FABで新規追加
- * - タップで編集ダイアログ
- * - アイコンで削除
- * - カテゴリ別一括インポート (Claude Code, Codex, Git, Docker 等)
+ * 変更理由 (グルーピング対応): フラットなリスト表示から
+ * グローバル/ホスト別 → カテゴリ別 の2段階グルーピング表示に変更。
+ * Shortcut.category フィールドを使ってカテゴリ別にまとめる。
+ *
+ * 表示構造:
+ *   ▼ グローバル
+ *     ▼ Claude Code
+ *       - claude
+ *       - /help
+ *     ▼ Git
+ *       - git status
+ *     ▼ 未分類
+ *       - Ctrl+D
+ *   ▼ ホスト ID: 1
+ *     ▼ Docker
+ *       - docker ps
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,6 +100,25 @@ fun ShortcutListScreen(
     var editingShortcut by remember { mutableStateOf<Shortcut?>(null) }
     var showAddDialog by remember { mutableStateOf(false) }
     var showImportDialog by remember { mutableStateOf(false) }
+
+    // 変更理由: ホストグループとカテゴリグループの折り畳み状態を管理する。
+    // キー: "host:${hostId}" または "cat:${hostId}:${categoryId}"
+    val expandedGroups = remember { mutableStateMapOf<String, Boolean>() }
+
+    // 変更理由: グローバル（hostId=null）とホスト別でグルーピングし、
+    // さらにcategoryでサブグルーピングする。
+    // グローバルは "GLOBAL" キーで、ホスト別は hostId の文字列でグルーピング。
+    val grouped: Map<String, Map<String, List<Shortcut>>> = remember(shortcuts) {
+        val hostGroups = shortcuts.groupBy { it.hostId?.toString() ?: "GLOBAL" }
+        hostGroups.mapValues { (_, hostShortcuts) ->
+            hostShortcuts.groupBy { it.category ?: "UNCATEGORIZED" }
+        }
+    }
+
+    // グローバルグループをリストの先頭に固定し、ホスト別グループを後ろに並べる
+    val sortedHostKeys = remember(grouped) {
+        grouped.keys.sortedWith(compareBy { if (it == "GLOBAL") "" else it })
+    }
 
     Scaffold(
         topBar = {
@@ -140,19 +172,66 @@ fun ShortcutListScreen(
                 )
             }
         } else {
+            // 変更理由: グルーピング表示。LazyColumnにホストグループ→カテゴリグループを
+            // 折り畳み可能なExpandableセクションで表示する。
             LazyColumn(
                 modifier = Modifier.padding(innerPadding)
             ) {
-                itemsIndexed(
-                    items = shortcuts,
-                    key = { _, shortcut -> shortcut.id }
-                ) { _, shortcut ->
-                    ShortcutListItem(
-                        shortcut = shortcut,
-                        onClick = { editingShortcut = shortcut },
-                        onDelete = { viewModel.delete(shortcut.id) }
-                    )
+                sortedHostKeys.forEach { hostKey ->
+                    val categoryMap = grouped[hostKey] ?: return@forEach
+                    val hostGroupExpanded = expandedGroups[hostKey] ?: true
+
+                    // ホストグループヘッダー (グローバル or ホスト別)
+                    item(key = "host_header_$hostKey") {
+                        HostGroupHeader(
+                            hostKey = hostKey,
+                            shortcutCount = categoryMap.values.sumOf { it.size },
+                            expanded = hostGroupExpanded,
+                            onClick = {
+                                expandedGroups[hostKey] = !hostGroupExpanded
+                            }
+                        )
+                    }
+
+                    if (hostGroupExpanded) {
+                        // カテゴリ別サブグループ
+                        val sortedCategoryKeys = categoryMap.keys.sortedWith(
+                            compareBy { if (it == "UNCATEGORIZED") "zzz" else it }
+                        )
+                        sortedCategoryKeys.forEach { categoryKey ->
+                            val categoryShortcuts = categoryMap[categoryKey] ?: return@forEach
+                            val catGroupKey = "cat:$hostKey:$categoryKey"
+                            val catExpanded = expandedGroups[catGroupKey] ?: true
+
+                            item(key = "cat_header_${hostKey}_$categoryKey") {
+                                CategoryGroupHeader(
+                                    categoryKey = categoryKey,
+                                    shortcutCount = categoryShortcuts.size,
+                                    expanded = catExpanded,
+                                    onClick = {
+                                        expandedGroups[catGroupKey] = !catExpanded
+                                    }
+                                )
+                            }
+
+                            if (catExpanded) {
+                                items(
+                                    items = categoryShortcuts.sortedBy { it.order },
+                                    key = { it.id }
+                                ) { shortcut ->
+                                    ShortcutListItem(
+                                        shortcut = shortcut,
+                                        onClick = { editingShortcut = shortcut },
+                                        onDelete = { viewModel.delete(shortcut.id) }
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
+
+                // FAB分の余白
+                item { Spacer(modifier = Modifier.height(88.dp)) }
             }
         }
     }
@@ -197,6 +276,94 @@ fun ShortcutListScreen(
 }
 
 /**
+ * ホストグループのセクションヘッダー。
+ * 変更理由: グルーピング表示のためのExpandable見出しを追加。
+ */
+@Composable
+private fun HostGroupHeader(
+    hostKey: String,
+    shortcutCount: Int,
+    expanded: Boolean,
+    onClick: () -> Unit
+) {
+    val label = if (hostKey == "GLOBAL") "グローバル" else "ホスト ID: $hostKey"
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = if (expanded) Icons.Default.KeyboardArrowDown
+                else Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = if (expanded) "折り畳む" else "展開する",
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = "${shortcutCount}件",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+/**
+ * カテゴリグループのサブセクションヘッダー。
+ * 変更理由: カテゴリ別の折り畳み可能なサブヘッダーを追加。
+ */
+@Composable
+private fun CategoryGroupHeader(
+    categoryKey: String,
+    shortcutCount: Int,
+    expanded: Boolean,
+    onClick: () -> Unit
+) {
+    val label = when (categoryKey) {
+        "UNCATEGORIZED" -> "未分類"
+        else -> CliCommandRegistry.findCategory(categoryKey)?.displayName ?: categoryKey
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(start = 32.dp, end = 16.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = if (expanded) Icons.Default.KeyboardArrowDown
+            else Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = if (expanded) "折り畳む" else "展開する",
+            tint = MaterialTheme.colorScheme.secondary
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.secondary,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = "${shortcutCount}件",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+    HorizontalDivider(thickness = 0.5.dp)
+}
+
+/**
  * ショートカットの1行表示。
  * ラベル、コマンドプレビュー、スコープ（グローバル/ホスト固有）を表示する。
  */
@@ -206,7 +373,6 @@ private fun ShortcutListItem(
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val scope = if (shortcut.hostId == null) "グローバル" else "ホスト固有 (ID: ${shortcut.hostId})"
     // コマンドの改行・制御文字を視覚的に表示
     val commandPreview = shortcut.command
         .replace("\n", "\\n")
@@ -224,20 +390,13 @@ private fun ShortcutListItem(
             )
         },
         supportingContent = {
-            Column {
-                Text(
-                    text = commandPreview,
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = scope,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline
-                )
-            }
+            Text(
+                text = commandPreview,
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         },
         trailingContent = {
             IconButton(onClick = onDelete) {
@@ -248,9 +407,11 @@ private fun ShortcutListItem(
                 )
             }
         },
-        modifier = Modifier.clickable(onClick = onClick)
+        modifier = Modifier
+            .padding(start = 16.dp)
+            .clickable(onClick = onClick)
     )
-    HorizontalDivider()
+    HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
 }
 
 /**
@@ -303,7 +464,10 @@ private fun ImportCategoryDialog(
 
 /**
  * ショートカットの追加・編集ダイアログ。
- * ラベル、コマンド、ホストID（空ならグローバル）を入力可能。
+ * ラベル、コマンド、ホストID（空ならグローバル）、カテゴリを入力可能。
+ *
+ * 変更理由: categoryフィールドの入力フォームを追加。
+ * CliCommandRegistryのカテゴリIDを直接入力する形式とする。
  */
 @Composable
 private fun ShortcutEditDialog(
@@ -317,6 +481,8 @@ private fun ShortcutEditDialog(
     var hostIdText by remember {
         mutableStateOf(shortcut?.hostId?.toString() ?: "")
     }
+    // 変更理由: カテゴリ入力フィールドを追加
+    var categoryText by remember { mutableStateOf(shortcut?.category ?: "") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -357,6 +523,23 @@ private fun ShortcutEditDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                // 変更理由: カテゴリ入力フィールドを追加
+                // ShortcutListScreenのグルーピング表示に使用される
+                OutlinedTextField(
+                    value = categoryText,
+                    onValueChange = { categoryText = it },
+                    label = { Text("カテゴリ (空欄=未分類)") },
+                    placeholder = { Text("例: git, docker, claude_code") },
+                    supportingText = {
+                        Text(
+                            text = "使用可能: " + CliCommandRegistry.categories.joinToString { it.id },
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         },
         confirmButton = {
@@ -369,11 +552,14 @@ private fun ShortcutEditDialog(
                     onClick = {
                         if (label.isNotBlank() && command.isNotBlank()) {
                             val hostId = hostIdText.toLongOrNull()
+                            // 変更理由: 空文字列はnullとして扱い未分類グループに表示
+                            val category = categoryText.trim().ifBlank { null }
                             val newShortcut = Shortcut(
                                 id = shortcut?.id ?: java.util.UUID.randomUUID().toString(),
                                 label = label.trim(),
                                 command = command,
                                 hostId = hostId,
+                                category = category,
                                 order = shortcut?.order ?: 0
                             )
                             onSave(newShortcut)
