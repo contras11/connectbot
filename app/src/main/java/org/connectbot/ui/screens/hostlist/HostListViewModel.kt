@@ -80,6 +80,13 @@ class HostListViewModel @Inject constructor(
 ) : ViewModel() {
 
     private var terminalManager: TerminalManager? = null
+
+    /**
+     * 変更理由: 意図的に切断されたホストIDを追跡する。
+     * メニューから切断した場合に赤いエラーアイコンを表示しないようにするため。
+     */
+    private val intentionallyDisconnected = mutableSetOf<Long>()
+
     private val _uiState = MutableStateFlow(
         HostListUiState(
             isLoading = true,
@@ -189,11 +196,17 @@ class HostListViewModel @Inject constructor(
 
         // Check if connected by ID
         if (manager.bridgesFlow.value.any { it.host.id == host.id }) {
+            // 変更理由: 再接続したら意図的切断のトラッキングをクリア
+            intentionallyDisconnected.remove(host.id)
             return ConnectionState.CONNECTED
         }
 
         // Check if in disconnected list by comparing ID
         if (manager.disconnectedFlow.value.any { it.id == host.id }) {
+            // 変更理由: 意図的に切断されたホストはエラー表示しない
+            if (host.id in intentionallyDisconnected) {
+                return ConnectionState.UNKNOWN
+            }
             return ConnectionState.DISCONNECTED
         }
 
@@ -256,10 +269,16 @@ class HostListViewModel @Inject constructor(
     }
 
     fun disconnectAll() {
+        // 変更理由: 全ホスト一括切断時も意図的切断として記録
+        terminalManager?.bridgesFlow?.value?.forEach { bridge ->
+            intentionallyDisconnected.add(bridge.host.id)
+        }
         terminalManager?.disconnectAll(immediate = true, excludeLocal = false)
     }
 
     fun disconnectHost(host: Host) {
+        // 変更理由: メニューからの切断を意図的切断として記録し、赤アイコン表示を防止
+        intentionallyDisconnected.add(host.id)
         val bridge = terminalManager?.bridgesFlow?.value?.find { it.host.id == host.id }
         bridge?.dispatchDisconnect(true)
     }
