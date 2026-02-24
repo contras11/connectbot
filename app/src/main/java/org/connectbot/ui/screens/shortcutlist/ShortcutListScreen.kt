@@ -33,6 +33,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.AlertDialog
@@ -225,10 +226,14 @@ fun ShortcutListScreen(
                                     items = categoryShortcuts.sortedBy { it.order },
                                     key = { it.id }
                                 ) { shortcut ->
+                                    // 変更理由: 上下移動ボタンを追加し
+                                    // ショートカットの表示順を変更可能にする
                                     ShortcutListItem(
                                         shortcut = shortcut,
                                         onClick = { editingShortcut = shortcut },
-                                        onDelete = { viewModel.delete(shortcut.id) }
+                                        onDelete = { viewModel.delete(shortcut.id) },
+                                        onMoveUp = { viewModel.moveUp(shortcut) },
+                                        onMoveDown = { viewModel.moveDown(shortcut) }
                                     )
                                 }
                             }
@@ -373,13 +378,19 @@ private fun CategoryGroupHeader(
 
 /**
  * ショートカットの1行表示。
- * ラベル、コマンドプレビュー、スコープ（グローバル/ホスト固有）を表示する。
+ * ラベル、コマンドプレビュー、上下移動ボタン、削除ボタンを表示する。
+ *
+ * 変更理由: 上下移動ボタンを追加し、ショートカットの表示順を
+ * ユーザが自由に変更できるようにする。orderフィールドがスワップされ
+ * JSON永続化後も順序が保持される。SSH接続後のShortcutBarにも反映。
  */
 @Composable
 private fun ShortcutListItem(
     shortcut: Shortcut,
     onClick: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onMoveUp: () -> Unit = {},
+    onMoveDown: () -> Unit = {}
 ) {
     // コマンドの改行・制御文字を視覚的に表示
     val commandPreview = shortcut.command
@@ -407,12 +418,29 @@ private fun ShortcutListItem(
             )
         },
         trailingContent = {
-            IconButton(onClick = onDelete) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "削除",
-                    tint = MaterialTheme.colorScheme.error
-                )
+            // 変更理由: 上下移動ボタンを追加して並び替えを可能にする
+            Row {
+                IconButton(onClick = onMoveUp) {
+                    Icon(
+                        Icons.Default.KeyboardArrowUp,
+                        contentDescription = "上へ移動",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                IconButton(onClick = onMoveDown) {
+                    Icon(
+                        Icons.Default.KeyboardArrowDown,
+                        contentDescription = "下へ移動",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "削除",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
             }
         },
         modifier = Modifier

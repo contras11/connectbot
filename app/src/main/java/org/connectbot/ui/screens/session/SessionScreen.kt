@@ -206,13 +206,19 @@ fun SessionScreen(
                 }
 
                 is SessionController.SessionState.Disconnected -> {
-                    // 変更理由: 意図的切断は選択肢表示、非意図的は自動リトライ
-                    DisconnectedContent(
-                        isIntentional = isIntentionalDisconnect,
-                        onReconnect = { viewModel.reconnect() },
-                        onBack = onNavigateBack,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
+                    // 変更理由: 意図的切断は自動でホーム画面に戻る。
+                    // 非意図的切断のみカウントダウン付きリトライ画面を表示。
+                    if (isIntentionalDisconnect) {
+                        LaunchedEffect(Unit) {
+                            onNavigateBack()
+                        }
+                    } else {
+                        DisconnectedContent(
+                            onReconnect = { viewModel.reconnect() },
+                            onBack = onNavigateBack,
+                            modifier = Modifier.align(Alignment.Center)
+                        )
+                    }
                 }
             }
         }
@@ -442,30 +448,24 @@ private fun TerminalContent(
 }
 
 /**
- * 切断済み画面。
+ * 非意図的切断時のリトライ画面。
  *
- * 変更理由:
- * - 意図的切断（「切断」ボタン）の場合: 再接続/戻るの選択肢を表示。
- * - 非意図的切断（exit, ネットワーク断等）の場合: カウントダウン付きで
- *   自動リトライを行う。ユーザはカウントダウン中にキャンセルして
- *   ホーム画面に戻ることもできる。
+ * 変更理由: 意図的切断はSessionScreenで自動ホーム遷移するため、
+ * この画面は非意図的切断（exit, ネットワーク断等）の自動リトライ専用に簡略化。
+ * カウントダウン完了で自動再接続、ユーザはキャンセルしてホームに戻ることも可能。
  *
- * @param isIntentional 意図的切断かどうか
  * @param onReconnect 再接続コールバック
  * @param onBack ホーム画面に戻るコールバック
  */
 @Composable
 private fun DisconnectedContent(
-    isIntentional: Boolean,
     onReconnect: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // 変更理由: 非意図的切断時はカウントダウン後に自動リトライ
     var countdown by remember { mutableIntStateOf(AUTO_RETRY_SECONDS) }
-    var autoRetryActive by remember { mutableStateOf(!isIntentional) }
+    var autoRetryActive by remember { mutableStateOf(true) }
 
-    // カウントダウンタイマー
     LaunchedEffect(autoRetryActive) {
         if (autoRetryActive) {
             countdown = AUTO_RETRY_SECONDS
@@ -473,7 +473,6 @@ private fun DisconnectedContent(
                 delay(1000L)
                 countdown--
             }
-            // カウントダウン完了 → 自動リトライ
             onReconnect()
         }
     }
@@ -483,13 +482,12 @@ private fun DisconnectedContent(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = if (isIntentional) "接続を終了しました" else "接続が切断されました",
+            text = "接続が切断されました",
             style = MaterialTheme.typography.titleMedium
         )
         Spacer(modifier = Modifier.height(8.dp))
 
-        if (!isIntentional && autoRetryActive) {
-            // 非意図的切断: カウントダウン表示
+        if (autoRetryActive) {
             Text(
                 text = "${countdown}秒後に自動的に再接続します...",
                 style = MaterialTheme.typography.bodyMedium,
@@ -507,13 +505,6 @@ private fun DisconnectedContent(
                 Text("キャンセルして戻る")
             }
         } else {
-            // 意図的切断: 選択肢表示
-            Text(
-                text = "SSHセッションが切断されました。",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(24.dp))
             Button(onClick = onReconnect) {
                 Text("再接続")
             }

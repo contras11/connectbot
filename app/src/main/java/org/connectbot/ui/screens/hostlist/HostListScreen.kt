@@ -312,13 +312,8 @@ fun HostListScreenContent(
                                     onToggleSortOrder()
                                 }
                             )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.list_menu_settings)) },
-                                onClick = {
-                                    showMenu = false
-                                    onNavigateToSettings()
-                                }
-                            )
+                            // 変更理由: 「設定」はBottomNavigationBarで遷移可能なため
+                            // 三点メニューから削除。補助的機能のみ残す。
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.profile_list_title)) },
                                 onClick = {

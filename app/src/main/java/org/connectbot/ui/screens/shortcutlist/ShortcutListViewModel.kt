@@ -76,6 +76,49 @@ class ShortcutListViewModel @Inject constructor(
     }
 
     /**
+     * ショートカットを1つ上に移動する（order値を入れ替え）。
+     *
+     * 変更理由: ショートカットの表示順をユーザが自由に変更できるようにする。
+     * 同じカテゴリ内でorder値をスワップし、並び順を永続化する。
+     * SSH接続後のShortcutBarにもこの順序が反映される。
+     */
+    fun moveUp(shortcut: Shortcut) {
+        viewModelScope.launch {
+            val all = shortcutRepository.loadAll()
+            // 同じカテゴリ・同じhostIdグループ内でソート
+            val group = all.filter {
+                it.category == shortcut.category && it.hostId == shortcut.hostId
+            }.sortedBy { it.order }
+            val index = group.indexOfFirst { it.id == shortcut.id }
+            if (index > 0) {
+                val prev = group[index - 1]
+                shortcutRepository.save(shortcut.copy(order = prev.order))
+                shortcutRepository.save(prev.copy(order = shortcut.order))
+            }
+        }
+    }
+
+    /**
+     * ショートカットを1つ下に移動する（order値を入れ替え）。
+     *
+     * 変更理由: moveUpと対になる下方向移動。
+     */
+    fun moveDown(shortcut: Shortcut) {
+        viewModelScope.launch {
+            val all = shortcutRepository.loadAll()
+            val group = all.filter {
+                it.category == shortcut.category && it.hostId == shortcut.hostId
+            }.sortedBy { it.order }
+            val index = group.indexOfFirst { it.id == shortcut.id }
+            if (index >= 0 && index < group.size - 1) {
+                val next = group[index + 1]
+                shortcutRepository.save(shortcut.copy(order = next.order))
+                shortcutRepository.save(next.copy(order = shortcut.order))
+            }
+        }
+    }
+
+    /**
      * カテゴリ別にテンプレートコマンドを一括インポートする。
      * 同一カテゴリ内で同じラベルを持つものはスキップする。
      *
