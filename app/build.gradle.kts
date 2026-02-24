@@ -24,6 +24,9 @@ coveralls {
 }
 
 appVersioning {
+    // 変更理由: ShellPilotフォーク用のバージョニング。
+    // gitタグから自動でバージョンを算出する。
+    // Play Store配信時は `git tag v1.0.0` でタグを打つこと。
     tagFilter.set("v[0-9].*")
     overrideVersionCode { gitTag, _, _ ->
         val semVer = gitTag.toSemVer()
@@ -46,7 +49,10 @@ android {
             .toInt()
 
     defaultConfig {
-        applicationId = "org.connectbot"
+        // 変更理由: Play Store配信時にオリジナルConnectBotと競合しないよう
+        // applicationIdをフォーク固有のものに変更。
+        // namespaceは既存コードのパッケージ名と一致させるためorg.connectbotを維持。
+        applicationId = "io.shellpilot.app"
 
         minSdk =
             libs.versions.minSdk
@@ -64,7 +70,7 @@ android {
             debugSymbolLevel = "full"
         }
 
-        testApplicationId = "org.connectbot.tests"
+        testApplicationId = "io.shellpilot.app.tests"
         testInstrumentationRunner = "org.connectbot.HiltTestRunner"
 
         // The following argument makes the Android Test Orchestrator run its

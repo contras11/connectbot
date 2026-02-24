@@ -99,9 +99,16 @@ fun HelpScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    // 変更理由: フォーク元を明示するためアプリ名とフォーク表記を変更
                     Text(
-                        text = "ConnectBot",
+                        text = "ShellPilot",
                         style = MaterialTheme.typography.headlineMedium,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    Text(
+                        text = "Based on ConnectBot",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
                     Text(
@@ -177,10 +184,19 @@ fun HelpScreen(
                 Text(
                     text = stringResource(R.string.app_desc),
                     style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(bottom = 16.dp)
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                // 変更理由: フォーク元の情報を明示
+                Text(
+                    text = "ShellPilot is a fork of ConnectBot with Kotlin/Compose " +
+                        "modernization and AI CLI tool integration " +
+                        "(Claude Code, Codex, etc.).",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
                 Text(
-                    text = stringResource(R.string.app_copyright),
+                    text = "Original: ${stringResource(R.string.app_copyright)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
