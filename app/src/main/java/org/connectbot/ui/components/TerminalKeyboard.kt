@@ -29,8 +29,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Keyboard
@@ -57,7 +59,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
@@ -215,12 +216,13 @@ private fun TerminalKeyboardContent(
                     .height(TERMINAL_KEYBOARD_HEIGHT_DP.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Scrollable key buttons
+                // 変更理由: ShortcutBarのChipと統一したspacingとpaddingを適用
                 Row(
                     modifier = Modifier
                         .weight(1f)
-                        .horizontalScroll(scrollState),
-                    horizontalArrangement = Arrangement.Start
+                        .horizontalScroll(scrollState)
+                        .padding(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     // Ctrl key (sticky modifier)
                     ModifierKeyButton(
@@ -370,7 +372,7 @@ private fun TerminalKeyboardContent(
                 }
 
                 // Text input button (always visible on right)
-                // 変更理由: アイコンボタン背景をsurfaceContainerHighに統一
+                // 変更理由: ShortcutBarのChipと統一した角丸デザイン
                 Surface(
                     onClick = {
                         onOpenTextInput()
@@ -380,7 +382,7 @@ private fun TerminalKeyboardContent(
                         width = TERMINAL_KEYBOARD_WIDTH_DP.dp,
                         height = TERMINAL_KEYBOARD_HEIGHT_DP.dp
                     ),
-                    shape = RectangleShape,
+                    shape = RoundedCornerShape(8.dp),
                     border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
                     color = MaterialTheme.colorScheme.surfaceContainerHigh
                 ) {
@@ -398,6 +400,7 @@ private fun TerminalKeyboardContent(
                 }
 
                 // Keyboard toggle button (always visible on right)
+                // 変更理由: ShortcutBarのChipと統一した角丸デザイン
                 Surface(
                     onClick = {
                         if (imeVisible) {
@@ -411,7 +414,7 @@ private fun TerminalKeyboardContent(
                         width = TERMINAL_KEYBOARD_WIDTH_DP.dp,
                         height = TERMINAL_KEYBOARD_HEIGHT_DP.dp
                     ),
-                    shape = RectangleShape,
+                    shape = RoundedCornerShape(8.dp),
                     border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
                     color = MaterialTheme.colorScheme.surfaceContainerHigh
                 ) {
@@ -481,11 +484,12 @@ private fun KeyButton(
         }
     }
 
+    // 変更理由: ShortcutBarのChipと統一した角丸デザインを適用
     if (onClick != null) {
         Surface(
             onClick = onClick,
             modifier = surfaceModifier,
-            shape = RectangleShape,
+            shape = RoundedCornerShape(8.dp),
             border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
             color = backgroundColor,
             content = content
@@ -493,7 +497,7 @@ private fun KeyButton(
     } else {
         Surface(
             modifier = surfaceModifier,
-            shape = RectangleShape,
+            shape = RoundedCornerShape(8.dp),
             border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
             color = backgroundColor,
             content = content

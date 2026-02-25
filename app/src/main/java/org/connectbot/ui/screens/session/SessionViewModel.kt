@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import org.connectbot.data.ProfileOrderRepository
 import org.connectbot.data.ShortcutRepository
 import org.connectbot.data.entity.Host
 import org.connectbot.data.entity.Shortcut
@@ -54,7 +55,8 @@ import javax.inject.Inject
 class SessionViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val dispatchers: CoroutineDispatchers,
-    private val shortcutRepository: ShortcutRepository
+    private val shortcutRepository: ShortcutRepository,
+    private val profileOrderRepository: ProfileOrderRepository
 ) : ViewModel() {
 
     /** Navigationルートから取得するホストID */
@@ -88,6 +90,17 @@ class SessionViewModel @Inject constructor(
 
     /** 選択中のプロファイルID */
     val selectedProfileId: StateFlow<String?> = _selectedProfileId.asStateFlow()
+
+    /**
+     * 変更理由: プロファイルタブの表示順序をShortcutBarに渡すための状態。
+     * ProfileOrderRepositoryから読み込んだ順序を公開する。
+     */
+    private val _profileOrder = MutableStateFlow<List<String?>>(
+        profileOrderRepository.getOrder()
+    )
+
+    /** プロファイルタブの表示順序 */
+    val profileOrder: StateFlow<List<String?>> = _profileOrder.asStateFlow()
 
     /**
      * 変更理由: 意図的切断かどうかを追跡するフラグ。

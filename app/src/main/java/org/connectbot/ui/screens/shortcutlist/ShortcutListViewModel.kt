@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import org.connectbot.data.ProfileOrderRepository
 import org.connectbot.data.ShortcutRepository
 import org.connectbot.data.entity.Shortcut
 import org.connectbot.session.CliCommandRegistry
@@ -37,7 +38,8 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class ShortcutListViewModel @Inject constructor(
-    private val shortcutRepository: ShortcutRepository
+    private val shortcutRepository: ShortcutRepository,
+    private val profileOrderRepository: ProfileOrderRepository
 ) : ViewModel() {
 
     private val _shortcuts = MutableStateFlow<List<Shortcut>>(emptyList())
@@ -45,8 +47,23 @@ class ShortcutListViewModel @Inject constructor(
     /** 全ショートカット一覧 */
     val shortcuts: StateFlow<List<Shortcut>> = _shortcuts.asStateFlow()
 
+    /**
+     * 変更理由: プロファイルタブの表示順序をユーザが変更できるようにする。
+     * ProfileOrderRepositoryから読み込んだ順序をStateFlowで公開する。
+     */
+    private val _profileOrder = MutableStateFlow<List<String?>>(emptyList())
+
+    /** プロファイルタブの表示順序 */
+    val profileOrder: StateFlow<List<String?>> = _profileOrder.asStateFlow()
+
     init {
         loadShortcuts()
+        loadProfileOrder()
+    }
+
+    /** プロファイルタブ順序を読み込む */
+    private fun loadProfileOrder() {
+        _profileOrder.value = profileOrderRepository.getOrder()
     }
 
     private fun loadShortcuts() {
@@ -129,6 +146,39 @@ class ShortcutListViewModel @Inject constructor(
      * Claude CodeとCodexが同名コマンド("/help"等)を持つ場合でも
      * カテゴリが異なれば正しくインポートできるようにする。
      */
+    /**
+     * プロファイルタブを1つ上に移動する。
+     *
+     * 変更理由: プロファイルタブの表示順をユーザが変更できるようにする。
+     * SharedPreferencesに保存されたJSON配列内の位置をスワップする。
+     */
+    fun moveProfileUp(profileId: String?) {
+        val order = _profileOrder.value.toMutableList()
+        val index = order.indexOf(profileId)
+        if (index > 0) {
+            order[index] = order[index - 1]
+            order[index - 1] = profileId
+            profileOrderRepository.saveOrder(order)
+            _profileOrder.value = order
+        }
+    }
+
+    /**
+     * プロファイルタブを1つ下に移動する。
+     *
+     * 変更理由: moveProfileUpと対になる下方向移動。
+     */
+    fun moveProfileDown(profileId: String?) {
+        val order = _profileOrder.value.toMutableList()
+        val index = order.indexOf(profileId)
+        if (index >= 0 && index < order.size - 1) {
+            order[index] = order[index + 1]
+            order[index + 1] = profileId
+            profileOrderRepository.saveOrder(order)
+            _profileOrder.value = order
+        }
+    }
+
     fun importCategory(categoryId: String) {
         val category = CliCommandRegistry.findCategory(categoryId) ?: return
         viewModelScope.launch {

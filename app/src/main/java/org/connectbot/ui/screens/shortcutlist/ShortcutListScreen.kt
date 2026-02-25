@@ -101,6 +101,7 @@ fun ShortcutListScreen(
     viewModel: ShortcutListViewModel = hiltViewModel()
 ) {
     val shortcuts by viewModel.shortcuts.collectAsState()
+    val profileOrder by viewModel.profileOrder.collectAsState()
     var editingShortcut by remember { mutableStateOf<Shortcut?>(null) }
     var showAddDialog by remember { mutableStateOf(false) }
     var showImportDialog by remember { mutableStateOf(false) }
@@ -181,9 +182,100 @@ fun ShortcutListScreen(
         } else {
             // 変更理由: グルーピング表示。LazyColumnにホストグループ→カテゴリグループを
             // 折り畳み可能なExpandableセクションで表示する。
+            // プロファイルタブ順序セクションをリスト先頭に追加。
             LazyColumn(
                 modifier = Modifier.padding(innerPadding)
             ) {
+                // 変更理由: プロファイルタブの表示順序を設定するセクション。
+                // ShortcutBarのプロファイルタブ(カスタム/Claude Code/Git等)の
+                // 表示順をユーザが上下ボタンで変更できるようにする。
+                item(key = "profile_order_header") {
+                    val profileExpanded = expandedGroups["profile_order"] ?: false
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .clickable {
+                                    expandedGroups["profile_order"] = !profileExpanded
+                                }
+                                .padding(horizontal = 16.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = if (profileExpanded) Icons.Default.KeyboardArrowDown
+                                else Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                contentDescription = if (profileExpanded) "折り畳む" else "展開する",
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "プロファイルタブ順序",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                text = "${profileOrder.size}件",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                }
+
+                if (expandedGroups["profile_order"] == true) {
+                    items(
+                        items = profileOrder,
+                        key = { "profile_${it ?: "custom"}" }
+                    ) { profileId ->
+                        val profileLabel = if (profileId == null) {
+                            "カスタム"
+                        } else {
+                            CliCommandRegistry.findCategory(profileId)?.displayName
+                                ?: profileId
+                        }
+                        ListItem(
+                            headlineContent = {
+                                Text(
+                                    text = profileLabel,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            },
+                            trailingContent = {
+                                Row {
+                                    IconButton(
+                                        onClick = { viewModel.moveProfileUp(profileId) }
+                                    ) {
+                                        Icon(
+                                            Icons.Default.KeyboardArrowUp,
+                                            contentDescription = "上へ移動",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = { viewModel.moveProfileDown(profileId) }
+                                    ) {
+                                        Icon(
+                                            Icons.Default.KeyboardArrowDown,
+                                            contentDescription = "下へ移動",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            },
+                            modifier = Modifier.padding(start = 16.dp)
+                        )
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 16.dp),
+                            thickness = 0.5.dp
+                        )
+                    }
+                }
+
+                // ショートカット一覧セクション
                 sortedHostKeys.forEach { hostKey ->
                     val categoryMap = grouped[hostKey] ?: return@forEach
                     val hostGroupExpanded = expandedGroups[hostKey] ?: true

@@ -70,13 +70,29 @@ fun ShortcutBar(
     selectedProfileId: String?,
     onProfileChange: (String?) -> Unit,
     onShortcutClick: (Shortcut) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // 変更理由: プロファイルタブの表示順序をユーザ設定から受け取る。
+    // nullの場合はデフォルト順序(カスタム + CliCommandRegistryカテゴリ順)を使用。
+    profileOrder: List<String?> = emptyList()
 ) {
-    // 変更理由: プロファイルタブ定義。カスタム + CliCommandRegistryの全カテゴリ
-    val profiles = buildList {
-        add(ProfileTab(id = null, label = "カスタム"))
-        CliCommandRegistry.categories.forEach {
-            add(ProfileTab(id = it.id, label = it.displayName))
+    // 変更理由: profileOrderが指定されていればその順序でタブを構築。
+    // 空の場合はデフォルト順序（カスタム + CliCommandRegistry全カテゴリ）。
+    val profiles = if (profileOrder.isNotEmpty()) {
+        profileOrder.mapNotNull { id ->
+            if (id == null) {
+                ProfileTab(id = null, label = "カスタム")
+            } else {
+                CliCommandRegistry.findCategory(id)?.let {
+                    ProfileTab(id = it.id, label = it.displayName)
+                }
+            }
+        }
+    } else {
+        buildList {
+            add(ProfileTab(id = null, label = "カスタム"))
+            CliCommandRegistry.categories.forEach {
+                add(ProfileTab(id = it.id, label = it.displayName))
+            }
         }
     }
 

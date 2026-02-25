@@ -52,6 +52,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -72,6 +73,7 @@ import org.connectbot.session.CliCommandRegistry
 import org.connectbot.session.SessionController
 import org.connectbot.terminal.Terminal
 import org.connectbot.ui.LocalTerminalManager
+import org.connectbot.ui.components.FloatingTextInputDialog
 import org.connectbot.ui.components.InlinePrompt
 import org.connectbot.ui.components.SHORTCUT_BAR_HEIGHT_DP
 import org.connectbot.ui.components.ShortcutBar
@@ -116,6 +118,7 @@ fun SessionScreen(
     val shortcuts by viewModel.shortcuts.collectAsState()
     val probeResults by viewModel.probeResults.collectAsState()
     val selectedProfileId by viewModel.selectedProfileId.collectAsState()
+    val profileOrder by viewModel.profileOrder.collectAsState()
     val isIntentionalDisconnect by viewModel.isIntentionalDisconnect.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -183,17 +186,22 @@ fun SessionScreen(
                 }
 
                 is SessionController.SessionState.Active -> {
-                    // ターミナル表示 + TerminalKeyboard(上段) + ShortcutBar(下段) + 認証プロンプト
-                    TerminalContent(
-                        bridge = state.bridge,
-                        customShortcuts = shortcuts,
-                        selectedProfileId = selectedProfileId,
-                        onProfileChange = { viewModel.setProfile(it) },
-                        onShortcutClick = { shortcut ->
-                            viewModel.executeShortcut(shortcut)
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    )
+                    // 変更理由: key(state.bridge)を追加し、bridgeが変わった際に
+                    // 古いTerminalContentの全effectsが確実にdisposeされるようにする。
+                    // Active→Disconnected遷移時の古いbridge参照によるクラッシュを防止。
+                    key(state.bridge) {
+                        TerminalContent(
+                            bridge = state.bridge,
+                            customShortcuts = shortcuts,
+                            selectedProfileId = selectedProfileId,
+                            profileOrder = profileOrder,
+                            onProfileChange = { viewModel.setProfile(it) },
+                            onShortcutClick = { shortcut ->
+                                viewModel.executeShortcut(shortcut)
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
 
                 is SessionController.SessionState.Error -> {
@@ -208,8 +216,10 @@ fun SessionScreen(
                 is SessionController.SessionState.Disconnected -> {
                     // 変更理由: 意図的切断は自動でホーム画面に戻る。
                     // 非意図的切断のみカウントダウン付きリトライ画面を表示。
+                    // LaunchedEffectのキーをisIntentionalDisconnectに変更し、
+                    // recomposition時の不要な再発火を防止。
                     if (isIntentionalDisconnect) {
-                        LaunchedEffect(Unit) {
+                        LaunchedEffect(isIntentionalDisconnect) {
                             onNavigateBack()
                         }
                     } else {
@@ -360,6 +370,8 @@ private fun TerminalContent(
     bridge: TerminalBridge,
     customShortcuts: List<Shortcut>,
     selectedProfileId: String?,
+    // 変更理由: プロファイルタブの表示順序をShortcutBarに渡す
+    profileOrder: List<String?> = emptyList(),
     onProfileChange: (String?) -> Unit,
     onShortcutClick: (Shortcut) -> Unit,
     modifier: Modifier = Modifier
@@ -367,6 +379,9 @@ private fun TerminalContent(
     val termFocusRequester = remember { FocusRequester() }
     // IMEの表示状態をTerminalKeyboardと共有するための状態
     var showSoftwareKeyboard by remember { mutableStateOf(true) }
+    // 変更理由: 日本語入力(IME)対応のFloatingTextInputDialogの表示状態。
+    // ConsoleScreen.ktと同じパターンで✏️ボタンから起動する。
+    var showTextInputDialog by remember { mutableStateOf(false) }
 
     val fontResult = rememberTerminalTypefaceResultFromStoredValue(bridge.fontFamily)
     val fontSize by bridge.fontSizeFlow.collectAsState()
@@ -408,7 +423,8 @@ private fun TerminalContent(
                 onInteraction = {},  // SessionScreenでは自動非表示タイマーなし
                 onHideIme = { showSoftwareKeyboard = false },
                 onShowIme = { showSoftwareKeyboard = true },
-                onOpenTextInput = {},  // TODO: FloatingTextInputDialogへの連携
+                // 変更理由: 日本語入力のためFloatingTextInputDialogを接続。
+                onOpenTextInput = { showTextInputDialog = true },
                 imeVisible = showSoftwareKeyboard,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -419,7 +435,21 @@ private fun TerminalContent(
                 customShortcuts = customShortcuts,
                 selectedProfileId = selectedProfileId,
                 onProfileChange = onProfileChange,
-                onShortcutClick = onShortcutClick
+                onShortcutClick = onShortcutClick,
+                profileOrder = profileOrder
+            )
+        }
+
+        // 変更理由: 日本語入力(IME)のフル機能を提供するフローティングダイアログ。
+        // ConsoleScreen.kt のパターンに従い、TerminalKeyboardの✏️ボタンから起動する。
+        if (showTextInputDialog) {
+            FloatingTextInputDialog(
+                bridge = bridge,
+                initialText = "",
+                onDismiss = {
+                    showTextInputDialog = false
+                    termFocusRequester.requestFocus()
+                }
             )
         }
 
