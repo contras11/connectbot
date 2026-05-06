@@ -31,15 +31,19 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Computer
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Terminal
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -56,16 +60,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import io.shellpilot.app.data.entity.Host
 import io.shellpilot.app.ui.LocalTerminalManager
+import io.shellpilot.app.ui.components.CommandChipButton
 import io.shellpilot.app.ui.components.CommandSurfaceCard
+import io.shellpilot.app.ui.components.ShellPilotIconTile
+import io.shellpilot.app.ui.components.ShellPilotScaffold
 import io.shellpilot.app.ui.components.StatusChip
 import io.shellpilot.app.ui.screens.hostlist.HostListScreen
 import io.shellpilot.app.ui.screens.settings.SettingsScreen
 import io.shellpilot.app.ui.screens.shortcutlist.ShortcutListScreen
 import io.shellpilot.app.util.IconStyle
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
 /**
  * ホーム画面のメインコンテナ。
@@ -182,86 +189,120 @@ private fun SessionOverviewTab(
             androidx.compose.runtime.mutableStateOf(emptyList<Host>())
         }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        item {
-            CommandSurfaceCard {
-                Text(
-                    text = "セッション",
-                    style = MaterialTheme.typography.titleLarge
-                )
-                Text(
-                    text = "接続中の端末を確認し、必要な場合はホスト一覧から再接続します。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    ShellPilotScaffold(
+        title = "ShellPilot",
+        actions = {
+            IconButton(onClick = {}) {
+                Icon(Icons.Default.Search, contentDescription = "セッションを検索")
+            }
+            IconButton(onClick = {}) {
+                Icon(Icons.Default.FilterList, contentDescription = "セッションを絞り込み")
+            }
+            IconButton(onClick = onNavigateToHosts) {
+                Icon(Icons.Default.Add, contentDescription = "ホストを開く")
+            }
+            IconButton(onClick = {}) {
+                Icon(Icons.Default.MoreVert, contentDescription = "その他")
+            }
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize(),
+            contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = 8.dp, bottom = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    StatusChip(label = "すべて ${bridges.size + disconnected.size}")
                     StatusChip(label = "接続中 ${bridges.size}")
                     StatusChip(label = "切断 ${disconnected.size}")
                 }
             }
-        }
-        if (bridges.isEmpty() && disconnected.isEmpty()) {
-            item {
-                CommandSurfaceCard {
-                    Text(
-                        text = "アクティブなセッションはありません",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        text = "ホストカードの接続ボタンからSSH、Telnet、Localセッションを開始できます。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Button(onClick = onNavigateToHosts) {
-                        Text("ホストを開く")
+            if (bridges.isEmpty() && disconnected.isEmpty()) {
+                item {
+                    CommandSurfaceCard {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                        ) {
+                            ShellPilotIconTile(Icons.Default.Terminal, null)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "アクティブなセッションはありません",
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                Text(
+                                    text = "ホストカードの接続ボタンからSSH、Telnet、Localセッションを開始できます。",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        CommandChipButton(label = "ホストを開く", onClick = onNavigateToHosts, emphasized = true)
                     }
                 }
             }
-        }
-        items(bridges, key = { it.host.id }) { bridge ->
-            CommandSurfaceCard {
-                Text(
-                    text = bridge.host.nickname,
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    text = bridge.host.getUri().toString(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontFamily = FontFamily.Monospace
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatusChip(label = if (bridge.isDisconnected) "切断済み" else "接続中")
-                    StatusChip(label = bridge.host.protocol.uppercase())
-                }
-            }
-        }
-        if (disconnected.isNotEmpty()) {
-            item {
-                Text(
-                    text = "最近切断したセッション",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-            }
-            items(disconnected, key = { it.id }) { host ->
+            items(bridges, key = { it.host.id }) { bridge ->
                 CommandSurfaceCard {
-                    Row {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                    ) {
+                        ShellPilotIconTile(Icons.Default.Computer, null, selected = true)
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(host.nickname, style = MaterialTheme.typography.titleMedium)
                             Text(
-                                text = host.getUri().toString(),
-                                style = MaterialTheme.typography.bodySmall,
+                                text = bridge.host.nickname,
+                                style = MaterialTheme.typography.titleMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = bridge.host.getUri().toString(),
+                                style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontFamily = FontFamily.Monospace
+                                fontFamily = FontFamily.Monospace,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        StatusChip(label = "切断")
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        StatusChip(label = if (bridge.isDisconnected) "切断済み" else "接続中")
+                        StatusChip(label = bridge.host.protocol.uppercase())
+                    }
+                }
+            }
+            if (disconnected.isNotEmpty()) {
+                item {
+                    Text(
+                        text = "最近のセッション",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+                items(disconnected, key = { it.id }) { host ->
+                    CommandSurfaceCard {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                        ) {
+                            ShellPilotIconTile(Icons.Default.Computer, null)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(host.nickname, style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    text = host.getUri().toString(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontFamily = FontFamily.Monospace,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            StatusChip(label = "切断")
+                        }
                     }
                 }
             }
@@ -277,68 +318,93 @@ private fun ToolsHubTab(
     onNavigateToHelp: () -> Unit,
     onNavigateToHosts: () -> Unit
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        item {
-            CommandSurfaceCard {
-                Text(
-                    text = "ツール",
-                    style = MaterialTheme.typography.titleLarge
-                )
-                Text(
-                    text = "鍵、転送、プロファイル、配色、ヘルプを作業単位で管理します。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    ShellPilotScaffold(
+        title = "ShellPilot",
+        actions = {
+            IconButton(onClick = {}) {
+                Icon(Icons.Default.Search, contentDescription = "ツールを検索")
+            }
+            IconButton(onClick = {}) {
+                Icon(Icons.Default.FilterList, contentDescription = "ツールを絞り込み")
+            }
+            IconButton(onClick = onNavigateToHosts) {
+                Icon(Icons.Default.Add, contentDescription = "ホストを開く")
+            }
+            IconButton(onClick = {}) {
+                Icon(Icons.Default.MoreVert, contentDescription = "その他")
+            }
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize(),
+            contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = 8.dp, bottom = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     StatusChip(label = "SSH")
                     StatusChip(label = "AI CLI")
                     StatusChip(label = "JSON")
                 }
             }
-        }
-        item {
-            ToolHubCard(
-                icon = Icons.Default.Key,
-                title = "公開鍵",
-                summary = "生成、インポート、読み込み状態を管理します。",
-                onClick = onNavigateToPubkeys
-            )
-        }
-        item {
-            ToolHubCard(
-                icon = Icons.Default.Link,
-                title = "ポート転送",
-                summary = "対象ホストのカードにある転送ボタンから設定します。",
-                onClick = onNavigateToHosts
-            )
-        }
-        item {
-            ToolHubCard(
-                icon = Icons.Default.Terminal,
-                title = "プロファイル",
-                summary = "フォント、文字サイズ、端末エミュレーションを調整します。",
-                onClick = onNavigateToProfiles
-            )
-        }
-        item {
-            ToolHubCard(
-                icon = Icons.Default.Palette,
-                title = "カラースキーム",
-                summary = "ANSIパレットと端末プレビューを確認します。",
-                onClick = onNavigateToColors
-            )
-        }
-        item {
-            ToolHubCard(
-                icon = Icons.Default.MoreVert,
-                title = "ヘルプとログ",
-                summary = "ヒント、キーボードショートカット、ログ表示を開きます。",
-                onClick = onNavigateToHelp
-            )
+            item {
+                ToolHubCard(
+                    icon = Icons.Default.Key,
+                    title = "公開鍵",
+                    summary = "生成、インポート、読み込み状態を管理します。",
+                    onClick = onNavigateToPubkeys
+                )
+            }
+            item {
+                ToolHubCard(
+                    icon = Icons.Default.Link,
+                    title = "ポート転送",
+                    summary = "対象ホストのカードにある転送ボタンから設定します。",
+                    onClick = onNavigateToHosts
+                )
+            }
+            item {
+                ToolHubCard(
+                    icon = Icons.Default.Terminal,
+                    title = "Claude Code",
+                    summary = "Claude Code CLIでAI開発ワークフローを加速します。",
+                    onClick = onNavigateToHosts
+                )
+            }
+            item {
+                ToolHubCard(
+                    icon = Icons.Default.Terminal,
+                    title = "Codex",
+                    summary = "OpenAI Codex CLIでコーディング支援を行います。",
+                    onClick = onNavigateToHosts
+                )
+            }
+            item {
+                ToolHubCard(
+                    icon = Icons.Default.Terminal,
+                    title = "プロファイル",
+                    summary = "フォント、文字サイズ、端末エミュレーションを調整します。",
+                    onClick = onNavigateToProfiles
+                )
+            }
+            item {
+                ToolHubCard(
+                    icon = Icons.Default.Palette,
+                    title = "カラースキーム",
+                    summary = "ANSIパレットと端末プレビューを確認します。",
+                    onClick = onNavigateToColors
+                )
+            }
+            item {
+                ToolHubCard(
+                    icon = Icons.Default.MoreVert,
+                    title = "ヘルプとログ",
+                    summary = "ヒント、キーボードショートカット、ログ表示を開きます。",
+                    onClick = onNavigateToHelp
+                )
+            }
         }
     }
 }
@@ -352,11 +418,7 @@ private fun ToolHubCard(
 ) {
     CommandSurfaceCard(onClick = onClick) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            ShellPilotIconTile(icon = icon, contentDescription = null)
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(title, style = MaterialTheme.typography.titleMedium)
                 Text(
@@ -381,14 +443,14 @@ private fun MainNavigationBar(
     onTabSelected: (Int) -> Unit
 ) {
     NavigationBar(
-        modifier = Modifier.height(58.dp),
-        containerColor = MaterialTheme.colorScheme.surface,
+        modifier = Modifier.height(54.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         contentColor = MaterialTheme.colorScheme.onSurface
     ) {
         val itemColors = NavigationBarItemDefaults.colors(
-            selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            selectedTextColor = MaterialTheme.colorScheme.primary,
-            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+            selectedIconColor = MaterialTheme.colorScheme.onSurface,
+            selectedTextColor = MaterialTheme.colorScheme.onSurface,
+            indicatorColor = MaterialTheme.colorScheme.surfaceContainerHighest,
             unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
             unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -435,7 +497,7 @@ private fun MainNavIcon(icon: ImageVector) {
     Icon(
         imageVector = icon,
         contentDescription = null,
-        modifier = Modifier.size(18.dp)
+        modifier = Modifier.size(17.dp)
     )
 }
 
@@ -443,7 +505,7 @@ private fun MainNavIcon(icon: ImageVector) {
 private fun MainNavLabel(label: String) {
     Text(
         text = label,
-        fontSize = 9.sp,
+        fontSize = 8.sp,
         maxLines = 1,
         overflow = TextOverflow.Clip
     )

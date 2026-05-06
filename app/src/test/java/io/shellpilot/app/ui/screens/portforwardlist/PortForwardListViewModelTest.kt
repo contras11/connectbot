@@ -406,7 +406,7 @@ class PortForwardListViewModelTest {
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        assertEquals("No active connection for this host", state.error)
+        assertEquals("このホストには有効な接続がありません", state.error)
     }
 
     @Test
@@ -443,7 +443,7 @@ class PortForwardListViewModelTest {
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        assertTrue("Should have error", state.error?.contains("must include a port") == true)
+        assertTrue("Should have error", state.error?.contains("ポートを含めてください") == true)
     }
 
     @Test
@@ -460,7 +460,7 @@ class PortForwardListViewModelTest {
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        assertTrue("Should have error for invalid port", state.error?.contains("not a valid number") == true)
+        assertTrue("Should have error for invalid port", state.error?.contains("ポートは数値で入力してください") == true)
     }
 
     @Test
@@ -477,7 +477,7 @@ class PortForwardListViewModelTest {
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        assertTrue("Should have error for invalid source port", state.error?.contains("Invalid source port") == true)
+        assertTrue("Should have error for invalid source port", state.error?.contains("待受ポートは数値で入力してください") == true)
     }
 
     @Test
@@ -494,7 +494,7 @@ class PortForwardListViewModelTest {
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        assertTrue("Should have error for out of range port", state.error?.contains("must be between 1 and 65535") == true)
+        assertTrue("Should have error for out of range port", state.error?.contains("待受ポートは1〜65535で入力してください") == true)
     }
 
     @Test

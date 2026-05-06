@@ -468,11 +468,14 @@ fun SettingsScreenContent(
                     uiState.availableProfiles.find { it.id == uiState.defaultProfileId }
                 }
                 val noneLabel = stringResource(R.string.pref_default_profile_none)
+                val defaultProfileLabel = stringResource(R.string.profile_default_name)
+                fun profileDisplayName(name: String): String =
+                    if (name == "Default") defaultProfileLabel else name
                 val profileEntries = listOf(noneLabel to "0") +
-                    uiState.availableProfiles.map { it.name to it.id.toString() }
+                    uiState.availableProfiles.map { profileDisplayName(it.name) to it.id.toString() }
                 ListPreference(
                     title = stringResource(R.string.pref_default_profile_title),
-                    summary = selectedProfile?.name ?: noneLabel,
+                    summary = selectedProfile?.let { profileDisplayName(it.name) } ?: noneLabel,
                     value = uiState.defaultProfileId.toString(),
                     entries = profileEntries,
                     onValueChange = { onDefaultProfileChange(it.toLong()) }

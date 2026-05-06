@@ -53,7 +53,7 @@ fun EulaScreen(
     ) { padding ->
         LazyColumn(
             modifier = Modifier.padding(padding),
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = PaddingValues(10.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             item {

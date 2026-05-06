@@ -31,9 +31,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -161,17 +159,12 @@ fun FloatingTextInputDialog(
                         TextButton(onClick = onDismiss) {
                             Text(stringResource(R.string.button_close))
                         }
-                        Button(
+                        CommandChipButton(
+                            label = stringResource(R.string.button_send),
                             onClick = { sendText() },
+                            emphasized = true,
                             enabled = text.value.isNotBlank()
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Send,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Text(stringResource(R.string.button_send))
-                        }
+                        )
                     }
                 }
             }

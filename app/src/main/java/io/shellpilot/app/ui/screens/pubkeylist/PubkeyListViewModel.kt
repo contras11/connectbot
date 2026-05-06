@@ -149,7 +149,7 @@ class PubkeyListViewModel @Inject constructor(
                 repository.delete(pubkey)
             } catch (e: Exception) {
                 _uiState.update {
-                    it.copy(error = e.message ?: "Failed to delete key")
+                    it.copy(error = e.message ?: "鍵を削除できませんでした")
                 }
             }
         }
@@ -202,11 +202,11 @@ class PubkeyListViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val alias = pubkey.keystoreAlias
-                    ?: throw IllegalStateException("Biometric key missing keystore alias")
+                    ?: throw IllegalStateException("生体認証鍵のキーストアエイリアスがありません")
 
                 val biometricKeyManager = BiometricKeyManager(context)
                 val publicKey = biometricKeyManager.getPublicKey(alias)
-                    ?: throw IllegalStateException("Could not retrieve public key from keystore")
+                    ?: throw IllegalStateException("キーストアから公開鍵を取得できませんでした")
 
                 // Add the biometric key to TerminalManager
                 when (val result = terminalManager?.addBiometricKey(pubkey, alias, publicKey)) {
@@ -236,7 +236,7 @@ class PubkeyListViewModel @Inject constructor(
                     null -> {
                         _uiState.update {
                             it.copy(
-                                error = "Failed to load biometric key: TerminalManager not available",
+                                error = "生体認証鍵を読み込めませんでした。TerminalManagerを利用できません。",
                                 biometricKeyToUnlock = null
                             )
                         }
@@ -246,7 +246,7 @@ class PubkeyListViewModel @Inject constructor(
                 Timber.e(e, "Failed to load biometric key")
                 _uiState.update {
                     it.copy(
-                        error = "Failed to load biometric key: ${e.message}",
+                        error = "生体認証鍵を読み込めませんでした: ${e.message}",
                         biometricKeyToUnlock = null
                     )
                 }
@@ -263,12 +263,12 @@ class PubkeyListViewModel @Inject constructor(
                 keyPair?.let { terminalManager?.addKey(pubkey, it, true) }
             } catch (_: PubkeyUtils.BadPasswordException) {
                 _uiState.update {
-                    it.copy(error = "Failed to unlock key: Bad password")
+                    it.copy(error = "鍵のロック解除に失敗しました。パスワードが正しくありません。")
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Failed to load key")
                 _uiState.update {
-                    it.copy(error = "Failed to load key: ${e.message}")
+                    it.copy(error = "鍵を読み込めませんでした: ${e.message}")
                 }
             }
         }
@@ -281,7 +281,7 @@ class PubkeyListViewModel @Inject constructor(
                     // Check if this is an imported key
                     val isImported = pubkey.type == "IMPORTED"
                     if (isImported) {
-                        throw IllegalArgumentException("Cannot export public key from imported key")
+                        throw IllegalArgumentException("インポートした鍵から公開鍵をエクスポートできません")
                     }
 
                     val pk = PubkeyUtils.decodePublic(pubkey.publicKey, pubkey.type)
@@ -294,7 +294,7 @@ class PubkeyListViewModel @Inject constructor(
             } catch (e: Exception) {
                 Timber.e(e, "Failed to copy public key")
                 _uiState.update {
-                    it.copy(error = "Failed to copy public key: ${e.message}")
+                    it.copy(error = "公開鍵をコピーできませんでした: ${e.message}")
                 }
             }
         }
@@ -325,7 +325,7 @@ class PubkeyListViewModel @Inject constructor(
                         String(pubkey.privateKey ?: ByteArray(0))
                     } else {
                         // For all non-imported keys, export in OpenSSH format for compatibility
-                        val privateKeyBytes = pubkey.privateKey ?: throw Exception("No private key data")
+                        val privateKeyBytes = pubkey.privateKey ?: throw Exception("秘密鍵データがありません")
                         val pk = PubkeyUtils.decodePrivate(privateKeyBytes, pubkey.type, password)
                         val pub = PubkeyUtils.decodePublic(pubkey.publicKey, pubkey.type)
                         pk?.let { OpenSSHKeyEncoder.exportOpenSSH(it, pub, pubkey.nickname) }
@@ -337,12 +337,12 @@ class PubkeyListViewModel @Inject constructor(
                 clipboard.setPrimaryClip(clip)
             } catch (_: PubkeyUtils.BadPasswordException) {
                 _uiState.update {
-                    it.copy(error = "Failed to decrypt key: Bad password")
+                    it.copy(error = "鍵を復号できませんでした。パスワードが正しくありません。")
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Failed to copy private key")
                 _uiState.update {
-                    it.copy(error = "Failed to copy private key: ${e.message}")
+                    it.copy(error = "秘密鍵をコピーできませんでした: ${e.message}")
                 }
             }
         }
@@ -376,7 +376,7 @@ class PubkeyListViewModel @Inject constructor(
                         String(pubkey.privateKey ?: ByteArray(0))
                     } else {
                         // For all non-imported keys, export as PKCS#8 PEM
-                        val privateKeyBytes = pubkey.privateKey ?: throw Exception("No private key data")
+                        val privateKeyBytes = pubkey.privateKey ?: throw Exception("秘密鍵データがありません")
                         val pk = PubkeyUtils.decodePrivate(privateKeyBytes, pubkey.type, password)
                         pk?.let { PEMEncoder.encodePrivateKey(it, null) }
                     }
@@ -387,12 +387,12 @@ class PubkeyListViewModel @Inject constructor(
                 clipboard.setPrimaryClip(clip)
             } catch (_: PubkeyUtils.BadPasswordException) {
                 _uiState.update {
-                    it.copy(error = "Failed to decrypt key: Bad password")
+                    it.copy(error = "鍵を復号できませんでした。パスワードが正しくありません。")
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Failed to copy private key (PEM)")
                 _uiState.update {
-                    it.copy(error = "Failed to copy private key: ${e.message}")
+                    it.copy(error = "秘密鍵をコピーできませんでした: ${e.message}")
                 }
             }
         }
@@ -429,7 +429,7 @@ class PubkeyListViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val privateKeyString = withContext(dispatchers.default) {
-                    val privateKeyBytes = pubkey.privateKey ?: throw Exception("No private key data")
+                    val privateKeyBytes = pubkey.privateKey ?: throw Exception("秘密鍵データがありません")
                     val pk = PubkeyUtils.decodePrivate(privateKeyBytes, pubkey.type, password)
                     val pub = PubkeyUtils.decodePublic(pubkey.publicKey, pubkey.type)
                     pk?.let { OpenSSHKeyEncoder.exportOpenSSH(it, pub, pubkey.nickname, exportPassphrase) }
@@ -440,12 +440,12 @@ class PubkeyListViewModel @Inject constructor(
                 clipboard.setPrimaryClip(clip)
             } catch (_: PubkeyUtils.BadPasswordException) {
                 _uiState.update {
-                    it.copy(error = "Failed to decrypt key: Bad password")
+                    it.copy(error = "鍵を復号できませんでした。パスワードが正しくありません。")
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Failed to copy encrypted private key")
                 _uiState.update {
-                    it.copy(error = "Failed to copy private key: ${e.message}")
+                    it.copy(error = "秘密鍵をコピーできませんでした: ${e.message}")
                 }
             }
         }
@@ -583,7 +583,7 @@ class PubkeyListViewModel @Inject constructor(
     fun exportPublicKeyToUri(uri: Uri) {
         val pending = _uiState.value.pendingPublicKeyExport
         if (pending == null) {
-            _uiState.update { it.copy(error = "No public key pending export") }
+            _uiState.update { it.copy(error = "エクスポート待ちの公開鍵がありません") }
             return
         }
 
@@ -595,7 +595,7 @@ class PubkeyListViewModel @Inject constructor(
                 if (isImported) {
                     _uiState.update {
                         it.copy(
-                            error = "Cannot export public key from imported key",
+                            error = "インポートした鍵から公開鍵をエクスポートできません",
                             pendingPublicKeyExport = null
                         )
                     }
@@ -610,7 +610,7 @@ class PubkeyListViewModel @Inject constructor(
                 withContext(dispatchers.io) {
                     context.contentResolver.openOutputStream(uri)?.use { outputStream ->
                         outputStream.write(publicKeyString.toByteArray(Charsets.UTF_8))
-                    } ?: throw Exception("Could not open file for writing")
+                    } ?: throw Exception("書き込み先ファイルを開けませんでした")
                 }
 
                 _uiState.update { it.copy(pendingPublicKeyExport = null) }
@@ -618,7 +618,7 @@ class PubkeyListViewModel @Inject constructor(
                 Timber.e(e, "Failed to export public key")
                 _uiState.update {
                     it.copy(
-                        error = "Failed to export public key: ${e.message}",
+                        error = "公開鍵をエクスポートできませんでした: ${e.message}",
                         pendingPublicKeyExport = null
                     )
                 }
@@ -641,7 +641,7 @@ class PubkeyListViewModel @Inject constructor(
     fun exportKeyToUri(uri: Uri) {
         val pending = _uiState.value.pendingExport
         if (pending == null) {
-            _uiState.update { it.copy(error = "No key pending export") }
+            _uiState.update { it.copy(error = "エクスポート待ちの鍵がありません") }
             return
         }
 
@@ -656,7 +656,7 @@ class PubkeyListViewModel @Inject constructor(
                     if (isImported) {
                         String(pubkey.privateKey ?: ByteArray(0))
                     } else {
-                        val privateKeyBytes = pubkey.privateKey ?: throw Exception("No private key data")
+                        val privateKeyBytes = pubkey.privateKey ?: throw Exception("秘密鍵データがありません")
                         when (pending.format) {
                             ExportFormat.OPENSSH -> {
                                 val pk = PubkeyUtils.decodePrivate(privateKeyBytes, pubkey.type, password)
@@ -675,7 +675,7 @@ class PubkeyListViewModel @Inject constructor(
                 if (privateKeyString == null) {
                     _uiState.update {
                         it.copy(
-                            error = "Failed to export private key",
+                            error = "秘密鍵をエクスポートできませんでした",
                             pendingExport = null
                         )
                     }
@@ -685,14 +685,14 @@ class PubkeyListViewModel @Inject constructor(
                 withContext(dispatchers.io) {
                     context.contentResolver.openOutputStream(uri)?.use { outputStream ->
                         outputStream.write(privateKeyString.toByteArray(Charsets.UTF_8))
-                    } ?: throw Exception("Could not open file for writing")
+                    } ?: throw Exception("書き込み先ファイルを開けませんでした")
                 }
 
                 _uiState.update { it.copy(pendingExport = null) }
             } catch (_: PubkeyUtils.BadPasswordException) {
                 _uiState.update {
                     it.copy(
-                        error = "Failed to decrypt key: Bad password",
+                        error = "鍵を復号できませんでした。パスワードが正しくありません。",
                         pendingExport = null
                     )
                 }
@@ -700,7 +700,7 @@ class PubkeyListViewModel @Inject constructor(
                 Timber.e(e, "Failed to export private key")
                 _uiState.update {
                     it.copy(
-                        error = "Failed to export private key: ${e.message}",
+                        error = "秘密鍵をエクスポートできませんでした: ${e.message}",
                         pendingExport = null
                     )
                 }
@@ -735,14 +735,14 @@ class PubkeyListViewModel @Inject constructor(
 
                     is ImportResult.Failed -> {
                         _uiState.update {
-                            it.copy(error = "Failed to parse key file")
+                            it.copy(error = "鍵ファイルを解析できませんでした")
                         }
                     }
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Failed to import key")
                 _uiState.update {
-                    it.copy(error = "Failed to import key: ${e.message}")
+                    it.copy(error = "鍵をインポートできませんでした: ${e.message}")
                 }
             }
         }
@@ -771,7 +771,7 @@ class PubkeyListViewModel @Inject constructor(
                 } else {
                     _uiState.update {
                         it.copy(
-                            error = "Failed to decrypt key: Bad password",
+                            error = "鍵を復号できませんでした。パスワードが正しくありません。",
                             pendingImport = null
                         )
                     }
@@ -780,7 +780,7 @@ class PubkeyListViewModel @Inject constructor(
                 Timber.e(e, "Failed to import encrypted key")
                 _uiState.update {
                     it.copy(
-                        error = "Failed to decrypt key: ${e.message}",
+                        error = "鍵を復号できませんでした: ${e.message}",
                         pendingImport = null
                     )
                 }
@@ -849,7 +849,7 @@ class PubkeyListViewModel @Inject constructor(
                 while (stream.read(buffer).also { bytesRead = it } != -1) {
                     totalBytes += bytesRead
                     if (totalBytes > maxSize) {
-                        throw Exception("File too large (max 32KB)")
+                        throw Exception("ファイルサイズが大きすぎます（最大32KB）")
                     }
                     outputStream.write(buffer, 0, bytesRead)
                 }

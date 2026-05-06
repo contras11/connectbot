@@ -34,7 +34,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Fingerprint
-import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -57,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import io.shellpilot.app.R
 import io.shellpilot.app.ui.ScreenPreviews
+import io.shellpilot.app.ui.components.CommandChipButton
 import io.shellpilot.app.ui.components.CommandSurfaceCard
 import io.shellpilot.app.ui.components.ShellPilotScaffold
 import io.shellpilot.app.ui.components.StatusChip
@@ -261,95 +261,92 @@ fun GeneratePubkeyScreenContent(
                 )
             }
 
-            // Password (only shown when not using biometric)
-            if (!uiState.useBiometric) {
-                OutlinedTextField(
-                    value = uiState.password1,
-                    onValueChange = onPassword1Change,
-                    label = { Text(stringResource(R.string.prompt_password)) },
-                    supportingText = { Text(stringResource(R.string.prompt_password_can_be_blank)) },
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+            CommandSurfaceCard {
+                Text(
+                    text = "保護設定",
+                    style = MaterialTheme.typography.titleMedium
                 )
+                if (!uiState.useBiometric) {
+                    OutlinedTextField(
+                        value = uiState.password1,
+                        onValueChange = onPassword1Change,
+                        label = { Text(stringResource(R.string.prompt_password)) },
+                        supportingText = { Text(stringResource(R.string.prompt_password_can_be_blank)) },
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = uiState.password2,
+                        onValueChange = onPassword2Change,
+                        label = { Text("${stringResource(R.string.prompt_password)} ${stringResource(R.string.prompt_again)}") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        isError = uiState.passwordMismatch
+                    )
+                    if (uiState.passwordMismatch) {
+                        Text(
+                            text = stringResource(R.string.alert_passwords_do_not_match_msg),
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
 
-                OutlinedTextField(
-                    value = uiState.password2,
-                    onValueChange = onPassword2Change,
-                    label = { Text("${stringResource(R.string.prompt_password)} ${stringResource(R.string.prompt_again)}") },
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    isError = uiState.passwordMismatch
-                )
-                if (uiState.passwordMismatch) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(enabled = !uiState.useBiometric) {
+                            onUnlockAtStartupChange(!uiState.unlockAtStartup)
+                        }
+                ) {
+                    Checkbox(
+                        checked = uiState.unlockAtStartup,
+                        onCheckedChange = onUnlockAtStartupChange,
+                        enabled = !uiState.useBiometric
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = stringResource(R.string.alert_passwords_do_not_match_msg),
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                        text = stringResource(R.string.pubkey_load_on_start),
+                        color = if (uiState.useBiometric) {
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        }
                     )
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            // Options
-            // Load on start is disabled for biometric keys
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(enabled = !uiState.useBiometric) {
-                        onUnlockAtStartupChange(!uiState.unlockAtStartup)
-                    }
-            ) {
-                Checkbox(
-                    checked = uiState.unlockAtStartup,
-                    onCheckedChange = onUnlockAtStartupChange,
-                    enabled = !uiState.useBiometric
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.pubkey_load_on_start),
-                    color = if (uiState.useBiometric) {
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    }
-                )
-            }
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        onConfirmUseChange(!uiState.confirmUse)
-                    }
-            ) {
-                Checkbox(
-                    checked = uiState.confirmUse,
-                    onCheckedChange = onConfirmUseChange
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.pubkey_confirm_use))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onConfirmUseChange(!uiState.confirmUse)
+                        }
+                ) {
+                    Checkbox(
+                        checked = uiState.confirmUse,
+                        onCheckedChange = onConfirmUseChange
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(stringResource(R.string.pubkey_confirm_use))
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Generate Button
-            Button(
+            CommandChipButton(
+                label = stringResource(R.string.pubkey_generate),
                 onClick = onGenerateKey,
-                enabled = uiState.canGenerate,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(stringResource(R.string.pubkey_generate))
-            }
+                modifier = Modifier.fillMaxWidth(),
+                emphasized = true,
+                enabled = uiState.canGenerate
+            )
         }
     }
 

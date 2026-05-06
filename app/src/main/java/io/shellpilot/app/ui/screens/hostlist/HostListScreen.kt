@@ -52,6 +52,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -92,6 +93,7 @@ import io.shellpilot.app.ui.ScreenPreviews
 import io.shellpilot.app.ui.components.CommandSurfaceCard
 import io.shellpilot.app.ui.components.DisconnectAllDialog
 import io.shellpilot.app.ui.components.ShellPilotActionDialog
+import io.shellpilot.app.ui.components.ShellPilotIconTile
 import io.shellpilot.app.ui.components.ShellPilotScaffold
 import io.shellpilot.app.ui.components.ShortcutCustomizationDialog
 import io.shellpilot.app.ui.components.StatusChip
@@ -405,17 +407,17 @@ fun HostListScreenContent(
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(
-                            start = 16.dp,
-                            end = 16.dp,
-                            top = 10.dp,
+                            start = 10.dp,
+                            end = 10.dp,
+                            top = 8.dp,
                             // 変更理由: 追加操作はTopBarへ移し、カード上にFABを重ねない。
                             // BottomNavigationBarと端末ナビゲーション分の余白だけを確保する。
-                            bottom = 92.dp
+                            bottom = 82.dp
                         ),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                        verticalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
                         item {
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 StatusChip(label = "すべて ${uiState.hosts.size}")
                                 StatusChip(label = "グループ")
                                 StatusChip(label = "タグ")
@@ -492,54 +494,37 @@ private fun HostListItem(
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
                     .width(3.dp)
-                    .height(48.dp)
+                    .height(42.dp)
                     .background(
                         color = hostIndicatorColor,
                         shape = RoundedCornerShape(999.dp)
                     )
             )
 
-            Box(modifier = Modifier.size(36.dp)) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            shape = CircleShape
-                        )
-                        .border(
-                            width = 1.dp,
-                            color = MaterialTheme.colorScheme.outlineVariant,
-                            shape = CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = when (host.protocol) {
-                            "ssh" -> Icons.Default.Computer
-                            "telnet" -> Icons.Default.Computer
-                            else -> Icons.Default.Link
-                        },
-                        contentDescription = when (connectionState) {
-                            ConnectionState.CONNECTED -> stringResource(R.string.image_description_connected)
-                            ConnectionState.DISCONNECTED -> stringResource(R.string.image_description_disconnected)
-                            ConnectionState.UNKNOWN -> null
-                        },
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
+            Box(modifier = Modifier.size(38.dp)) {
+                ShellPilotIconTile(
+                    icon = when (host.protocol) {
+                        "ssh" -> Icons.Default.Computer
+                        "telnet" -> Icons.Default.Computer
+                        else -> Icons.Default.Link
+                    },
+                    contentDescription = when (connectionState) {
+                        ConnectionState.CONNECTED -> stringResource(R.string.image_description_connected)
+                        ConnectionState.DISCONNECTED -> stringResource(R.string.image_description_disconnected)
+                        ConnectionState.UNKNOWN -> null
+                    }
+                )
 
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .size(10.dp)
+                        .size(9.dp)
                         .background(
                             color = MaterialTheme.colorScheme.surface,
                             shape = CircleShape
@@ -559,7 +544,7 @@ private fun HostListItem(
 
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Text(
                     text = host.nickname.ifBlank { host.hostname.ifBlank { host.protocol } },
@@ -580,28 +565,28 @@ private fun HostListItem(
                     horizontalArrangement = Arrangement.spacedBy(2.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = onClick, modifier = Modifier.size(36.dp)) {
+                    IconButton(onClick = onClick, modifier = Modifier.size(32.dp)) {
                         Icon(
                             Icons.Default.PlayArrow,
                             contentDescription = "接続",
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
-                    IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
+                    IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
                         Icon(
                             Icons.Default.Edit,
                             contentDescription = "編集",
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
-                    IconButton(onClick = onPortForwards, modifier = Modifier.size(36.dp)) {
+                    IconButton(onClick = onPortForwards, modifier = Modifier.size(32.dp)) {
                         Icon(
                             Icons.Default.Link,
                             contentDescription = "転送",
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
-                    IconButton(onClick = { showMenu = true }) {
+                    IconButton(onClick = { showMenu = true }, modifier = Modifier.size(32.dp)) {
                         Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.button_host_options))
                     }
                     DropdownMenu(
@@ -677,7 +662,7 @@ private fun HostListItem(
         }
 
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             StatusChip(label = host.protocol.uppercase())
@@ -784,13 +769,23 @@ private fun EmptyCommandCenterCard(
     modifier: Modifier = Modifier
 ) {
     CommandSurfaceCard(modifier = modifier, accent = MaterialTheme.colorScheme.secondary) {
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
+            ShellPilotIconTile(
+                icon = Icons.Default.Terminal,
+                contentDescription = null,
+                modifier = Modifier.size(54.dp)
+            )
+        }
         Text(
-            text = "ShellPilotワークスペースを準備",
+            text = "ホストがありません",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold
         )
         Text(
-            text = "最初のSSHホストを追加するか、既存のJSONバックアップから接続先を取り込みます。",
+            text = "「+」で手動追加するか、JSONからインポートしてください。",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -959,7 +954,7 @@ private fun HostListScreenErrorPreview() {
             uiState = HostListUiState(
                 hosts = emptyList(),
                 isLoading = false,
-                error = "Failed to load hosts from database"
+                error = "ホストをデータベースから読み込めませんでした"
             ),
             onNavigateToConsole = {},
             onNavigateToEditHost = {},

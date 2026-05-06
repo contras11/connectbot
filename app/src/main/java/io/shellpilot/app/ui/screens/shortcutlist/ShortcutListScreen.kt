@@ -206,7 +206,7 @@ fun ShortcutListScreen(
             // プロファイルタブ順序セクションをリスト先頭に追加。
             LazyColumn(
                 modifier = Modifier.padding(innerPadding),
-                contentPadding = PaddingValues(16.dp),
+                contentPadding = PaddingValues(10.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 item(key = "shortcut_command_center") {

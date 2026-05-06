@@ -68,70 +68,70 @@
 	<!-- Context menu action to delete a saved public key -->
 	<string name="pubkey_delete">"鍵を削除"</string>
 	<!-- Dialog title when user must move finger randomly over an area to gather entropy (collect random bits) -->
-	<string name="pubkey_gather_entropy">"Gathering Entropy"</string>
+	<string name="pubkey_gather_entropy">エントロピー収集中</string>
 	<!-- Progress message showing percentage of random data collected for key generation -->
-	<string name="pubkey_touch_prompt">"Touch this box to gather randomness: %1$d%% done"</string>
+	<string name="pubkey_touch_prompt">この領域をなぞって乱数を集めてください: %1$d%%完了</string>
 	<!-- Instructions to user on how to provide randomness by moving their finger over the screen -->
-	<string name="pubkey_touch_hint">"In order to assure randomness during the key generation, move your finger randomly over the box below."</string>
+	<string name="pubkey_touch_hint">鍵生成に必要な乱数を確保するため、下の領域を指でランダムになぞってください。</string>
 	<!-- Progress message shown while generating a new SSH key pair -->
 	<string name="pubkey_generating">"Generating key pair…"</string>
 	<!-- Context menu action to copy the private key to clipboard in the default format -->
-	<string name="pubkey_copy_private">"Copy private key"</string>
+	<string name="pubkey_copy_private">秘密鍵をコピー</string>
 	<!-- Context menu action to copy the private key to clipboard in OpenSSH format -->
-	<string name="pubkey_copy_private_openssh">"Copy private key (OpenSSH)"</string>
+	<string name="pubkey_copy_private_openssh">秘密鍵をコピー（OpenSSH）</string>
 	<!-- Context menu action to copy the private key to clipboard in PEM format -->
-	<string name="pubkey_copy_private_pem">"Copy private key (PEM)"</string>
+	<string name="pubkey_copy_private_pem">秘密鍵をコピー（PEM）</string>
 	<!-- Context menu action to copy the encrypted private key to clipboard -->
-	<string name="pubkey_copy_private_encrypted">"Copy private key (encrypted)"</string>
+	<string name="pubkey_copy_private_encrypted">秘密鍵をコピー（暗号化）</string>
 	<!-- Context menu action to copy the public key to clipboard -->
-	<string name="pubkey_copy_public">"Copy public key"</string>
+	<string name="pubkey_copy_public">公開鍵をコピー</string>
 	<!-- Context menu action to export the public key to a file -->
-	<string name="pubkey_export_public">"Export public key"</string>
+	<string name="pubkey_export_public">公開鍵をエクスポート</string>
 	<!-- Context menu action to export the private key to a file in the default format -->
-	<string name="pubkey_export_private">"Export private key"</string>
+	<string name="pubkey_export_private">秘密鍵をエクスポート</string>
 	<!-- Context menu action to export the private key to a file in OpenSSH format -->
-	<string name="pubkey_export_private_openssh">"Export private key (OpenSSH)"</string>
+	<string name="pubkey_export_private_openssh">秘密鍵をエクスポート（OpenSSH）</string>
 	<!-- Context menu action to export the private key to a file in PEM format -->
-	<string name="pubkey_export_private_pem">"Export private key (PEM)"</string>
+	<string name="pubkey_export_private_pem">秘密鍵をエクスポート（PEM）</string>
 	<!-- Context menu action to export the encrypted private key to a file -->
-	<string name="pubkey_export_private_encrypted">"Export private key (encrypted)"</string>
+	<string name="pubkey_export_private_encrypted">秘密鍵をエクスポート（暗号化）</string>
 	<!-- Dialog title for setting a passphrase when exporting a key -->
-	<string name="pubkey_export_set_passphrase">"Set export passphrase"</string>
+	<string name="pubkey_export_set_passphrase">エクスポート用パスフレーズを設定</string>
 	<!-- Instructions to enter a passphrase to encrypt the key being exported -->
-	<string name="pubkey_export_passphrase_message">"Enter a passphrase to encrypt the exported key"</string>
+	<string name="pubkey_export_passphrase_message">エクスポートする鍵を暗号化するためのパスフレーズを入力してください</string>
 	<!-- Label for the field where user confirms the passphrase by entering it again -->
-	<string name="pubkey_export_confirm_passphrase">"Confirm passphrase"</string>
+	<string name="pubkey_export_confirm_passphrase">パスフレーズを確認</string>
 	<!-- Error message shown when the passphrase and confirmation passphrase don't match -->
-	<string name="pubkey_export_passphrase_mismatch">"Passphrases do not match"</string>
+	<string name="pubkey_export_passphrase_mismatch">"パスフレーズが一致しません"</string>
 	<!-- Dialog title when importing an encrypted SSH key file -->
-	<string name="pubkey_import_encrypted_title">"Import encrypted key"</string>
+	<string name="pubkey_import_encrypted_title">暗号化された鍵をインポート</string>
 	<!-- Prompt asking user to enter the password to decrypt an imported key file. First parameter is key nickname, second is key type. -->
-	<string name="pubkey_import_encrypted_message">"Enter password to decrypt key '%1$s' (%2$s)"</string>
+	<string name="pubkey_import_encrypted_message">鍵「%1$s」（%2$s）を復号するパスワードを入力してください</string>
 	<!-- Button text to confirm importing a key -->
-	<string name="pubkey_import_button">"Import"</string>
+	<string name="pubkey_import_button">インポート</string>
 	<!-- Checkbox label in the import encrypted key dialog. When checked, the imported key will be encrypted for storage on the device. -->
-	<string name="pubkey_import_encrypt_key">"Encrypt key for storage"</string>
+	<string name="pubkey_import_encrypt_key">保存時に鍵を暗号化する</string>
 	<!-- Checkbox label that appears when 'Encrypt key for storage' is checked. When checked, the same password used to decrypt the imported key will be used to encrypt it for storage. -->
-	<string name="pubkey_import_reuse_password">"Use same password for encryption"</string>
+	<string name="pubkey_import_reuse_password">暗号化にも同じパスワードを使う</string>
 	<!-- Label for the password field when entering a new password to encrypt the imported key for storage. -->
-	<string name="pubkey_import_new_password">"New password"</string>
+	<string name="pubkey_import_new_password">新しいパスワード</string>
 	<!-- Label for the password confirmation field when setting a new password to encrypt the imported key. -->
-	<string name="pubkey_import_confirm_password">"Confirm password"</string>
+	<string name="pubkey_import_confirm_password">パスワードを確認</string>
 	<!-- Note that the '\n' just splits lines, so it's actually "create or import" -->
-	<string name="pubkey_list_empty">"Tap \"Menu\" to create"\n"or import key pairs."</string>
-	<string name="pubkey_unknown_format">"Unknown format"</string>
+	<string name="pubkey_list_empty">メニューから鍵ペアを作成またはインポートできます。</string>
+	<string name="pubkey_unknown_format">"不明な形式"</string>
 	<!-- Context menu action to change the password protecting a private key -->
-	<string name="pubkey_change_password">"Change password"</string>
+	<string name="pubkey_change_password">パスワードを変更</string>
 	<!-- Context menu action to unlock an encrypted key for use in authentication -->
-	<string name="pubkey_unlock">"Unlock key"</string>
+	<string name="pubkey_unlock">鍵を読み込む</string>
 	<!-- Dialog message prompting the user to enter password to unlock an encrypted key. -->
-	<string name="pubkey_unlock_message">"Enter password to unlock key '%1$s'"</string>
+	<string name="pubkey_unlock_message">鍵「%1$s」を読み込むパスワードを入力してください</string>
 	<!-- Error message shown when user tries to use a nickname that already exists for another key. -->
-	<string name="pubkey_nickname_exists">"A key with this nickname already exists"</string>
+	<string name="pubkey_nickname_exists">同じ名前の鍵がすでに存在します</string>
 	<!-- Context menu checkbox that indicates that this pubkey entry should attempt to be loaded upon starting the app. -->
 	<string name="pubkey_load_on_start">"起動時に鍵をロード"</string>
 	<!-- Pubkey preference asking user whether the key use should be confirmed via prompt before it can be used for authentication -->
-	<string name="pubkey_confirm_use">"Confirm before use"</string>
+	<string name="pubkey_confirm_use">使用前に確認する</string>
 
 	<!-- Context menu action where a user can edite the selected port forward for the host. -->
 	<string name="portforward_edit">"ポート転送を編集"</string>
@@ -145,7 +145,7 @@
 	<!-- The "host:port" combination used for port forward destinations. -->
 	<string name="prompt_destination">"転送先"</string>
 	<!-- Prompt presented to the user when the server requests that they change their password. This is the entry for the old password. -->
-	<string name="prompt_old_password">"Old password:"</string>
+	<string name="prompt_old_password">旧パスワード:</string>
 	<!-- Prompt for user to enter their username when the host has no username configured. -->
 	<string name="prompt_username">"ユーザー名"</string>
 	<!-- Prompt for user to enter their password to log into the host when using 'password' authentication. -->
@@ -163,12 +163,12 @@
 	<string name="prompt_pubkey_password">"鍵「%1$s」のパスワード"</string>
 
 	<!-- Prompt for whether to allow SSH Authentication Agent to use the specified key. Note that the '\n' means split the line so it's actually "host to use key" -->
-	<string name="prompt_allow_agent_to_use_key">"Allow remote host to"\n"use key '%1$s'?"</string>
+	<string name="prompt_allow_agent_to_use_key">リモートホストに鍵「%1$s」の使用を許可しますか？</string>
 
 	<!-- The header of the warning a user gets when the host key has changed. Note that this can be a very serious attack, so we try to be as "loud" to the user as possible. -->
-	<string name="host_verification_failure_warning_header">"WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!"</string>
+	<string name="host_verification_failure_warning_header">警告: リモートホストの識別情報が変わっています。</string>
 	<!-- The body of the warning a user gets when the host key has changed. Note that this can be a very serious attack, so we try to be as "loud" to the user as possible. -->
-	<string name="host_verification_failure_warning">"IT IS POSSIBLE THAT SOMEONE IS DOING SOMETHING NASTY!"\n"Someone could be eavesdropping on you right now (man-in-the-middle attack)!"\n"It is also possible that the host key has just been changed."</string>
+	<string name="host_verification_failure_warning">第三者による中間者攻撃の可能性があります。\n単にホストキーが変更された場合もありますが、接続先が正しいことを確認してください。</string>
 
 	<!-- Prompt user gets when the remote host has disconnected unexpectedly. -->
 	<string name="prompt_host_disconnected">"ホストとの接続が切断されました。"\n"セッションを閉じますか？"</string>
@@ -176,138 +176,138 @@
 	<string name="prompt_continue_connecting">"このまま接続しますか？"</string>
 
 	<!-- Sent to user when the remote public encryption key fingerprint doesn't match the local database -->
-	<string name="host_authenticity_warning">"The authenticity of host '%1$s' can't be established."</string>
+	<string name="host_authenticity_warning">ホスト「%1$s」の確認ができませんでした。</string>
 	<!-- First field is encryption algorithm. Second is the actual fingerprint in hex digits -->
-	<string name="host_fingerprint">"Host %1$s key fingerprint is %2$s"</string>
+	<string name="host_fingerprint">ホストの%1$sキーフィンガープリント: %2$s</string>
 
 	<!-- Title for the host key fingerprint verification prompt shown when connecting to a new host -->
-	<string name="host_key_verification_title">Host key verification</string>
+	<string name="host_key_verification_title">ホストキー検証</string>
 	<!-- Section header for the fingerprint formats display area -->
-	<string name="fingerprint_format_header">Fingerprint format</string>
+	<string name="fingerprint_format_header">フィンガープリント形式</string>
 	<!-- Format string showing key type and size, e.g., "RSA 2048 bits". First field is key type, second is key size in bits. -->
 	<string name="host_key_type_and_size">%1$s %2$d bits</string>
 	<!-- Content description for the copy fingerprint to clipboard button, used by screen readers for accessibility -->
-	<string name="fingerprint_copy_description">Copy fingerprint to clipboard</string>
+	<string name="fingerprint_copy_description">フィンガープリントをクリップボードにコピー</string>
 
 	<!-- Error message shown when entered password and confirmation password don't match -->
 	<string name="alert_passwords_do_not_match_msg">"パスワードが一致しません"</string>
 	<!-- Error message shown when user enters an incorrect password -->
-	<string name="alert_wrong_password_msg">"Wrong password!"</string>
+	<string name="alert_wrong_password_msg">パスワードが正しくありません。</string>
 
 	<!-- Button that resizes the screen to the user-specified dimensions. -->
-	<string name="button_resize">"Resize"</string>
+	<string name="button_resize">リサイズ</string>
 
 	<!-- Alert dialog title shown when connection to the remote host is lost -->
-	<string name="alert_disconnect_msg">"Connection Lost"</string>
+	<string name="alert_disconnect_msg">接続が失われました。</string>
 
 	<!-- Message shown when network connection is lost and app is waiting to reconnect -->
 	<string name="network_lost_grace_period">"Network lost, waiting to reconnect…"</string>
 	<!-- Message shown when the 60-second grace period expires without network restoration -->
-	<string name="network_grace_period_expired">"Network not restored, disconnecting…"</string>
+	<string name="network_grace_period_expired">"ネットワークが復元されなかったため切断します…"</string>
 	<!-- Message shown when network is restored and connection can continue (same IP address) -->
-	<string name="network_restored_same_ip">"Network restored, connection maintained"</string>
+	<string name="network_restored_same_ip">ネットワークが回復しました。接続は維持されています。</string>
 	<!-- Message shown when network is restored but IP address changed, requiring reconnection -->
 	<string name="network_restored_ip_changed">"Network restored but IP changed, reconnecting…"</string>
 	<!-- Message shown when network is restored but previous network state is unknown -->
-	<string name="network_restored_no_previous_state">"Network restored, verifying connection…"</string>
+	<string name="network_restored_no_previous_state">"ネットワークが復元されました。接続を確認しています…"</string>
 
 	<!-- The category title for terminal emulation preferences. -->
-	<string name="pref_emulation_category">"Terminal emulation"</string>
+	<string name="pref_emulation_category">端末エミュレーション</string>
 
 	<!-- Name for the emulation terminal type preference. -->
-	<string name="pref_emulation_title">"Emulation mode"</string>
+	<string name="pref_emulation_title">エミュレーションモード</string>
 	<!-- Description of the emulation terminal type preference. -->
 
 	<!-- Name for the scrollback size preference -->
-	<string name="pref_scrollback_title">"Scrollback size"</string>
+	<string name="pref_scrollback_title">スクロールバック行数</string>
 	<!-- Description of the scrollback size preference -->
-	<string name="pref_scrollback_summary">"Size of scrollback buffer to keep in memory for each console"</string>
+	<string name="pref_scrollback_summary">コンソールごとにメモリへ保持するスクロールバック行数</string>
 
 	<!-- Name for the font family preference -->
-	<string name="pref_fontfamily_title">"Font"</string>
+	<string name="pref_fontfamily_title">フォント</string>
 	<!-- Description of the font family preference -->
 
 	<!-- Title for adding custom font -->
-	<string name="pref_customfont_title">"Add custom font"</string>
+	<string name="pref_customfont_title">カスタムフォントを追加</string>
 	<!-- Summary for adding custom font -->
-	<string name="pref_customfont_summary">"Add a font from Google Fonts by name"</string>
+	<string name="pref_customfont_summary">Google Fonts の名前を指定してフォントを追加します</string>
 	<!-- Dialog title for adding custom font -->
-	<string name="dialog_customfont_title">"Add Custom Font"</string>
+	<string name="dialog_customfont_title">カスタムフォントを追加</string>
 	<!-- Hint for custom font name input -->
-	<string name="dialog_customfont_hint">"Google Fonts name (e.g., Cascadia Code)"</string>
+	<string name="dialog_customfont_hint">Google Fonts名（例: Cascadia Code）</string>
 	<!-- Button to add font -->
-	<string name="button_add">"Add"</string>
+	<string name="button_add">追加</string>
 	<!-- Button to remove font -->
-	<string name="button_remove">"Remove"</string>
+	<string name="button_remove">削除</string>
 	<!-- Message shown when validating font -->
 	<string name="font_validating">"Validating font…"</string>
 	<!-- Message shown while downloading a font from Google Fonts -->
 	<string name="font_downloading">"Downloading font…"</string>
 
 	<!-- Title for importing local font -->
-	<string name="pref_localfont_title">"Import local font"</string>
+	<string name="pref_localfont_title">ローカルフォントをインポート</string>
 	<!-- Summary for importing local font -->
-	<string name="pref_localfont_summary">"Import a font file from storage (TTF, OTF)"</string>
+	<string name="pref_localfont_summary">ストレージからフォントファイル（TTF/OTF）をインポートします</string>
 	<!-- Dialog title for importing local font -->
-	<string name="dialog_localfont_title">"Import Font"</string>
+	<string name="dialog_localfont_title">フォントをインポート</string>
 	<!-- Hint for local font name input -->
-	<string name="dialog_localfont_hint">"Display name for the font"</string>
+	<string name="dialog_localfont_hint">フォントの表示名</string>
 	<!-- Button to import font -->
-	<string name="button_import">"Import"</string>
+	<string name="button_import">インポート</string>
 	<!-- Message shown when importing font -->
 	<string name="font_importing">"Importing font…"</string>
 
 	<!-- Title of the preference used to enable or disable the back-up of pubkeys. -->
-	<string name="pref_backupkeys_title">Backup pubkeys</string>
+	<string name="pref_backupkeys_title">秘密鍵をバックアップ</string>
 	<!-- Summary for the preference used to enable or disable the back-up of pubkeys. -->
-	<string name="pref_backupkeys_summary">Keep back-ups of the private keys using Android\'s backup mechanism</string>
+	<string name="pref_backupkeys_summary">Android のバックアップ機能で秘密鍵を保存します</string>
 
 	<!-- The category title for user interface preferences -->
-	<string name="pref_ui_category">"User interface"</string>
+	<string name="pref_ui_category">ユーザーインターフェース</string>
 
 	<!-- Name for the language preference -->
-	<string name="pref_language_title">Language</string>
+	<string name="pref_language_title">言語</string>
 	<!-- Default option for language preference that uses the system locale -->
 	<string name="pref_language_system_default">システムデフォルト</string>
 
 	<!-- Name for the rotation mode preference -->
-	<string name="pref_rotation_title">"Rotation mode"</string>
+	<string name="pref_rotation_title">画面の向き</string>
 
 	<!-- Name for the titlebar hide preference -->
-	<string name="pref_titlebarhide_title">"Autohide title bar"</string>
+	<string name="pref_titlebarhide_title">タイトルバーを自動的に隠す</string>
 	<!-- Summary for the titlebar hide preference -->
-	<string name="pref_titlebarhide_summary">"Tap console to show title bar and access menu"</string>
+	<string name="pref_titlebarhide_summary">コンソールをタップするとタイトルバーとメニューを表示します</string>
 
 	<!-- Title for special keys always visible preference -->
-	<string name="pref_alwaysvisible_title">Special keys always visible</string>
+	<string name="pref_alwaysvisible_title">特殊キーを常に表示</string>
 
 	<!-- Name for the page up/down gesture preference -->
-	<string name="pref_pg_updn_gesture_title">"Page up/down gesture"</string>
+	<string name="pref_pg_updn_gesture_title">ページアップ/ページダウン ジェスチャ</string>
 	<!-- Summary for the full screen preference -->
-	<string name="pref_pg_updn_gesture_summary">"Swipe the left third of the screen to send pg up/dn to the terminal"</string>
+	<string name="pref_pg_updn_gesture_summary">画面左側の三分の一をスワイプしてPage Up/Page Downを送信します</string>
 
 	<!-- Name for the full screen preference -->
-	<string name="pref_fullscreen_title">"Full screen"</string>
+	<string name="pref_fullscreen_title">全画面</string>
 	<!-- Summary for the full screen preference -->
-	<string name="pref_fullscreen_summary">"Hide status bar while in console"</string>
+	<string name="pref_fullscreen_summary">コンソール表示中はステータスバーを隠します</string>
 
 	<!-- The category title for keyboard preferences -->
-	<string name="pref_keyboard_category">"Keyboard"</string>
+	<string name="pref_keyboard_category">キーボード</string>
 
 	<!-- Name for the shifted numbers are f-keys preference -->
-	<string name="pref_shiftfkeys_title">"Shift+num are F-keys"</string>
+	<string name="pref_shiftfkeys_title">Shift+数字をFキーにする</string>
 	<!-- Summary for the shifted numbers are f-keys preference -->
-	<string name="pref_shiftfkeys_summary">"On hardware keyboards, number keys send F1-F10 with shift"</string>
+	<string name="pref_shiftfkeys_summary">ハードウェアキーボードでShift+数字をF1〜F10として送信します</string>
 
 	<!-- Name for the ctrl'ed numbers are f-keys preference -->
-	<string name="pref_ctrlfkeys_title">"Ctrl+num are F-keys"</string>
+	<string name="pref_ctrlfkeys_title">Ctrl+数字をFキーにする</string>
 	<!-- Summary for the ctrl'ed numbers are f-keys preference -->
-	<string name="pref_ctrlfkeys_summary">"On software keyboards, number keys send F1-F10 with ctrl"</string>
+	<string name="pref_ctrlfkeys_summary">ソフトウェアキーボードでCtrl+数字をF1〜F10として送信します</string>
 
 	<!-- Name for the volume keys control font size preference -->
-	<string name="pref_volumefont_title">"Volume keys change font size"</string>
+	<string name="pref_volumefont_title">音量ボタンでフォントサイズを変更</string>
 	<!-- Summary for the volume keys control font size preference -->
-	<string name="pref_volumefont_summary">"Font size can also be changed in profile settings"</string>
+	<string name="pref_volumefont_summary">"フォントサイズはプロファイル設定からも変更できます"</string>
 
 	<!-- Name for the memorize keys preference -->
 	<string name="pref_memkeys_title">"メモリに鍵を保持"</string>
@@ -320,21 +320,21 @@
 	<string name="pref_conn_persist_summary">"アプリがバックグラウンドにある間も接続を維持します。"</string>
 
 	<!-- Name for the keyboard shortcuts preference -->
-	<string name="pref_keymode_title">"Directory shortcuts"</string>
+	<string name="pref_keymode_title">修飾キーの配置</string>
 
 	<!-- Name for the sticky modifiers preference -->
-	<string name="pref_stickymodifiers_title">"Sticky modifiers"</string>
+	<string name="pref_stickymodifiers_title">修飾キーを保持</string>
 
 	<!-- Sticky modifier preference value description for when only the Alt key should be a sticky modifier. -->
-	<string name="only_alt">"Only alt"</string>
+	<string name="only_alt">Altのみ</string>
 
 	<!-- Name for the camera shortcut usage preference -->
-	<string name="pref_camera_title">"Camera shortcut"</string>
+	<string name="pref_camera_title">カメラボタンショートカット</string>
 
 	<!-- Name for the keep screen on preference -->
-	<string name="pref_keepalive_title">"Keep screen awake"</string>
+	<string name="pref_keepalive_title">画面をスリープさせない</string>
 	<!-- Summary for the camera shortcut usage preference -->
-	<string name="pref_keepalive_summary">"Prevent the screen from turning off when working in a console"</string>
+	<string name="pref_keepalive_summary">コンソール作業中に画面がオフになるのを防ぎます</string>
 
 	<!-- Name for the Wi-Fi lock preference -->
 	<string name="pref_wifilock_title">"Wi-Fi接続を維持"</string>
@@ -342,40 +342,40 @@
 	<string name="pref_wifilock_summary">"セッション中にWi-Fiがスリープしないようにします。"</string>
 
 	<!-- Name for the haptic feedback (bumpy arrow) preference -->
-	<string name="pref_bumpyarrows_title">"Bumpy arrows"</string>
+	<string name="pref_bumpyarrows_title">矢印キーで振動</string>
 	<!-- Summary for the haptic feedback (bumpy arrow) preference -->
-	<string name="pref_bumpyarrows_summary">"Vibrate when sending arrow keys; useful for laggy connections"</string>
+	<string name="pref_bumpyarrows_summary">矢印キー送信時に振動します。遅延のある接続で便利です</string>
 
 	<!-- Category title for the Terminal Bell preferences -->
-	<string name="pref_bell_category">"Terminal bell"</string>
+	<string name="pref_bell_category">端末ベル</string>
 
 	<!-- Checkbox preference title for the audible terminal bell feature -->
-	<string name="pref_bell_title">"Audible bell"</string>
+	<string name="pref_bell_title">ベル音</string>
 	<!-- Brief summary of the user preference that causes a bell sound to play when the terminal alert is triggered. -->
-	<string name="pref_bell_summary">"Play sound on terminal alert"</string>
+	<string name="pref_bell_summary">端末アラート時に音を鳴らします</string>
 
 	<!-- Title for the slider preference to set the volume -->
-	<string name="pref_bell_volume_title">"Bell volume"</string>
+	<string name="pref_bell_volume_title">ベル音量</string>
 
 	<!-- Checkbox preference title for the vibrate on terminal bell feature -->
-	<string name="pref_bell_vibrate_title">"Vibrate on bell"</string>
+	<string name="pref_bell_vibrate_title">ベルで振動</string>
 	<!-- Brief summary of the feature that causes the phone to vibrate when a terminal alert would cause the "bell" sound to play normally. -->
-	<string name="pref_bell_vibrate_summary">"Vibrate on terminal alert</string>
+	<string name="pref_bell_vibrate_summary">端末アラート時に振動します</string>
 
 	<!-- Checkbox preference title for the receive notifications on terminal bell feature -->
 	<string name="pref_bell_notification_title">"バックグラウンド通知"</string>
 	<!-- Brief summary of the feature that is enabled when the checkbox preference for the receive notifications on terminal bell feature is checked -->
-	<string name="pref_bell_notification_summary">"Send notification when a terminal running in the background sounds a bell."</string>
+	<string name="pref_bell_notification_summary">"バックグラウンドの端末でベルが鳴ったときに通知します。"</string>
 
 	<!-- Preference selection to indicate use of right side of keyboard for special shortcuts. -->
-	<string name="list_keymode_right">"Use right-side keys"</string>
+	<string name="list_keymode_right">右側のキーを使う</string>
 	<!-- Preference selection to indicate use of left side of keyboard for special shortcuts. -->
-	<string name="list_keymode_left">"Use left-side keys"</string>
+	<string name="list_keymode_left">左側のキーを使う</string>
 	<!-- Preference selection to indicate never to use special shortcut keys. -->
-	<string name="list_keymode_none">"Disable"</string>
+	<string name="list_keymode_none">"無効"</string>
 
 	<!-- Preference to not use pubkeys to authenticate to this host. -->
-	<string name="list_pubkeyids_none">"Do not use keys"</string>
+	<string name="list_pubkeyids_none">"公開鍵を使わない"</string>
 	<!-- Preference to use any pubkey to authenticate to this host. -->
 	<string name="list_pubkeyids_any">"アンロックされた鍵のいずれかを使う"</string>
 
@@ -387,37 +387,37 @@
 
 	<!-- Color category names used for visual identification of hosts. These appear in the color selector dropdown. -->
 	<!-- Color name for red (#F44336) -->
-	<string name="color_red">Red</string>
+	<string name="color_red">赤</string>
 	<!-- Color name for pink (#E91E63) -->
-	<string name="color_pink">Pink</string>
+	<string name="color_pink">ピンク</string>
 	<!-- Color name for purple (#9C27B0) -->
-	<string name="color_purple">Purple</string>
+	<string name="color_purple">紫</string>
 	<!-- Color name for deep purple (#673AB7) -->
-	<string name="color_deep_purple">Deep Purple</string>
+	<string name="color_deep_purple">濃い紫</string>
 	<!-- Color name for indigo (#3F51B5) -->
-	<string name="color_indigo">Indigo</string>
+	<string name="color_indigo">藍色</string>
 	<!-- Color name for blue (#2196F3) -->
-	<string name="color_blue">Blue</string>
+	<string name="color_blue">青</string>
 	<!-- Color name for light blue (#03A9F4) -->
-	<string name="color_light_blue">Light Blue</string>
+	<string name="color_light_blue">水色</string>
 	<!-- Color name for cyan (#00BCD4) -->
-	<string name="color_cyan">Cyan</string>
+	<string name="color_cyan">シアン</string>
 	<!-- Color name for teal (#009688) -->
-	<string name="color_teal">Teal</string>
+	<string name="color_teal">ティール</string>
 	<!-- Color name for green (#4CAF50) -->
-	<string name="color_green">Green</string>
+	<string name="color_green">緑</string>
 	<!-- Color name for light green (#8BC34A) -->
-	<string name="color_light_green">Light Green</string>
+	<string name="color_light_green">薄い緑</string>
 	<!-- Color name for lime (#CDDC39) -->
-	<string name="color_lime">Lime</string>
+	<string name="color_lime">ライム</string>
 	<!-- Color name for yellow (#FFEB3B) -->
-	<string name="color_yellow">Yellow</string>
+	<string name="color_yellow">黄</string>
 	<!-- Color name for amber (#FFC107) -->
-	<string name="color_amber">Amber</string>
+	<string name="color_amber">アンバー</string>
 	<!-- Color name for orange (#FF9800) -->
-	<string name="color_orange">Orange</string>
+	<string name="color_orange">オレンジ</string>
 	<!-- Color name for gray (#9E9E9E) -->
-	<string name="color_gray">Gray</string>
+	<string name="color_gray">グレー</string>
 
 	<!-- Host's default font size when opening the terminal in points (pt) -->
 	<string name="hostpref_fontsize_title">"フォントサイズ (pt)"</string>
@@ -460,7 +460,7 @@
 	<string name="hostpref_quickdisconnect_summary">"リモート切断後、確認せずすぐ閉じます。"</string>
 
 	<!-- Setting for what key code is sent to the server when DEL key is pressed. -->
-	<string name="hostpref_delkey_title">"DEL Key"</string>
+	<string name="hostpref_delkey_title">DELキー</string>
 
 	<!-- Host character encoding preference title -->
 	<string name="hostpref_encoding_title">"文字エンコーディング"</string>
@@ -486,53 +486,55 @@
 	<!-- When editing a host entry, this is displayed for the section about changing the
 	     configuration profile of a host. The profile controls terminal colors, terminal
 	     font, etc. -->
-	<string name="hostpref_profile_title">Profile</string>
+	<string name="hostpref_profile_title">プロファイル</string>
 	<!-- Description text shown below the profile selector explaining what selecting a profile does -->
-	<string name="hostpref_profile_summary">Select a profile to use its terminal settings</string>
+	<string name="hostpref_profile_summary">プロファイルを選択してターミナル設定を適用します</string>
 	<!-- Dropdown option shown when no profile is selected, indicating host-specific settings will be used instead -->
 	<string name="hostpref_profile_none">なし（ホスト設定を使う）</string>
 	<!-- Message displayed when a setting is disabled because it's controlled by a profile instead of host settings -->
-	<string name="profile_controlled_setting">Controlled by profile</string>
+	<string name="profile_controlled_setting">プロファイルで管理されています</string>
+	<!-- Display name for the built-in default profile -->
+	<string name="profile_default_name">標準</string>
 	<!-- Dropdown option to use the default font when configuring font family -->
 	<string name="font_use_default">デフォルトを使う</string>
 	<!-- Display name for the system default monospace font option -->
 	<string name="font_system_default">デフォルト（等幅）</string>
 	<!-- Fallback text shown when referencing a pubkey that no longer exists in the database -->
-	<string name="pubkey_unknown">Unknown key</string>
+	<string name="pubkey_unknown">不明な鍵</string>
 	<!-- Default name shown for the default color scheme when no specific scheme is selected -->
 	<string name="colorscheme_default">デフォルト</string>
 
 	<!-- Profile editor screen strings -->
 	<!-- Window title shown when creating a new profile -->
-	<string name="profile_editor_title_new">New Profile</string>
+	<string name="profile_editor_title_new">新しいプロファイル</string>
 	<!-- Window title shown when editing an existing profile -->
-	<string name="profile_editor_title_edit">Edit Profile</string>
+	<string name="profile_editor_title_edit">プロファイルを編集</string>
 	<!-- Content description for the save button that saves profile changes -->
-	<string name="profile_editor_save">Save</string>
+	<string name="profile_editor_save">保存</string>
 	<!-- Label for the text field where user enters the profile name -->
-	<string name="profile_editor_name_label">Profile Name</string>
+	<string name="profile_editor_name_label">プロファイル名</string>
 	<!-- Section header for icon color selection area -->
-	<string name="profile_editor_section_icon_color">Icon Color</string>
+	<string name="profile_editor_section_icon_color">アイコン色</string>
 	<!-- Section header for color scheme selection area -->
 	<string name="profile_editor_section_color_scheme">カラースキーム</string>
 	<!-- Section header for font configuration area -->
-	<string name="profile_editor_section_font">Font</string>
+	<string name="profile_editor_section_font">フォント</string>
 	<!-- Section header for terminal emulation settings area -->
-	<string name="profile_editor_section_terminal">Terminal</string>
+	<string name="profile_editor_section_terminal">ターミナル</string>
 	<!-- Subsection title for font family selector -->
-	<string name="profile_editor_font_family_title">Font Family</string>
+	<string name="profile_editor_font_family_title">フォントファミリー</string>
 	<!-- Subsection title showing current font size. Parameter is the font size in points. -->
-	<string name="profile_editor_font_size_title">Font Size: %d</string>
+	<string name="profile_editor_font_size_title">フォントサイズ: %d</string>
 	<!-- Subsection title for force size settings -->
-	<string name="profile_editor_force_size_title">Force Size</string>
+	<string name="profile_editor_force_size_title">サイズを固定</string>
 	<!-- Summary text explaining what force size does -->
-	<string name="profile_editor_force_size_summary">Force the terminal to a specific size (columns x rows) instead of auto-sizing to fit the screen.</string>
+	<string name="profile_editor_force_size_summary">画面に合わせず、ターミナルを指定した列数と行数に固定します。</string>
 	<!-- Label for the enable force size switch -->
-	<string name="profile_editor_force_size_enable">Enable force size</string>
+	<string name="profile_editor_force_size_enable">サイズ固定を有効にする</string>
 	<!-- Label for the force size columns input field -->
-	<string name="profile_editor_force_size_columns">Columns</string>
+	<string name="profile_editor_force_size_columns">列数</string>
 	<!-- Label for the force size rows input field -->
-	<string name="profile_editor_force_size_rows">Rows</string>
+	<string name="profile_editor_force_size_rows">行数</string>
 	<!-- Dropdown option to not override host color with profile color -->
 	<string name="profile_icon_color_none">なし（ホスト色を使う）</string>
 
@@ -546,25 +548,25 @@
 	<!-- Content description for the menu button on each profile item -->
 	<string name="profile_list_more_options">その他の操作</string>
 	<!-- Menu item to duplicate/copy a profile -->
-	<string name="profile_list_duplicate">Duplicate</string>
+	<string name="profile_list_duplicate">複製</string>
 	<!-- Menu item to delete a profile -->
-	<string name="profile_list_delete">Delete</string>
+	<string name="profile_list_delete">削除</string>
 	<!-- Dialog title when creating a new profile -->
-	<string name="profile_create_dialog_title">Create Profile</string>
+	<string name="profile_create_dialog_title">プロファイルを作成</string>
 	<!-- Label for the profile name text field in create dialog -->
-	<string name="profile_create_name_label">Profile Name</string>
+	<string name="profile_create_name_label">プロファイル名</string>
 	<!-- Button text to confirm creating a new profile -->
-	<string name="profile_create_button">Create</string>
+	<string name="profile_create_button">作成</string>
 	<!-- Button text to cancel creating a new profile -->
-	<string name="profile_create_cancel">Cancel</string>
+	<string name="profile_create_cancel">キャンセル</string>
 	<!-- Dialog title when deleting a profile -->
-	<string name="profile_delete_dialog_title">Delete Profile</string>
+	<string name="profile_delete_dialog_title">プロファイルを削除</string>
 	<!-- Confirmation message asking if user wants to delete a profile. Parameter is the profile name. -->
-	<string name="profile_delete_dialog_message">Are you sure you want to delete \'%s\'?</string>
+	<string name="profile_delete_dialog_message">「%s」を削除しますか？</string>
 	<!-- Button text to confirm deleting a profile -->
-	<string name="profile_delete_button">Delete</string>
+	<string name="profile_delete_button">削除</string>
 	<!-- Button text to cancel deleting a profile -->
-	<string name="profile_delete_cancel">Cancel</string>
+	<string name="profile_delete_cancel">キャンセル</string>
 	<!-- Summary text showing font settings. First parameter is font name, second is font size in points. -->
 	<string name="profile_summary_font">フォント：%1$s %2$dpt</string>
 	<!-- Summary text showing emulation setting. Parameter is the terminal emulation type. -->
@@ -577,9 +579,9 @@
 	<!-- Button that brings user to the Port Forwards List. -->
 	<string name="console_menu_portforwards">"ポート転送"</string>
 	<!-- Button that brings user to the terminal resizing dialog where they can force a size. -->
-	<string name="console_menu_resize">"Force size"</string>
+	<string name="console_menu_resize">サイズを固定</string>
 	<!-- Button that brings up the list of URLs on the current screen -->
-	<string name="console_menu_urlscan">"URL scan"</string>
+	<string name="console_menu_urlscan">URLを検出</string>
 
 	<!-- Button label to answer "Yes" to a yes/no prompt -->
 	<string name="button_yes">"はい"</string>
@@ -630,13 +632,13 @@
 	<string name="list_host_forget_keys">"ホストキーを削除"</string>
 
 	<!-- Default screen rotation preference selection -->
-	<string name="list_rotation_default">"Default"</string>
+	<string name="list_rotation_default">"デフォルト"</string>
 	<!-- Preference selection to force landscape orientation -->
-	<string name="list_rotation_land">"Force landscape"</string>
+	<string name="list_rotation_land">横向きに固定</string>
 	<!-- Preference selection to force portrait orientation -->
-	<string name="list_rotation_port">"Force portrait"</string>
+	<string name="list_rotation_port">縦向きに固定</string>
 	<!-- Selection to indicate the rotation should be selected automatically based on the tilt sensor. -->
-	<string name="list_rotation_auto">"Automatic"</string>
+	<string name="list_rotation_auto">自動</string>
 
 	<!-- Selection to indicate pressing the Camera button should send "Ctrl+A then Space". -->
 	<string name="list_camera_ctrlaspace">"Ctrl+A then Space"</string>
@@ -667,68 +669,68 @@
 
 	<!-- Displayed in terminal when attempting to connect to a host. The first two
 	     variables are host:port and the third is the protocol (e.g., SSH) -->
-	<string name="terminal_connecting" tools:ignore="PluralsCandidate">"Connecting to %1$s:%2$d via %3$s"</string>
+	<string name="terminal_connecting" tools:ignore="PluralsCandidate">"%1$s:%2$d に %3$s で接続しています"</string>
 
 	<!-- Displays the host key to the user in the terminal -->
-	<string name="terminal_sucess">"Verified host '%1$s' key: %2$s"</string>
+	<string name="terminal_sucess">ホスト「%1$s」の鍵を確認しました: %2$s</string>
 	<!-- Error message shown in terminal when host key verification fails -->
-	<string name="terminal_failed">"Host key verification failed."</string>
+	<string name="terminal_failed">ホストキー検証に失敗しました。</string>
 
 	<!-- Displayed on the terminal describing the cryptographic algorithm names -->
-	<string name="terminal_using_s2c_algorithm">"Server-to-client algorithm: %1$s %2$s"</string>
+	<string name="terminal_using_s2c_algorithm">サーバーからクライアントのアルゴリズム: %1$s %2$s</string>
 	<!-- Displayed on the terminal describing the cryptographic algorithm names -->
-	<string name="terminal_using_c2s_algorithm">"Client-to-server algorithm: %1$s %2$s"</string>
+	<string name="terminal_using_c2s_algorithm">クライアントからサーバーのアルゴリズム: %1$s %2$s</string>
 	<!-- Displayed on the terminal describing the cryptographic algorithm names -->
-	<string name="terminal_using_algorithm">"Using algorithm: %1$s %2$s"</string>
+	<string name="terminal_using_algorithm">使用アルゴリズム: %1$s %2$s</string>
 
 	<!-- Displayed on the terminal during a SSH connection describing the cryptographic key
 	     exchange algorithm used to establish a shared secret between this program and the
 	     server. -->
-	<string name="terminal_kex_algorithm">Key exchange algorithm: %s</string>
+	<string name="terminal_kex_algorithm">鍵交換アルゴリズム: %s</string>
 
 	<!-- Message shown in terminal when starting authentication process -->
-	<string name="terminal_auth">"Trying to authenticate"</string>
+	<string name="terminal_auth">認証を試行しています</string>
 
 	<!-- Message shown in terminal when attempting password authentication method -->
-	<string name="terminal_auth_pass">"Attempting 'password' authentication"</string>
+	<string name="terminal_auth_pass">パスワード認証を試行しています</string>
 	<!-- Message shown in terminal when password authentication fails -->
-	<string name="terminal_auth_pass_fail">"Authentication method 'password' failed"</string>
+	<string name="terminal_auth_pass_fail">パスワード認証に失敗しました</string>
 	<!-- Message shown in terminal when attempting saved password authentication -->
 	<string name="terminal_auth_saved_password">"Trying saved password…"</string>
 	<!-- Message shown in terminal when saved password authentication fails -->
-	<string name="terminal_auth_saved_password_fail">"Saved password authentication failed"</string>
+	<string name="terminal_auth_saved_password_fail">保存済みパスワード認証に失敗しました</string>
 
 	<!-- Message shown in terminal when trying public key authentication with any available key -->
-	<string name="terminal_auth_pubkey_any">"Attempting 'publickey' authentication with any in-memory public keys"</string>
+	<string name="terminal_auth_pubkey_any">メモリ上の公開鍵で公開鍵認証を試行しています</string>
 	<!-- Error message shown when the selected public key is corrupted or invalid -->
-	<string name="terminal_auth_pubkey_invalid">"Selected public key is invalid, try reselecting key in host editor"</string>
+	<string name="terminal_auth_pubkey_invalid">選択した公開鍵が無効です。ホスト編集で鍵を選び直してください</string>
 	<!-- Message shown in terminal when attempting public key authentication with a specific key -->
-	<string name="terminal_auth_pubkey_specific">"Attempting 'publickey' authentication with a specific public key"</string>
+	<string name="terminal_auth_pubkey_specific">選択した公開鍵で公開鍵認証を試行しています</string>
 	<!-- Message shown in terminal when requesting biometric authentication to unlock a key. Parameter is the key nickname. -->
-	<string name="terminal_auth_biometric">"Requesting biometric authentication for key '%1$s'"</string>
+	<string name="terminal_auth_biometric">鍵「%1$s」の生体認証を要求しています</string>
 	<!-- Message shown when a biometric key has been invalidated due to new fingerprint enrollment. Parameter is the key nickname. -->
-	<string name="terminal_auth_biometric_invalidated">"Biometric key '%1$s' has been invalidated. This can happen when new fingerprints are enrolled on the device. Please generate a new key."</string>
+	<string name="terminal_auth_biometric_invalidated">生体認証鍵「%1$s」は無効化されています。端末に新しい指紋が登録された場合に発生します。鍵を再生成してください。</string>
 	<!-- Message shown in terminal when public key authentication fails. Parameter is the key nickname. -->
-	<string name="terminal_auth_pubkey_fail">"Authentication method 'publickey' with key '%1$s' failed"</string>
+	<string name="terminal_auth_pubkey_fail">鍵「%1$s」による公開鍵認証に失敗しました</string>
 
 	<!-- Message shown in terminal when attempting keyboard-interactive authentication method -->
-	<string name="terminal_auth_ki">"Attempting 'keyboard-interactive' authentication"</string>
+	<string name="terminal_auth_ki">キーボードインタラクティブ認証を試行しています</string>
 	<!-- Message shown in terminal when keyboard-interactive authentication fails -->
-	<string name="terminal_auth_ki_fail">"Authentication method 'keyboard-interactive' failed"</string>
+	<string name="terminal_auth_ki_fail">キーボードインタラクティブ認証に失敗しました</string>
 
 	<!-- Error message shown when server doesn't support any of the authentication methods we can use -->
-	<string name="terminal_auth_fail">"[Your host doesn't support 'password' or 'keyboard-interactive' authentication.]"</string>
+	<string name="terminal_auth_fail">このホストはパスワード認証またはキーボードインタラクティブ認証に対応していません。</string>
 
 	<!-- Message shown in terminal when shell session is not started because user disabled it in host settings -->
-	<string name="terminal_no_session">"Session will not be started due to host preference."</string>
+	<string name="terminal_no_session">"ホスト設定によりセッションを開始しません。"</string>
 	<!-- Message shown in terminal when a port forward is enabled. Parameter is the port forward description. -->
-	<string name="terminal_enable_portfoward">"Enable port forward: %1$s"</string>
+	<string name="terminal_enable_portfoward">ポート転送を有効化: %1$s</string>
 
 	<!-- Error message shown when trying to open a local shell but it's not available on the device -->
-	<string name="local_shell_unavailable">"Failure! Local shell is unavailable on this phone."</string>
+	<string name="local_shell_unavailable">この端末ではローカルシェルを利用できません。</string>
 
 	<!-- Text sent to the user to alert them that a Terminal Bell is received in a background session -->
-	<string name="notification_text">"%1$s wants your attention."</string>
+	<string name="notification_text">"%1$s が注意を求めています。"</string>
 
 	<!-- Preference selection for SSH Authentication Agent to never use pubkeys -->
 	<string name="no">"いいえ"</string>
@@ -739,7 +741,7 @@
 	<string name="list_color_schemes">"カラースキーム"</string>
 
 	<!-- Menu selection to reset colors to their defaults. -->
-	<string name="menu_colors_reset">"Reset"</string>
+	<string name="menu_colors_reset">リセット</string>
 
 	<!-- Button text to open color scheme manager -->
 	<string name="button_manage_schemes">"スキームを管理"</string>
@@ -802,19 +804,19 @@
 	<string name="button_import_scheme">"スキームをインポート"</string>
 
 	<!-- Success message after exporting a scheme -->
-	<string name="message_export_success">"Exported %1$s"</string>
+	<string name="message_export_success">%1$sをエクスポートしました</string>
 
 	<!-- Success message after importing a scheme -->
-	<string name="message_import_success">"Imported %1$s"</string>
+	<string name="message_import_success">%1$sをインポートしました</string>
 
 	<!-- Error message when export fails -->
-	<string name="error_export_failed">"Failed to export scheme: %1$s"</string>
+	<string name="error_export_failed">スキームのエクスポートに失敗しました: %1$s</string>
 
 	<!-- Error message when import fails -->
-	<string name="error_import_failed">"Failed to import scheme: %1$s"</string>
+	<string name="error_import_failed">スキームのインポートに失敗しました: %1$s</string>
 
 	<!-- Error message when JSON parsing fails -->
-	<string name="error_invalid_json">"Invalid JSON file"</string>
+	<string name="error_invalid_json">JSONファイルが正しくありません</string>
 
 	<!-- Window title for palette editor screen -->
 	<string name="title_palette_editor">"カラーパレットを編集"</string>
@@ -851,10 +853,10 @@
 	<string name="label_hex_color">"16進カラーコード"</string>
 
 	<!-- Very short label indicating the number next to it is "foreground color" number. -->
-	<string name="colors_fg_label">"FG: %1$d"</string>
+	<string name="colors_fg_label">前景: %1$d</string>
 
 	<!-- Very short label indicating the number next to it is "background color" number. -->
-	<string name="color_bg_label">"BG: %1$d"</string>
+	<string name="color_bg_label">背景: %1$d</string>
 
 	<!-- Section header for the foreground and background color selectors in the palette editor -->
 	<string name="section_fg_bg_colors">前景と背景</string>
@@ -874,23 +876,23 @@
 
 	<!-- Accessibility text for connection state in list of hosts when the host is currently
 	 connected. -->
-	<string name="image_description_connected">"Connected."</string>
+	<string name="image_description_connected">接続中です。</string>
 
 	<!-- Accessibility text for connection state in list of hosts when the host is currently
 	     disconnected after having been previously connected. -->
-	<string name="image_description_disconnected">"Disconnected."</string>
+	<string name="image_description_disconnected">切断されています。</string>
 
 	<!-- Describes the icon of the "send control character" button in the terminal view for
 	     accessibility purposes. -->
-	<string name="image_description_toggle_control_character">Toggle control character.</string>
+	<string name="image_description_toggle_control_character">コントロール文字を切り替えます。</string>
 
 	<!-- Describes the icon of the "send escape character" button in the terminal view for
 	     accessibility purposes. -->
-	<string name="image_description_send_escape_character">Send escape character.</string>
+	<string name="image_description_send_escape_character">Escを送信します。</string>
 
 	<!-- Describes the icon of the "send tab character" button in the terminal view for
 	     accessibility purposes. -->
-	<string name="image_description_send_tab_character">Send TAB character.</string>
+	<string name="image_description_send_tab_character">Tabを送信します。</string>
 
 	<!-- Describes the icon of the "hide keyboard" button in the terminal view for accessibility
 	     purposes. -->
@@ -898,7 +900,7 @@
 
 	<!-- Describes the icon of the "show keyboard" button in the terminal view for accessibility
 	     purposes. -->
-	<string name="image_description_show_keyboard">Show keyboard.</string>
+	<string name="image_description_show_keyboard">キーボードを表示します。</string>
 
 	<!-- Describes the icon of the "Arrow up" button in the terminal view for accessibility
 	     purposes. -->
@@ -983,22 +985,22 @@
 	<!-- Accessibility label for host options menu button; used for screen readers -->
 	<string name="button_host_options">ホスト操作</string>
 	<!-- Accessibility label for collapse button; used for screen readers -->
-	<string name="button_collapse">Collapse</string>
+	<string name="button_collapse">折りたたむ</string>
 
 	<!-- Error messages -->
 	<!-- Error message shown when a public key fails to load at startup -->
-	<string name="error_key_load_failed">Failed to load key \'%1$s\': %2$s</string>
+	<string name="error_key_load_failed">鍵「%1$s」を読み込めませんでした: %2$s</string>
 	<!-- Error message shown when a connection to a host fails -->
-	<string name="error_connection_failed">Failed to connect to %1$s (%2$s): %3$s</string>
+	<string name="error_connection_failed">%1$s（%2$s）へ接続できませんでした: %3$s</string>
 	<!-- Error message shown when port forwards fail to load for a host -->
-	<string name="error_port_forward_load_failed">Failed to load port forwards for %1$s: %2$s</string>
+	<string name="error_port_forward_load_failed">%1$s のポート転送を読み込めませんでした: %2$s</string>
 	<!-- Error message shown when saving host configuration fails -->
-	<string name="error_host_save_failed">Failed to save host %1$s: %2$s</string>
+	<string name="error_host_save_failed">ホスト「%1$s」を保存できませんでした: %2$s</string>
 	<!-- Error message shown when loading a color scheme fails -->
-	<string name="error_color_scheme_load_failed">Failed to load color scheme: %s</string>
+	<string name="error_color_scheme_load_failed">カラースキームを読み込めませんでした: %s</string>
 
 	<!-- Format string for the nickname of a duplicated host -->
-	<string name="host_duplicate_nickname">%1$s (copy)</string>
+	<string name="host_duplicate_nickname">%1$s（コピー）</string>
 
 	<!-- Empty state messages -->
 	<!-- Message shown when no hosts have been configured yet -->
@@ -1093,9 +1095,9 @@
 	<!-- Label for spinner which allows user to select SSH/Telnet/Local. -->
 	<string name="protocol_spinner_label">プロトコル</string>
 	<!-- Label for button which expands/collapses section. -->
-	<string name="expand">Expand</string>
+	<string name="expand">展開</string>
 	<!-- Label for checkbox which, when check, makes SSL authorization require confirmation. -->
-	<string name="hostpref_authagent_with_confirmation">require confirmation</string>
+	<string name="hostpref_authagent_with_confirmation">確認を要求</string>
 	<!-- Text for button which, when clicked, adds a new host. -->
 	<string name="hostpref_add_host">ホストを追加</string>
 	<!-- Text for button which, when clicked, saves an existing host. -->
@@ -1132,7 +1134,7 @@
 
 	<!-- Message shown to user when they're trying to connect to a host on a local network but
 	     have not granted the permission yet. -->
-	<string name="terminal_no_route">Are you trying to access a local host? Grant local network permissions.</string>
+	<string name="terminal_no_route">ローカルホストへアクセスしようとしていますか。ローカルネットワーク権限を許可してください。</string>
 
 	<!-- Loading message shown during app initialization -->
 	<string name="loading_message">読み込み中…</string>
@@ -1197,17 +1199,17 @@
 	<!-- Option for no jump host (direct connection) -->
 	<string name="list_jumphost_none">なし（直接接続）</string>
 	<!-- Terminal message when connecting via jump host -->
-	<string name="terminal_connecting_via_jump">Connecting via jump host: %s</string>
+	<string name="terminal_connecting_via_jump">ジャンプホスト経由で接続中: %s</string>
 	<!-- Terminal message when connected to jump host -->
-	<string name="terminal_jump_connected">Connected to jump host: %s</string>
+	<string name="terminal_jump_connected">ジャンプホストに接続しました: %s</string>
 	<!-- Terminal message when authenticated to jump host -->
-	<string name="terminal_jump_authenticated">Authenticated to jump host: %s</string>
+	<string name="terminal_jump_authenticated">ジャンプホストで認証しました: %s</string>
 	<!-- Terminal message when jump host connection fails -->
-	<string name="terminal_jump_failed">Failed to connect to jump host %1$s: %2$s</string>
+	<string name="terminal_jump_failed">ジャンプホスト %1$s に接続できませんでした: %2$s</string>
 	<!-- Terminal message when jump host authentication fails -->
-	<string name="terminal_jump_auth_failed">Authentication failed for jump host: %s</string>
+	<string name="terminal_jump_auth_failed">ジャンプホストの認証に失敗しました: %s</string>
 	<!-- Terminal message when jump host is not found in database -->
-	<string name="terminal_jump_not_found">Jump host not found in saved hosts</string>
+	<string name="terminal_jump_not_found">保存済みホストに踏み台ホストが見つかりません</string>
 	<!-- Password prompt prefix for jump host -->
 	<string name="terminal_jump_password">ジャンプホスト %s のパスワード:</string>
 
@@ -1247,7 +1249,7 @@
 	<!-- Section title for the "Help" screen showing donation options. -->
 	<string name="help_section_donate">フォーク元への支援</string>
 	<!-- Label for the GitHub Sponsors donation link in the Help screen. -->
-	<string name="help_donate_github">GitHub Sponsors</string>
+	<string name="help_donate_github">GitHubスポンサー</string>
 	<!-- URL for the GitHub Sponsors page. -->
 	<string name="help_donate_github_url" translatable="false">https://github.com/sponsors/kruton</string>
 	<!-- Label for the Buy Me a Coffee donation link in the Help screen. -->
@@ -1281,23 +1283,23 @@
 	<!-- Summary text when no default profile is selected -->
 	<string name="pref_default_profile_none">なし（ホスト設定を使う）</string>
 	<!-- Summary text for special keys always visible setting -->
-	<string name="pref_alwaysvisible_summary">Keep special keys always visible</string>
+	<string name="pref_alwaysvisible_summary">特殊キーを常に表示します</string>
 	<!-- Title for custom terminal types preference -->
-	<string name="pref_customterminal_title">Custom Terminal Types</string>
+	<string name="pref_customterminal_title">カスタムTERM</string>
 	<!-- Summary for custom terminal types preference -->
-	<string name="pref_customterminal_summary">Add custom TERM values for remote servers</string>
+	<string name="pref_customterminal_summary">リモートサーバー用のTERM値を追加します</string>
 	<!-- Dialog title for adding a custom terminal type -->
-	<string name="dialog_customterminal_title">Add Custom Terminal Type</string>
+	<string name="dialog_customterminal_title">カスタムTERMを追加</string>
 	<!-- Label/hint for terminal type input field -->
-	<string name="dialog_customterminal_hint">Terminal type (e.g., rxvt-unicode)</string>
+	<string name="dialog_customterminal_hint">TERM値（例: rxvt-unicode）</string>
 	<!-- Dialog title for managing custom terminal types -->
-	<string name="dialog_manage_customterminal_title">Manage Custom Terminal Types</string>
+	<string name="dialog_manage_customterminal_title">カスタムTERMを管理</string>
 	<!-- Button to add a custom item -->
 	<string name="button_add_custom">Add custom…</string>
 	<!-- Button to manage custom items -->
 	<string name="button_manage_custom">Manage custom…</string>
 	<!-- Label for custom value input in list preference dialogs -->
-	<string name="dialog_custom_value_label">Enter custom value</string>
+	<string name="dialog_custom_value_label">カスタム値を入力</string>
 	<!-- Summary description for Ctrl+A then Space camera button action -->
 	<string name="list_camera_ctrlaspace_description">Ctrl+A then Space</string>
 	<!-- Summary description for Ctrl+A camera button action -->
@@ -1313,55 +1315,55 @@
 
 	<!-- Host export/import menu items -->
 	<!-- Menu item to export all hosts to a JSON file -->
-	<string name="list_menu_export_hosts">Export Hosts</string>
+	<string name="list_menu_export_hosts">ホストをエクスポート</string>
 	<!-- Menu item to import hosts from a JSON file -->
-	<string name="list_menu_import_hosts">Import Hosts</string>
+	<string name="list_menu_import_hosts">ホストをインポート</string>
 
 	<!-- Host export/import messages -->
 	<!-- Success message shown after exporting hosts to a file. Parameters: %1$d = host count, %2$d = profile count -->
-	<string name="export_hosts_success">Exported %1$d hosts and %2$d profiles</string>
+	<string name="export_hosts_success">%1$d件のホストと%2$d件のプロファイルをエクスポートしました</string>
 	<!-- Success message shown after importing hosts from a file. Parameters: %1$d = hosts imported, %2$d = hosts skipped, %3$d = profiles imported, %4$d = profiles skipped -->
-	<string name="import_hosts_success">Imported %1$d hosts (%2$d skipped) and %3$d profiles (%4$d skipped)</string>
+	<string name="import_hosts_success">%1$d件のホストをインポートしました（%2$d件はスキップ）。%3$d件のプロファイルをインポートしました（%4$d件はスキップ）。</string>
 	<!-- Error message when host export fails -->
-	<string name="export_hosts_failed">Failed to export hosts: %s</string>
+	<string name="export_hosts_failed">ホストをエクスポートできませんでした: %s</string>
 	<!-- Error message when host import fails -->
-	<string name="import_hosts_failed">Failed to import hosts: %s</string>
+	<string name="import_hosts_failed">ホストをインポートできませんでした: %s</string>
 	<!-- Title for the export hosts file picker dialog -->
-	<string name="export_hosts_title">Export Hosts</string>
+	<string name="export_hosts_title">ホストをエクスポート</string>
 
 	<!-- Shortcut customization dialog strings -->
 	<!-- Dialog title when customizing a shortcut icon -->
-	<string name="shortcut_customize_title">Customize Shortcut</string>
+	<string name="shortcut_customize_title">ショートカットをカスタマイズ</string>
 	<!-- Label for the shortcut icon color selection dropdown -->
-	<string name="shortcut_icon_color">Icon Color</string>
+	<string name="shortcut_icon_color">アイコン色</string>
 	<!-- Label for the shortcut icon style selection dropdown -->
-	<string name="shortcut_icon_style">Icon Style</string>
+	<string name="shortcut_icon_style">アイコンスタイル</string>
 	<!-- Checkbox label to use the host\'s configured color for the shortcut -->
-	<string name="shortcut_use_host_color">Use host color</string>
+	<string name="shortcut_use_host_color">ホスト色を使う</string>
 	<!-- Button to create the customized shortcut -->
-	<string name="shortcut_create">Create Shortcut</string>
+	<string name="shortcut_create">ショートカットを作成</string>
 	<!-- Icon style option: terminal prompt icon -->
-	<string name="icon_style_terminal">Terminal</string>
+	<string name="icon_style_terminal">ターミナル</string>
 	<!-- Icon style option: server/computer icon -->
-	<string name="icon_style_server">Server</string>
+	<string name="icon_style_server">サーバー</string>
 	<!-- Icon style option: cloud icon -->
-	<string name="icon_style_cloud">Cloud</string>
+	<string name="icon_style_cloud">クラウド</string>
 	<!-- Icon style option: key/security icon -->
-	<string name="icon_style_key">Key</string>
+	<string name="icon_style_key">鍵</string>
 
 	<!-- Authentication on launch -->
 	<!-- Title for the authentication on launch preference in settings -->
-	<string name="pref_auth_on_launch_title">Authentication on launch</string>
+	<string name="pref_auth_on_launch_title">起動時の認証</string>
 	<!-- Summary for the authentication on launch preference -->
-	<string name="pref_auth_on_launch_summary">Require fingerprint, face, or device PIN when opening the app</string>
+	<string name="pref_auth_on_launch_summary">アプリを開くときに指紋、顔認証、端末PINで確認します</string>
 	<!-- Category title for security preferences in settings -->
-	<string name="pref_security_category">Security</string>
+	<string name="pref_security_category">セキュリティ</string>
 	<!-- Title shown on the authentication lock screen -->
-	<string name="auth_screen_title">ShellPilot is locked</string>
+	<string name="auth_screen_title">ShellPilotはロックされています</string>
 	<!-- Button text to trigger authentication on the lock screen -->
-	<string name="auth_screen_unlock_button">Tap to unlock</string>
+	<string name="auth_screen_unlock_button">タップしてロック解除</string>
 	<!-- Title shown in the biometric/device credential authentication prompt -->
-	<string name="auth_prompt_title">Unlock ShellPilot</string>
+	<string name="auth_prompt_title">ShellPilotのロックを解除</string>
 	<!-- Subtitle shown in the biometric/device credential authentication prompt -->
-	<string name="auth_prompt_subtitle">Verify your identity to continue</string>
+	<string name="auth_prompt_subtitle">続行するには本人確認を行ってください</string>
 </resources>

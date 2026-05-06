@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import io.shellpilot.app.R
 import io.shellpilot.app.ui.ScreenPreviews
 import io.shellpilot.app.ui.components.CommandSurfaceCard
+import io.shellpilot.app.ui.components.ShellPilotIconTile
 import io.shellpilot.app.ui.components.ShellPilotScaffold
 import io.shellpilot.app.ui.components.StatusChip
 import io.shellpilot.app.ui.theme.ShellPilotTheme
@@ -66,7 +67,7 @@ fun ContactScreen(
     ) { padding ->
         LazyColumn(
             modifier = Modifier.padding(padding),
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = PaddingValues(10.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             item {
@@ -168,11 +169,7 @@ private fun ContactLinkItem(
         modifier = Modifier.clickable { onClick(url) }
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            ShellPilotIconTile(icon = icon, contentDescription = null)
             Column {
                 Text(
                     text = label,

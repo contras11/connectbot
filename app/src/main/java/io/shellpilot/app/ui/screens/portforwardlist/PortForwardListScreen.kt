@@ -301,7 +301,7 @@ private fun PortForwardListScreenErrorPreview() {
             uiState = PortForwardListUiState(
                 portForwards = emptyList(),
                 isLoading = false,
-                error = "Failed to load port forwards"
+                error = "ポート転送を読み込めませんでした"
             ),
             onNavigateBack = {},
             onDeletePortForward = {},

@@ -48,6 +48,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
@@ -105,9 +106,9 @@ fun ShellPilotTopBar(
     actions: @Composable RowScope.() -> Unit = {}
 ) {
     TopAppBar(
-        modifier = modifier.height(52.dp),
+        modifier = modifier.height(48.dp),
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surface,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
             titleContentColor = MaterialTheme.colorScheme.onSurface,
             actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             navigationIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -136,11 +137,11 @@ fun CommandSurfaceCard(
     content: @Composable ColumnScope.() -> Unit
 ) {
     val colors = CardDefaults.cardColors(
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         contentColor = MaterialTheme.colorScheme.onSurface
     )
-    val borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)
-    val contentPadding = 7.dp
+    val borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.82f)
+    val contentPadding = 6.dp
     if (onClick != null) {
         androidx.compose.material3.Card(
             onClick = onClick,
@@ -153,7 +154,7 @@ fun CommandSurfaceCard(
             // 汎用カードは強い色枠を使わず中立な面で階層を作る。
             Column(
                 modifier = Modifier.padding(contentPadding),
-                verticalArrangement = Arrangement.spacedBy(3.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
                 content = content
             )
         }
@@ -166,7 +167,7 @@ fun CommandSurfaceCard(
         ) {
             Column(
                 modifier = Modifier.padding(contentPadding),
-                verticalArrangement = Arrangement.spacedBy(3.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
                 content = content
             )
         }
@@ -183,13 +184,17 @@ fun StatusChip(
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(999.dp),
-        color = containerColor,
+        color = if (containerColor == MaterialTheme.colorScheme.surface) {
+            MaterialTheme.colorScheme.surfaceContainer
+        } else {
+            containerColor
+        },
         contentColor = accent,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f))
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.82f))
     ) {
         Text(
             text = label,
-            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1
@@ -202,16 +207,18 @@ fun CommandChipButton(
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    emphasized: Boolean = false
+    emphasized: Boolean = false,
+    enabled: Boolean = true
 ) {
     Button(
         onClick = onClick,
         modifier = modifier,
+        enabled = enabled,
         colors = ButtonDefaults.buttonColors(
             containerColor = if (emphasized) {
                 MaterialTheme.colorScheme.primaryContainer
             } else {
-                MaterialTheme.colorScheme.surfaceVariant
+                MaterialTheme.colorScheme.surfaceContainer
             },
             contentColor = if (emphasized) {
                 MaterialTheme.colorScheme.onPrimaryContainer
@@ -221,7 +228,7 @@ fun CommandChipButton(
         ),
         shape = RoundedCornerShape(8.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.74f)),
-        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 5.dp)
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
     ) {
         Text(
             text = label,
@@ -242,7 +249,7 @@ fun ShellPilotSection(
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
@@ -259,6 +266,34 @@ fun ShellPilotSection(
             }
         }
         content()
+    }
+}
+
+@Composable
+fun ShellPilotIconTile(
+    icon: ImageVector,
+    contentDescription: String?,
+    modifier: Modifier = Modifier,
+    selected: Boolean = false
+) {
+    Surface(
+        modifier = modifier.size(38.dp),
+        shape = RoundedCornerShape(8.dp),
+        color = if (selected) {
+            MaterialTheme.colorScheme.surfaceContainerHighest
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerHigh
+        },
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.86f))
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                modifier = Modifier.size(19.dp)
+            )
+        }
     }
 }
 
@@ -357,13 +392,13 @@ fun ShellPilotActionDialog(
                 .fillMaxWidth(0.94f)
                 .widthIn(max = 560.dp),
             shape = RoundedCornerShape(8.dp),
-            color = MaterialTheme.colorScheme.surface,
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
             contentColor = MaterialTheme.colorScheme.onSurface,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.86f))
         ) {
             Column(
-                modifier = Modifier.padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                modifier = Modifier.padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(

@@ -162,7 +162,7 @@ class HostEditorViewModel @Inject constructor(
                     }
                 } else {
                     _uiState.update {
-                        it.copy(isLoading = false, error = "Host not found")
+                        it.copy(isLoading = false, error = "ホストが見つかりません")
                     }
                 }
             } catch (e: Exception) {

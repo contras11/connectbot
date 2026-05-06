@@ -105,8 +105,8 @@ fun HintsScreen(
     ) { padding ->
         LazyColumn(
             modifier = Modifier.padding(padding),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             item {
                 CommandSurfaceCard {

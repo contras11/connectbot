@@ -111,11 +111,11 @@ fun ShortcutBar(
             }
         }
     }
-    val profileRowHeight = if (compact) 38.dp else PROFILE_ROW_HEIGHT_DP.dp
-    val shortcutRowHeight = if (compact) 42.dp else SHORTCUT_ROW_HEIGHT_DP.dp
-    val headerRowHeight = if (compact) 30.dp else COMMAND_PANEL_HEADER_HEIGHT_DP.dp
-    val rowHorizontalPadding = if (compact) 6.dp else 8.dp
-    val rowSpacing = if (compact) 4.dp else 6.dp
+    val profileRowHeight = if (compact) 32.dp else PROFILE_ROW_HEIGHT_DP.dp
+    val shortcutRowHeight = if (compact) 34.dp else SHORTCUT_ROW_HEIGHT_DP.dp
+    val headerRowHeight = if (compact) 26.dp else COMMAND_PANEL_HEADER_HEIGHT_DP.dp
+    val rowHorizontalPadding = if (compact) 5.dp else 6.dp
+    val rowSpacing = if (compact) 3.dp else 4.dp
     var commandsExpanded by rememberSaveable { mutableStateOf(true) }
 
     val visibleProfiles = profiles.filter { profile ->
@@ -146,7 +146,7 @@ fun ShortcutBar(
     // ScaffoldがconsumeWindowInsetsしている場合はColumnのpaddingが実質0になり
     // 二重パディングは発生しない。
     Surface(
-        color = MaterialTheme.colorScheme.surface,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
         modifier = modifier.fillMaxWidth()
     ) {
         // 変更理由: navigationBars insetsをColumn内に適用することで
@@ -159,14 +159,14 @@ fun ShortcutBar(
             // 端末操作を邪魔しない折りたたみ可能なパネルとして扱う。
             Surface(
                 onClick = { commandsExpanded = !commandsExpanded },
-                color = MaterialTheme.colorScheme.surface,
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(headerRowHeight)
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
@@ -206,9 +206,9 @@ fun ShortcutBar(
                         selected = effectiveSelectedProfileId == profile.id,
                         onClick = { onProfileChange(profile.id) },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            selectedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            selectedLabelColor = MaterialTheme.colorScheme.onSurface,
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
                             labelColor = MaterialTheme.colorScheme.onSurfaceVariant
                         ),
                         border = FilterChipDefaults.filterChipBorder(
@@ -289,16 +289,16 @@ private fun sessionProfileLabel(id: String, displayName: String): String = when 
  * 変更理由: 制御キー列と同時表示しても画面を圧迫しないよう、
  * ターミナル専用UIでは44dpへ圧縮する。
  */
-private const val PROFILE_ROW_HEIGHT_DP = 40
+private const val PROFILE_ROW_HEIGHT_DP = 34
 
 /**
  * ショートカットチップ行の高さ (dp)。
  * 変更理由: ソフトキーボード表示時でもClaude/Codexチップを残すため、
  * 参照モックに合わせた低めの行高へ調整する。
  */
-private const val SHORTCUT_ROW_HEIGHT_DP = 44
+private const val SHORTCUT_ROW_HEIGHT_DP = 38
 
-private const val COMMAND_PANEL_HEADER_HEIGHT_DP = 32
+private const val COMMAND_PANEL_HEADER_HEIGHT_DP = 28
 
 /**
  * ShortcutBarのコンテンツ領域の高さ (dp)。

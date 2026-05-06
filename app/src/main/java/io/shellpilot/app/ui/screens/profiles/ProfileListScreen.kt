@@ -121,7 +121,7 @@ fun ProfileListScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
+                    contentPadding = PaddingValues(10.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     item {
@@ -200,7 +200,7 @@ private fun ProfileListItem(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = if (profile.name == "Default") {
-                        stringResource(R.string.colorscheme_default)
+                        stringResource(R.string.profile_default_name)
                     } else {
                         profile.name
                     },

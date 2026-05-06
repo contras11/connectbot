@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 変更理由: ImageGenのMonochrome Terminal案を、ランチャーマスクに強いvectorで再現する。 -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M28,30 L80,30 Q87,30 87,37 L87,74 Q87,81 80,81 L28,81 Q21,81 21,74 L21,37 Q21,30 28,30 Z"
+        android:strokeColor="#E7E7EA"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="4.2" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M28,30 L80,30 Q87,30 87,37 L87,43 L21,43 L21,37 Q21,30 28,30 Z"
+        android:strokeColor="#A7A9AE"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="2.2" />
+    <path
+        android:fillColor="#DADCE1"
+        android:pathData="M31,35 L39,35 Q41,35 41,37 L41,38 Q41,40 39,40 L31,40 Q29,40 29,38 L29,37 Q29,35 31,35 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M35,51 L46,61 L35,71"
+        android:strokeColor="#F4F4F5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="6.4" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M55,70 L72,70"
+        android:strokeColor="#F4F4F5"
+        android:strokeLineCap="round"
+        android:strokeWidth="6.4" />
+</vector>

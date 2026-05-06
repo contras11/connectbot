@@ -32,6 +32,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.DropdownMenuItem
@@ -164,7 +165,7 @@ fun HostEditorScreenContent(
             }
         },
         actions = {
-            TextButton(
+            IconButton(
                 onClick = {
                     onSaveHost(expandedMode)
                     onNavigateBack()
@@ -177,7 +178,16 @@ fun HostEditorScreenContent(
                     uiState.quickConnect.isNotBlank()
                 }
             ) {
-                Text(stringResource(if (hostId == -1L) R.string.hostpref_add_host else R.string.hostpref_save_host))
+                Icon(
+                    Icons.Default.Check,
+                    contentDescription = stringResource(
+                        if (hostId == -1L) {
+                            R.string.hostpref_add_host
+                        } else {
+                            R.string.hostpref_save_host
+                        }
+                    )
+                )
             }
         },
         modifier = modifier
@@ -187,9 +197,9 @@ fun HostEditorScreenContent(
                 .padding(padding)
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(12.dp)
+                .padding(10.dp)
                 .imePadding(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             if (!expandedMode) {
                 // 変更理由: 初回入力の意図を明確にするためクイック接続をカード化する。
@@ -840,7 +850,7 @@ private fun ProfileSelector(
 
                     else -> {
                         val selectedProfile = availableProfiles.find { it.id == profileId }
-                        selectedProfile?.name ?: stringResource(R.string.hostpref_profile_none)
+                        selectedProfile?.let { displayProfileName(it) } ?: stringResource(R.string.hostpref_profile_none)
                     }
                 },
                 onValueChange = {},
@@ -872,7 +882,7 @@ private fun ProfileSelector(
                 // Available profiles
                 availableProfiles.forEach { profile ->
                     DropdownMenuItem(
-                        text = { Text(profile.name) },
+                        text = { Text(displayProfileName(profile)) },
                         onClick = {
                             onProfileSelect(profile.id)
                             expanded = false
@@ -884,6 +894,14 @@ private fun ProfileSelector(
         }
     }
 }
+
+@Composable
+private fun displayProfileName(profile: Profile): String =
+    if (profile.name == "Default") {
+        stringResource(R.string.profile_default_name)
+    } else {
+        profile.name
+    }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

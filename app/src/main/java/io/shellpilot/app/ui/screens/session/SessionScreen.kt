@@ -20,7 +20,6 @@ package io.shellpilot.app.ui.screens.session
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,9 +31,9 @@ import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -46,7 +45,6 @@ import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -71,11 +69,14 @@ import io.shellpilot.app.session.CliCommandRegistry
 import io.shellpilot.app.session.SessionController
 import org.connectbot.terminal.Terminal
 import io.shellpilot.app.ui.LocalTerminalManager
+import io.shellpilot.app.ui.components.CommandChipButton
 import io.shellpilot.app.ui.components.FloatingTextInputDialog
 import io.shellpilot.app.ui.components.InlinePrompt
 import io.shellpilot.app.ui.components.SHORTCUT_BAR_HEIGHT_DP
 import io.shellpilot.app.ui.components.ShellPilotTopBar
+import io.shellpilot.app.ui.components.ShellPilotStatePanel
 import io.shellpilot.app.ui.components.ShortcutBar
+import io.shellpilot.app.ui.components.StatusChip
 import io.shellpilot.app.ui.components.TERMINAL_KEYBOARD_HEIGHT_DP
 import io.shellpilot.app.ui.components.TerminalKeyboard
 import io.shellpilot.app.util.rememberTerminalTypefaceResultFromStoredValue
@@ -292,8 +293,11 @@ private fun SessionTopBar(
                 )
             }
             if (sessionState is SessionController.SessionState.Active) {
-                TextButton(onClick = onDisconnect) {
-                    Text("切断")
+                IconButton(onClick = onDisconnect) {
+                    Icon(
+                        Icons.Default.PowerSettingsNew,
+                        contentDescription = "切断"
+                    )
                 }
             }
         }
@@ -308,36 +312,42 @@ private fun IdleContent(
     onConnect: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier.padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "接続準備完了",
-            style = MaterialTheme.typography.titleMedium
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = onConnect) {
-            Text("接続開始")
+    ShellPilotStatePanel(
+        title = "接続準備完了",
+        body = "ホストへ接続して、端末とAI CLIコマンドパネルを開きます。",
+        modifier = modifier,
+        chips = {
+            StatusChip(label = "SSH")
+            StatusChip(label = "AI CLI")
         }
+    ) {
+        CommandChipButton(
+            label = "接続開始",
+            onClick = onConnect,
+            emphasized = true
+        )
     }
 }
 
-/**
- * bridge生成中のローディング表示。
- */
 @Composable
 private fun LoadingContent(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier.padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+    ShellPilotStatePanel(
+        title = "接続中",
+        body = "セッションを準備しています。しばらくお待ちください。",
+        modifier = modifier,
+        chips = {
+            StatusChip(label = "認証")
+            StatusChip(label = "端末")
+        }
     ) {
-        CircularProgressIndicator()
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "セッションを準備中...",
-            style = MaterialTheme.typography.bodyMedium
-        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
     }
 }
 
@@ -513,41 +523,29 @@ private fun DisconnectedContent(
         }
     }
 
-    Column(
-        modifier = modifier.padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "接続が切断されました",
-            style = MaterialTheme.typography.titleMedium
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-
-        if (autoRetryActive) {
-            Text(
-                text = "${countdown}秒後に自動的に再接続します...",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = onReconnect) {
-                Text("今すぐ再接続")
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedButton(onClick = {
-                autoRetryActive = false
-                onBack()
-            }) {
-                Text("キャンセルして戻る")
-            }
+    ShellPilotStatePanel(
+        title = "接続が切断されました",
+        body = if (autoRetryActive) {
+            "${countdown}秒後に自動的に再接続します。"
         } else {
-            Button(onClick = onReconnect) {
-                Text("再接続")
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedButton(onClick = onBack) {
-                Text("ホーム画面に戻る")
-            }
+            "再接続するか、ホーム画面へ戻ってください。"
+        },
+        modifier = modifier,
+        chips = {
+            StatusChip(label = if (autoRetryActive) "自動復帰" else "切断")
+            StatusChip(label = "セッション")
+        }
+    ) {
+        CommandChipButton(
+            label = if (autoRetryActive) "今すぐ再接続" else "再接続",
+            onClick = onReconnect,
+            emphasized = true
+        )
+        OutlinedButton(onClick = {
+            autoRetryActive = false
+            onBack()
+        }) {
+            Text(if (autoRetryActive) "キャンセルして戻る" else "ホーム画面に戻る")
         }
     }
 }
@@ -562,26 +560,16 @@ private fun ErrorContent(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier.padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "接続エラー",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.error
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyMedium
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = onRetry) {
-            Text("リトライ")
+    ShellPilotStatePanel(
+        title = "接続エラー",
+        body = message,
+        modifier = modifier,
+        chips = {
+            StatusChip(label = "エラー", accent = MaterialTheme.colorScheme.error)
         }
-        Spacer(modifier = Modifier.height(8.dp))
-        TextButton(onClick = onBack) {
+    ) {
+        CommandChipButton(label = "リトライ", onClick = onRetry, emphasized = true)
+        OutlinedButton(onClick = onBack) {
             Text("戻る")
         }
     }

@@ -242,14 +242,14 @@ class PortForwardListViewModel @Inject constructor(
             try {
                 val bridge = findBridgeForHost()
                 if (bridge == null) {
-                    _uiState.update { it.copy(error = "No active connection for this host") }
+                    _uiState.update { it.copy(error = "このホストには有効な接続がありません") }
                     return@launch
                 }
 
                 val bridgePortForward = bridge.portForwards.find { it.id == portForward.id }
                 if (bridgePortForward == null) {
                     _uiState.update {
-                        it.copy(error = "Port forward ${portForward.nickname} not found in active connection")
+                        it.copy(error = "有効な接続にポート転送 ${portForward.nickname} が見つかりません")
                     }
                     return@launch
                 }
@@ -271,14 +271,14 @@ class PortForwardListViewModel @Inject constructor(
                 } else {
                     val action = if (enable) "enable" else "disable"
                     _uiState.update {
-                        it.copy(error = "Failed to $action port forward ${portForward.nickname}")
+                        it.copy(error = "ポート転送 ${portForward.nickname} の${action.toJapanesePortForwardAction()}に失敗しました")
                     }
                 }
             } catch (e: Exception) {
                 val action = if (enable) "enabling" else "disabling"
                 Timber.e(e, "Error $action port forward")
                 _uiState.update {
-                    it.copy(error = e.message ?: "Failed to ${if (enable) "enable" else "disable"} port forward")
+                    it.copy(error = e.message ?: "ポート転送の${if (enable) "有効化" else "無効化"}に失敗しました")
                 }
             }
         }
@@ -288,10 +288,10 @@ class PortForwardListViewModel @Inject constructor(
 
     private fun validatePort(portString: String, portType: String): Int {
         val port = portString.toIntOrNull()
-            ?: throw IllegalArgumentException("Invalid $portType port: '$portString' is not a valid number")
+            ?: throw IllegalArgumentException("${portType.toJapanesePortType()}ポートは数値で入力してください: $portString")
 
         if (port !in 1..65535) {
-            throw IllegalArgumentException("Invalid $portType port: $port must be between 1 and 65535")
+            throw IllegalArgumentException("${portType.toJapanesePortType()}ポートは1〜65535で入力してください: $port")
         }
 
         return port
@@ -306,7 +306,7 @@ class PortForwardListViewModel @Inject constructor(
         val destPort = if (destSplit.size > 1) {
             validatePort(destSplit.last(), "destination")
         } else {
-            throw IllegalArgumentException("Destination must include a port (format: host:port)")
+            throw IllegalArgumentException("転送先は host:port 形式でポートを含めてください")
         }
 
         return ParsedDestination(destAddr, destPort)
@@ -320,4 +320,16 @@ class PortForwardListViewModel @Inject constructor(
             }
         }
     }
+}
+
+private fun String.toJapanesePortForwardAction(): String = when (this) {
+    "enable" -> "有効化"
+    "disable" -> "無効化"
+    else -> "更新"
+}
+
+private fun String.toJapanesePortType(): String = when (this) {
+    "source" -> "待受"
+    "destination" -> "転送先"
+    else -> this
 }

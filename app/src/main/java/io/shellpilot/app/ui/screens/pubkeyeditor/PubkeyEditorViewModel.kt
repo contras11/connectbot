@@ -102,7 +102,7 @@ class PubkeyEditorViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            error = "Public key not found"
+                            error = "公開鍵が見つかりません"
                         )
                     }
                 }
@@ -111,7 +111,7 @@ class PubkeyEditorViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        error = "Failed to load public key: ${e.message}"
+                        error = "公開鍵を読み込めませんでした: ${e.message}"
                     )
                 }
             }
@@ -238,7 +238,7 @@ class PubkeyEditorViewModel @Inject constructor(
             } catch (e: Exception) {
                 Timber.e(e, "Failed to save pubkey")
                 _uiState.update {
-                    it.copy(error = "Failed to save: ${e.message}")
+                    it.copy(error = "保存できませんでした: ${e.message}")
                 }
             }
         }

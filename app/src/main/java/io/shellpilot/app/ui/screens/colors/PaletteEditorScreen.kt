@@ -196,7 +196,7 @@ fun PaletteEditorScreenContent(
                 else -> {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
+                        contentPadding = PaddingValues(10.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         item {

@@ -362,7 +362,7 @@ private fun PubkeyEditorScreenErrorPreview() {
         PubkeyEditorScreenContent(
             uiState = PubkeyEditorUiState(
                 isLoading = false,
-                error = "Failed to load public key"
+                error = "公開鍵を読み込めませんでした"
             ),
             onNavigateBack = {},
             onNicknameChange = {},

@@ -144,7 +144,7 @@ class ConsoleViewModel @Inject constructor(
                         _uiState.update {
                             it.copy(
                                 isLoading = false,
-                                error = "Temporary connection not found"
+                                error = "一時接続が見つかりません"
                             )
                         }
                     } else {
@@ -154,7 +154,7 @@ class ConsoleViewModel @Inject constructor(
                             _uiState.update {
                                 it.copy(
                                     isLoading = false,
-                                    error = "Failed to open connection: host not found"
+                                    error = "接続を開けませんでした。ホストが見つかりません"
                                 )
                             }
                         }

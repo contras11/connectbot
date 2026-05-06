@@ -81,18 +81,18 @@ import org.connectbot.terminal.VTermKey
  * 変更理由: Ctrl+Cなどの制御キー追加後も矢印が初期表示に収まるよう、
  * 端末専用バーでは44dpへ圧縮する。
  */
-const val TERMINAL_KEYBOARD_HEIGHT_DP = 42
+const val TERMINAL_KEYBOARD_HEIGHT_DP = 36
 
 /**
  * Width of the virtual keyboard keys in dp.
  * 変更理由: ImageGen参照ボードの固定キー列に合わせ、省スペースな正方形ボタンに統一。
  */
-private const val TERMINAL_KEYBOARD_WIDTH_DP = 40
+private const val TERMINAL_KEYBOARD_WIDTH_DP = 34
 
 /**
  * Size of the content (icons and text) for the virtual keyboard keys in dp.
  */
-private const val TERMINAL_KEYBOARD_CONTENT_SIZE_DP = 17
+private const val TERMINAL_KEYBOARD_CONTENT_SIZE_DP = 16
 
 /**
  * Virtual keyboard with terminal special keys (Ctrl, Esc, arrows, function keys, etc.)
@@ -227,8 +227,8 @@ private fun TerminalKeyboardContent(
                     modifier = Modifier
                         .weight(1f)
                         .horizontalScroll(scrollState)
-                        .padding(horizontal = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        .padding(horizontal = 5.dp),
+                    horizontalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
                     // 変更理由: ^C と矢印を先頭に固定し、Claude Code / Codexの
                     // 中断操作を追加してもカーソル移動キーが初期表示から隠れないようにする。
@@ -541,7 +541,7 @@ private fun ControlSequenceButton(
     Surface(
         onClick = onClick,
         modifier = modifier
-            .width(48.dp)
+            .width(36.dp)
             .height(TERMINAL_KEYBOARD_HEIGHT_DP.dp),
         shape = RoundedCornerShape(8.dp),
         // 変更理由: ^Cなどは重要だが危険色ではないため、白黒テーマに馴染む

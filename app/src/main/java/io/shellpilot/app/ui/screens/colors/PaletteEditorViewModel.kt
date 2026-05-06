@@ -223,7 +223,7 @@ class PaletteEditorViewModel @Inject constructor(
 
     fun updateForegroundColor(colorIndex: Int) {
         if (_uiState.value.isBuiltIn) {
-            _uiState.update { it.copy(error = "Cannot modify built-in schemes. Duplicate to customize.") }
+            _uiState.update { it.copy(error = "内蔵スキームは編集できません。複製してから変更してください。") }
             return
         }
         _uiState.update { it.copy(foregroundColorIndex = colorIndex) }
@@ -232,7 +232,7 @@ class PaletteEditorViewModel @Inject constructor(
 
     fun updateBackgroundColor(colorIndex: Int) {
         if (_uiState.value.isBuiltIn) {
-            _uiState.update { it.copy(error = "Cannot modify built-in schemes. Duplicate to customize.") }
+            _uiState.update { it.copy(error = "内蔵スキームは編集できません。複製してから変更してください。") }
             return
         }
         _uiState.update { it.copy(backgroundColorIndex = colorIndex) }

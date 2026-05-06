@@ -439,7 +439,7 @@ private fun MigrationScreenFailedPreview() {
     ShellPilotTheme {
         MigrationScreen(
             uiState = MigrationUiState.Failed(
-                error = "Database corruption detected",
+                error = "データベース破損を検出しました",
                 debugLog = listOf(
                     "Starting database migration",
                     "Step 1: Reading legacy databases",
