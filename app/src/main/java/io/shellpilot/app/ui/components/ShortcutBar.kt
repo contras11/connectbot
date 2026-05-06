@@ -35,8 +35,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -64,6 +69,7 @@ import io.shellpilot.app.session.CliCommandRegistry
  * @param selectedProfileId 選択中のプロファイルID (null = カスタム)
  * @param onProfileChange プロファイルタブ切替時のコールバック
  * @param onShortcutClick ショートカットがタップされた時のコールバック
+ * @param compact ソフトキーボード表示中など、縦方向の圧迫を避けるために行高を抑える
  * @param modifier Modifier
  */
 @Composable
@@ -73,9 +79,11 @@ fun ShortcutBar(
     onProfileChange: (String?) -> Unit,
     onShortcutClick: (Shortcut) -> Unit,
     modifier: Modifier = Modifier,
+    compact: Boolean = false,
     // 変更理由: プロファイルタブの表示順序をユーザ設定から受け取る。
     // nullの場合はデフォルト順序(カスタム + CliCommandRegistryカテゴリ順)を使用。
-    profileOrder: List<String?> = emptyList()
+    profileOrder: List<String?> = emptyList(),
+    hiddenProfileIds: Set<String> = emptySet()
 ) {
     // 変更理由: profileOrderが指定されていればその順序でタブを構築。
     // 空の場合はデフォルト順序（カスタム + CliCommandRegistry全カテゴリ）。
@@ -85,7 +93,7 @@ fun ShortcutBar(
                 ProfileTab(id = null, label = "カスタム")
             } else {
                 CliCommandRegistry.findCategory(id)?.let {
-                    ProfileTab(id = it.id, label = it.displayName)
+                    ProfileTab(id = it.id, label = sessionProfileLabel(it.id, it.displayName))
                 }
             }
         }
@@ -94,21 +102,42 @@ fun ShortcutBar(
         val knownIds = ordered.map { it.id }.toSet()
         ordered + CliCommandRegistry.categories
             .filter { it.id !in knownIds }
-            .map { ProfileTab(id = it.id, label = it.displayName) }
+            .map { ProfileTab(id = it.id, label = sessionProfileLabel(it.id, it.displayName)) }
     } else {
         buildList {
             add(ProfileTab(id = null, label = "カスタム"))
             CliCommandRegistry.categories.forEach {
-                add(ProfileTab(id = it.id, label = it.displayName))
+                add(ProfileTab(id = it.id, label = sessionProfileLabel(it.id, it.displayName)))
             }
+        }
+    }
+    val profileRowHeight = if (compact) 42.dp else PROFILE_ROW_HEIGHT_DP.dp
+    val shortcutRowHeight = if (compact) 48.dp else SHORTCUT_ROW_HEIGHT_DP.dp
+    val headerRowHeight = if (compact) 34.dp else COMMAND_PANEL_HEADER_HEIGHT_DP.dp
+    val rowHorizontalPadding = if (compact) 6.dp else 8.dp
+    val rowSpacing = if (compact) 4.dp else 6.dp
+    var commandsExpanded by rememberSaveable { mutableStateOf(true) }
+
+    val visibleProfiles = profiles.filter { profile ->
+        profile.id == null || profile.id !in hiddenProfileIds
+    }
+    val effectiveSelectedProfileId = if (visibleProfiles.any { it.id == selectedProfileId }) {
+        selectedProfileId
+    } else {
+        visibleProfiles.firstOrNull()?.id
+    }
+
+    LaunchedEffect(effectiveSelectedProfileId, selectedProfileId) {
+        if (effectiveSelectedProfileId != selectedProfileId) {
+            onProfileChange(effectiveSelectedProfileId)
         }
     }
 
     // 変更理由: 選択プロファイルに応じて表示するショートカットを切り替え
-    val displayedShortcuts = if (selectedProfileId == null) {
+    val displayedShortcuts = if (effectiveSelectedProfileId == null) {
         customShortcuts
     } else {
-        CliCommandRegistry.findCategory(selectedProfileId)?.commands ?: emptyList()
+        CliCommandRegistry.findCategory(effectiveSelectedProfileId)?.commands ?: emptyList()
     }
 
     // 変更理由: Surfaceにwindow insets paddingを置くと背景色がナビゲーション
@@ -126,35 +155,73 @@ fun ShortcutBar(
         Column(
             modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars)
         ) {
+            // 変更理由: ImageGen参照モックに合わせ、Claude/Codexコマンド群は
+            // 端末操作を邪魔しない折りたたみ可能なパネルとして扱う。
+            Surface(
+                onClick = { commandsExpanded = !commandsExpanded },
+                color = MaterialTheme.colorScheme.surface,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(headerRowHeight)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Claude / Codex コマンド",
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = if (commandsExpanded) "展開中 ︿" else "折りたたみ中 ﹀",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
+                    )
+                }
+            }
+
+            if (!commandsExpanded) {
+                return@Column
+            }
+
+            HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f))
+
             // 段1: プロファイルタブ (FilterChip) - 横スクロール可能
             Row(
                 modifier = Modifier
                     .horizontalScroll(rememberScrollState())
-                    .height(PROFILE_ROW_HEIGHT_DP.dp)
-                    .padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    .height(profileRowHeight)
+                    .padding(horizontal = rowHorizontalPadding),
+                horizontalArrangement = Arrangement.spacedBy(rowSpacing),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                profiles.forEach { profile ->
+                visibleProfiles.forEach { profile ->
                     FilterChip(
-                        selected = selectedProfileId == profile.id,
+                        selected = effectiveSelectedProfileId == profile.id,
                         onClick = { onProfileChange(profile.id) },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primary,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
                             containerColor = MaterialTheme.colorScheme.surfaceVariant,
                             labelColor = MaterialTheme.colorScheme.onSurfaceVariant
                         ),
                         border = FilterChipDefaults.filterChipBorder(
                             enabled = true,
-                            selected = selectedProfileId == profile.id,
-                            borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
-                            selectedBorderColor = MaterialTheme.colorScheme.primary
+                            selected = effectiveSelectedProfileId == profile.id,
+                            borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f),
+                            selectedBorderColor = MaterialTheme.colorScheme.outline
                         ),
                         label = {
                             Text(
                                 text = profile.label,
                                 maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold
                             )
@@ -163,23 +230,23 @@ fun ShortcutBar(
                 }
             }
 
-            HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
+            HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f))
 
             // 段2: ショートカットチップ一覧 - 横スクロール可能
             if (displayedShortcuts.isNotEmpty()) {
                 Row(
                     modifier = Modifier
                         .horizontalScroll(rememberScrollState())
-                        .height(SHORTCUT_ROW_HEIGHT_DP.dp)
-                        .padding(horizontal = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        .height(shortcutRowHeight)
+                        .padding(horizontal = rowHorizontalPadding),
+                    horizontalArrangement = Arrangement.spacedBy(rowSpacing),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     displayedShortcuts.forEach { shortcut ->
                         CommandChipButton(
                             label = shortcut.label,
                             onClick = { onShortcutClick(shortcut) },
-                            emphasized = selectedProfileId == "control"
+                            emphasized = effectiveSelectedProfileId == "control"
                         )
                     }
                 }
@@ -187,7 +254,7 @@ fun ShortcutBar(
                 // 変更理由: ショートカット未登録時の案内表示
                 Row(
                     modifier = Modifier
-                        .height(SHORTCUT_ROW_HEIGHT_DP.dp)
+                        .height(shortcutRowHeight)
                         .padding(horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -209,22 +276,34 @@ fun ShortcutBar(
  */
 private data class ProfileTab(val id: String?, val label: String)
 
+private fun sessionProfileLabel(id: String, displayName: String): String = when (id) {
+    "control" -> "制御"
+    "general" -> "汎用"
+    "claude_code" -> "Claude"
+    "codex" -> "Codex"
+    else -> displayName
+}
+
 /**
  * プロファイルタブ行の高さ (dp)。
- * 変更理由: Material3の最小タッチターゲット48dpを満たすよう40→48に拡大。
+ * 変更理由: 制御キー列と同時表示しても画面を圧迫しないよう、
+ * ターミナル専用UIでは44dpへ圧縮する。
  */
-private const val PROFILE_ROW_HEIGHT_DP = 48
+private const val PROFILE_ROW_HEIGHT_DP = 44
 
 /**
  * ショートカットチップ行の高さ (dp)。
- * 変更理由: 親指操作での誤タップ防止のため44→56に拡大。
+ * 変更理由: ソフトキーボード表示時でもClaude/Codexチップを残すため、
+ * 参照モックに合わせた低めの行高へ調整する。
  */
-private const val SHORTCUT_ROW_HEIGHT_DP = 56
+private const val SHORTCUT_ROW_HEIGHT_DP = 50
+
+private const val COMMAND_PANEL_HEADER_HEIGHT_DP = 38
 
 /**
  * ShortcutBarのコンテンツ領域の高さ (dp)。
  * navigationBarsのinsets分は含まない（ScaffoldまたはColumn内で別途処理）。
  * SessionScreenのInlinePromptボトムパディング計算に使用する。
- * 変更理由: 48 + 56 + 1(divider) = 105dp
+ * 変更理由: 38 + 44 + 50 + 2(divider) = 134dp
  */
-const val SHORTCUT_BAR_HEIGHT_DP = PROFILE_ROW_HEIGHT_DP + SHORTCUT_ROW_HEIGHT_DP + 1
+const val SHORTCUT_BAR_HEIGHT_DP = COMMAND_PANEL_HEADER_HEIGHT_DP + PROFILE_ROW_HEIGHT_DP + SHORTCUT_ROW_HEIGHT_DP + 2

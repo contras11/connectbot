@@ -133,20 +133,24 @@ fun CommandSurfaceCard(
     content: @Composable ColumnScope.() -> Unit
 ) {
     val colors = CardDefaults.cardColors(
-        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        containerColor = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface
     )
+    val borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)
+    val contentPadding = 14.dp
     if (onClick != null) {
         androidx.compose.material3.Card(
             onClick = onClick,
             modifier = modifier.fillMaxWidth(),
             shape = CommandCardShape,
             colors = colors,
-            border = BorderStroke(1.dp, accent.copy(alpha = 0.28f))
+            border = BorderStroke(1.dp, borderColor)
         ) {
+            // 変更理由: ImageGen参照ボードの1px境界方針に合わせ、
+            // 汎用カードは強い色枠を使わず中立な面で階層を作る。
             Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.padding(contentPadding),
+                verticalArrangement = Arrangement.spacedBy(9.dp),
                 content = content
             )
         }
@@ -155,11 +159,11 @@ fun CommandSurfaceCard(
             modifier = modifier.fillMaxWidth(),
             shape = CommandCardShape,
             colors = colors,
-            border = BorderStroke(1.dp, accent.copy(alpha = 0.22f))
+            border = BorderStroke(1.dp, borderColor)
         ) {
             Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.padding(contentPadding),
+                verticalArrangement = Arrangement.spacedBy(9.dp),
                 content = content
             )
         }
@@ -178,11 +182,11 @@ fun StatusChip(
         shape = RoundedCornerShape(999.dp),
         color = containerColor,
         contentColor = accent,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.34f))
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f))
     ) {
         Text(
             text = label,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1
@@ -202,18 +206,19 @@ fun CommandChipButton(
         modifier = modifier,
         colors = ButtonDefaults.buttonColors(
             containerColor = if (emphasized) {
-                MaterialTheme.colorScheme.primary
+                MaterialTheme.colorScheme.primaryContainer
             } else {
                 MaterialTheme.colorScheme.surfaceVariant
             },
             contentColor = if (emphasized) {
-                MaterialTheme.colorScheme.onPrimary
+                MaterialTheme.colorScheme.onPrimaryContainer
             } else {
                 MaterialTheme.colorScheme.onSurface
             }
         ),
         shape = RoundedCornerShape(8.dp),
-        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.74f)),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
     ) {
         Text(
             text = label,

@@ -56,6 +56,11 @@ class ShortcutListViewModel @Inject constructor(
     /** プロファイルタブの表示順序 */
     val profileOrder: StateFlow<List<String?>> = _profileOrder.asStateFlow()
 
+    private val _hiddenProfileIds = MutableStateFlow<Set<String>>(emptySet())
+
+    /** 非表示にしたプロファイルタブID */
+    val hiddenProfileIds: StateFlow<Set<String>> = _hiddenProfileIds.asStateFlow()
+
     private val _templateSyncMessage = MutableStateFlow<String?>(null)
 
     /** 公式テンプレート同期結果の表示用メッセージ */
@@ -69,6 +74,7 @@ class ShortcutListViewModel @Inject constructor(
     /** プロファイルタブ順序を読み込む */
     private fun loadProfileOrder() {
         _profileOrder.value = profileOrderRepository.getOrder()
+        _hiddenProfileIds.value = profileOrderRepository.getHiddenProfileIds()
     }
 
     private fun loadShortcuts() {
@@ -187,6 +193,13 @@ class ShortcutListViewModel @Inject constructor(
             profileOrderRepository.saveOrder(order)
             _profileOrder.value = order
         }
+    }
+
+    fun setProfileVisible(profileId: String?, visible: Boolean) {
+        // カスタムタブはユーザ作成ショートカットの入口として常に表示する。
+        val id = profileId ?: return
+        profileOrderRepository.setProfileVisible(id, visible)
+        _hiddenProfileIds.value = profileOrderRepository.getHiddenProfileIds()
     }
 
     fun importCategory(categoryId: String) {

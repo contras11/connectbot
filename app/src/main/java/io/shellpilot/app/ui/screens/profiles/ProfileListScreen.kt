@@ -19,6 +19,8 @@ package io.shellpilot.app.ui.screens.profiles
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -40,7 +42,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -89,18 +90,16 @@ fun ProfileListScreen(
             }
         },
         actions = {
+            IconButton(onClick = { viewModel.showCreateDialog() }) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = stringResource(R.string.profile_list_create_profile)
+                )
+            }
             IconButton(onClick = onNavigateToColors) {
                 Icon(
                     Icons.Default.Palette,
                     contentDescription = stringResource(R.string.menu_manage_colors)
-                )
-            }
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { viewModel.showCreateDialog() }) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = stringResource(R.string.profile_list_create_profile)
                 )
             }
         }
@@ -122,8 +121,27 @@ fun ProfileListScreen(
                 )
             } else {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    item {
+                        CommandSurfaceCard(accent = MaterialTheme.colorScheme.outlineVariant) {
+                            Text(
+                                text = "プロファイルを管理",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                text = "フォント、文字サイズ、端末エミュレーション、配色を作業単位で切り替えます。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                StatusChip(label = "プロファイル ${uiState.profiles.size}")
+                                StatusChip(label = "配色")
+                            }
+                        }
+                    }
                     items(uiState.profiles, key = { it.id }) { profile ->
                         ProfileListItem(
                             profile = profile,
@@ -178,11 +196,9 @@ private fun ProfileListItem(
     var showMenu by remember { mutableStateOf(false) }
 
     CommandSurfaceCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth(),
         onClick = onClick,
-        accent = MaterialTheme.colorScheme.primary
+        accent = MaterialTheme.colorScheme.outlineVariant
     ) {
         Row(
             modifier = Modifier

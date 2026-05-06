@@ -18,10 +18,8 @@
 package io.shellpilot.app.ui.screens.pubkeylist
 
 import android.net.Uri
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Arrangement
@@ -31,9 +29,10 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -55,36 +54,25 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FloatingActionButtonMenu
-import androidx.compose.material3.FloatingActionButtonMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.ToggleFloatingActionButton
-import androidx.compose.material3.ToggleFloatingActionButtonDefaults.animateIcon
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -96,6 +84,7 @@ import io.shellpilot.app.R
 import io.shellpilot.app.data.entity.Pubkey
 import io.shellpilot.app.ui.LocalTerminalManager
 import io.shellpilot.app.ui.ScreenPreviews
+import io.shellpilot.app.ui.components.CommandSurfaceCard
 import io.shellpilot.app.ui.components.ShellPilotScaffold
 import io.shellpilot.app.ui.components.StatusChip
 import io.shellpilot.app.ui.components.rememberBiometricPromptState
@@ -258,7 +247,7 @@ fun PubkeyListScreen(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PubkeyListScreenContent(
     uiState: PubkeyListUiState,
@@ -279,10 +268,6 @@ fun PubkeyListScreenContent(
     onImportKey: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var fabMenuExpanded by rememberSaveable { mutableStateOf(false) }
-
-    BackHandler(fabMenuExpanded) { fabMenuExpanded = false }
-
     ShellPilotScaffold(
         title = stringResource(R.string.title_pubkey_list),
         subtitle = "認証キー・暗号化・ロード状態",
@@ -291,44 +276,12 @@ fun PubkeyListScreenContent(
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
             }
         },
-        floatingActionButton = {
-            FloatingActionButtonMenu(
-                expanded = fabMenuExpanded,
-                button = {
-                    ToggleFloatingActionButton(
-                        checked = fabMenuExpanded,
-                        onCheckedChange = { fabMenuExpanded = !fabMenuExpanded }
-                    ) {
-                        Icon(
-                            painter = rememberVectorPainter(
-                                if (checkedProgress > 0.5f) Icons.Filled.Close else Icons.Filled.Add
-                            ),
-                            contentDescription = if (fabMenuExpanded) {
-                                stringResource(android.R.string.cancel)
-                            } else {
-                                stringResource(R.string.pubkey_generate)
-                            },
-                            modifier = Modifier.animateIcon({ checkedProgress }),
-                        )
-                    }
-                }
-            ) {
-                FloatingActionButtonMenuItem(
-                    onClick = {
-                        fabMenuExpanded = false
-                        onNavigateToGenerate()
-                    },
-                    icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                    text = { Text(stringResource(R.string.pubkey_generate)) }
-                )
-                FloatingActionButtonMenuItem(
-                    onClick = {
-                        fabMenuExpanded = false
-                        onImportKey()
-                    },
-                    icon = { Icon(Icons.Default.FileOpen, contentDescription = null) },
-                    text = { Text(stringResource(R.string.pubkey_import_existing)) }
-                )
+        actions = {
+            IconButton(onClick = onNavigateToGenerate) {
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.pubkey_generate))
+            }
+            IconButton(onClick = onImportKey) {
+                Icon(Icons.Default.FileOpen, contentDescription = stringResource(R.string.pubkey_import_existing))
             }
         },
         snackbarHost = {
@@ -364,10 +317,27 @@ fun PubkeyListScreenContent(
                             start = 16.dp,
                             end = 16.dp,
                             top = 16.dp,
-                            bottom = 104.dp, // Extra padding to avoid FAB menu overlap (88dp + 16dp for menu padding)
+                            bottom = 24.dp,
                         ),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        item {
+                            CommandSurfaceCard(accent = MaterialTheme.colorScheme.outlineVariant) {
+                                Text(
+                                    text = "公開鍵を管理",
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                Text(
+                                    text = "生成・インポート・ロード状態を確認し、SSH認証で使う鍵を切り替えます。",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    StatusChip(label = "鍵 ${uiState.pubkeys.size}")
+                                    StatusChip(label = "ロード中 ${uiState.loadedKeyNicknames.size}")
+                                }
+                            }
+                        }
                         items(
                             items = uiState.pubkeys,
                             key = { it.id }
@@ -433,70 +403,70 @@ private fun PubkeyListItem(
     var passwordCallback by remember { mutableStateOf<((String) -> Unit)?>(null) }
     var exportPassphraseCallback by remember { mutableStateOf<((String) -> Unit)?>(null) }
 
-    ListItem(
-        headlineContent = {
-            Text(
-                text = pubkey.nickname,
-                fontWeight = FontWeight.Bold
-            )
-        },
-        supportingContent = {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    stringResource(
-                        R.string.pubkey_type_label,
-                        pubkey.type
-                    )
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatusChip(
-                        label = if (isLoaded) "LOADED" else "STORED",
-                        accent = if (isLoaded) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
-                    )
-                    StatusChip(
-                        label = if (pubkey.encrypted) "ENCRYPTED" else "OPEN",
-                        accent = if (pubkey.encrypted) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    if (pubkey.isBiometric) {
-                        StatusChip(label = "BIOMETRIC", accent = MaterialTheme.colorScheme.secondary)
-                    }
-                }
+    CommandSurfaceCard(
+        modifier = modifier.fillMaxWidth(),
+        onClick = {
+            onClick { _, callback ->
+                // 変更理由: カード化後も鍵ロード時のパスワード要求導線を維持する。
+                passwordCallback = callback
+                showPasswordDialog = true
             }
         },
-        leadingContent = {
+        accent = MaterialTheme.colorScheme.outlineVariant
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             val icon = when {
                 pubkey.isBiometric -> Icons.Outlined.Fingerprint
                 pubkey.encrypted -> Icons.Outlined.Lock
                 else -> Icons.Outlined.LockOpen
             }
-
-            val modifier = when {
-                isLoaded -> Modifier
-                    .padding(2.dp)
-                    .border(
-                        width = 2.dp, // Border thickness
-                        color = Color.Green, // Border color
-                        shape = CircleShape // Makes the border a circle
+            Surface(
+                modifier = Modifier.size(40.dp),
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                border = androidx.compose.foundation.BorderStroke(
+                    width = 1.dp,
+                    color = if (isLoaded) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.outlineVariant
+                    }
+                )
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = when {
+                            pubkey.isBiometric -> stringResource(R.string.pubkey_biometric_description_icon)
+                            pubkey.encrypted -> stringResource(R.string.pubkey_encrypted_description)
+                            else -> stringResource(R.string.pubkey_not_encrypted_description)
+                        },
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(22.dp)
                     )
-                    .clip(CircleShape)
-                    .padding(4.dp)
-                else -> Modifier.padding(2.dp).clip(CircleShape).padding(4.dp)
+                }
             }
 
-            Box(
-                modifier = modifier
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = when {
-                        pubkey.isBiometric -> stringResource(R.string.pubkey_biometric_description_icon)
-                        pubkey.encrypted -> stringResource(R.string.pubkey_encrypted_description)
-                        else -> stringResource(R.string.pubkey_not_encrypted_description)
-                    },
+                Text(
+                    text = pubkey.nickname,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    stringResource(R.string.pubkey_type_label, pubkey.type),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-        },
-        trailingContent = {
+
             Box {
                 IconButton(onClick = { showMenu = true }) {
                     Icon(Icons.Default.MoreVert, stringResource(R.string.button_more_options))
@@ -689,16 +659,22 @@ private fun PubkeyListItem(
                     )
                 }
             }
-        },
-        modifier = modifier.clickable {
-            onClick { targetPubkey, callback ->
-                // Show password dialog if needed
-                passwordCallback = callback
-                showPasswordDialog = true
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            StatusChip(
+                label = if (isLoaded) "読み込み済み" else "保存済み",
+                accent = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            StatusChip(
+                label = if (pubkey.encrypted) "暗号化済み" else "未暗号化",
+                accent = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (pubkey.isBiometric) {
+                StatusChip(label = "生体認証")
             }
         }
-    )
-    HorizontalDivider()
+    }
 
     // Password dialog for unlocking key
     if (showPasswordDialog && passwordCallback != null) {

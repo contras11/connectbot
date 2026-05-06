@@ -17,15 +17,18 @@
 
 package io.shellpilot.app.ui.screens.portforwardlist
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -38,17 +41,13 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -65,6 +64,9 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import io.shellpilot.app.R
 import io.shellpilot.app.data.entity.PortForward
 import io.shellpilot.app.ui.ScreenPreviews
+import io.shellpilot.app.ui.components.CommandSurfaceCard
+import io.shellpilot.app.ui.components.ShellPilotScaffold
+import io.shellpilot.app.ui.components.StatusChip
 import io.shellpilot.app.ui.theme.ShellPilotTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -120,30 +122,23 @@ fun PortForwardListScreenContent(
         }
     }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.title_port_forwards_list)) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                    }
-                }
-            )
+    ShellPilotScaffold(
+        title = stringResource(R.string.title_port_forwards_list),
+        subtitle = "Local / Remote / Dynamic",
+        navigationIcon = {
+            IconButton(onClick = onNavigateBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+            }
         },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showAddDialog = true },
-                // This matches the FloatingActionButtonMenu padding
-                modifier = Modifier.padding(end = 16.dp, bottom = 16.dp),
-            ) {
+        actions = {
+            IconButton(onClick = { showAddDialog = true }) {
                 Icon(
                     Icons.Default.Add,
                     contentDescription = stringResource(R.string.portforward_pos)
                 )
             }
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         modifier = modifier
     ) { padding ->
         Box(
@@ -174,10 +169,27 @@ fun PortForwardListScreenContent(
                             start = 16.dp,
                             end = 16.dp,
                             top = 16.dp,
-                            bottom = 104.dp, // Extra padding to avoid FAB menu overlap (88dp + 16dp for menu padding)
+                            bottom = 24.dp,
                         ),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        item {
+                            CommandSurfaceCard(accent = MaterialTheme.colorScheme.outlineVariant) {
+                                Text(
+                                    text = "ポート転送を管理",
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                Text(
+                                    text = "接続中セッションのLocal/Remote/Dynamic転送を確認・編集します。",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    StatusChip(label = "転送 ${uiState.portForwards.size}")
+                                    StatusChip(label = if (uiState.hasLiveConnection) "接続中" else "未接続")
+                                }
+                            }
+                        }
                         items(
                             items = uiState.portForwards,
                             key = { it.id }
@@ -349,34 +361,65 @@ private fun PortForwardListItem(
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
-    ListItem(
-        headlineContent = {
-            Text(
-                text = portForward.nickname,
-                fontWeight = FontWeight.Bold
-            )
-        },
-        supportingContent = {
-            Column {
-                Text(
-                    stringResource(
-                        R.string.portforward_type_label,
-                        portForward.type
+    CommandSurfaceCard(
+        modifier = modifier.fillMaxWidth(),
+        onClick = onEdit,
+        accent = MaterialTheme.colorScheme.outlineVariant
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                modifier = Modifier.size(40.dp),
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                border = androidx.compose.foundation.BorderStroke(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant
+                )
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = if (isEnabled) Icons.Filled.CheckCircle else Icons.Outlined.Circle,
+                        contentDescription = if (isEnabled) {
+                            stringResource(R.string.portforward_enabled)
+                        } else {
+                            stringResource(R.string.portforward_disabled)
+                        },
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(22.dp)
                     )
-                )
-                Text("${portForward.sourcePort} → ${portForward.destAddr}:${portForward.destPort}")
+                }
             }
-        },
-        leadingContent = {
-            if (hasLiveConnection) {
-                Icon(
-                    imageVector = if (isEnabled) Icons.Filled.CheckCircle else Icons.Outlined.Circle,
-                    contentDescription = if (isEnabled) stringResource(R.string.portforward_enabled) else stringResource(R.string.portforward_disabled),
-                    tint = if (isEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = portForward.nickname,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
                 )
+                Text(
+                    text = "${portForward.sourcePort} → ${portForward.destAddr}:${portForward.destPort}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatusChip(label = portForward.type)
+                    StatusChip(
+                        label = if (hasLiveConnection && isEnabled) {
+                            stringResource(R.string.portforward_enabled)
+                        } else {
+                            stringResource(R.string.portforward_disabled)
+                        }
+                    )
+                }
             }
-        },
-        trailingContent = {
+
             Box {
                 IconButton(onClick = { showMenu = true }) {
                     Icon(Icons.Default.MoreVert, stringResource(R.string.button_more_options))
@@ -432,8 +475,6 @@ private fun PortForwardListItem(
                     )
                 }
             }
-        },
-        modifier = modifier.clickable { onEdit() }
-    )
-    HorizontalDivider()
+        }
+    }
 }

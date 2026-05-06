@@ -78,21 +78,21 @@ import org.connectbot.terminal.VTermKey
 /**
  * Height of the virtual keyboard key row in dp.
  *
- * 変更理由: Material3の最小タッチターゲット48dpを満たすよう40→48に拡大。
- * ShortcutBar の PROFILE_ROW_HEIGHT_DP (48dp) と統一。
+ * 変更理由: Ctrl+Cなどの制御キー追加後も矢印が初期表示に収まるよう、
+ * 端末専用バーでは44dpへ圧縮する。
  */
-const val TERMINAL_KEYBOARD_HEIGHT_DP = 48
+const val TERMINAL_KEYBOARD_HEIGHT_DP = 44
 
 /**
  * Width of the virtual keyboard keys in dp.
- * 変更理由: 高さ48dpに合わせて正方形ボタンに統一。
+ * 変更理由: ImageGen参照ボードの固定キー列に合わせ、省スペースな正方形ボタンに統一。
  */
-private const val TERMINAL_KEYBOARD_WIDTH_DP = 48
+private const val TERMINAL_KEYBOARD_WIDTH_DP = 44
 
 /**
  * Size of the content (icons and text) for the virtual keyboard keys in dp.
  */
-private const val TERMINAL_KEYBOARD_CONTENT_SIZE_DP = 20
+private const val TERMINAL_KEYBOARD_CONTENT_SIZE_DP = 18
 
 /**
  * Virtual keyboard with terminal special keys (Ctrl, Esc, arrows, function keys, etc.)
@@ -230,46 +230,12 @@ private fun TerminalKeyboardContent(
                         .padding(horizontal = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    // 変更理由: Claude Code / Codexの停止に頻用する制御キーを
-                    // sticky Ctrl操作とは別に常時ワンタップ送信できるようにする。
+                    // 変更理由: ^C と矢印を先頭に固定し、Claude Code / Codexの
+                    // 中断操作を追加してもカーソル移動キーが初期表示から隠れないようにする。
                     ControlSequenceButton(
-                        text = "Ctrl+C",
+                        text = "^C",
                         contentDescription = "Ctrl+Cを送信",
                         onClick = { onControlSequence("\u0003") }
-                    )
-
-                    ControlSequenceButton(
-                        text = "Ctrl+D",
-                        contentDescription = "Ctrl+Dを送信",
-                        onClick = { onControlSequence("\u0004") }
-                    )
-
-                    ControlSequenceButton(
-                        text = "Ctrl+Z",
-                        contentDescription = "Ctrl+Zを送信",
-                        onClick = { onControlSequence("\u001A") }
-                    )
-
-                    // Ctrl key (sticky modifier)
-                    ModifierKeyButton(
-                        text = stringResource(R.string.button_key_ctrl),
-                        contentDescription = stringResource(R.string.image_description_toggle_control_character),
-                        modifierLevel = modifierState.ctrlState,
-                        onClick = onCtrlPress
-                    )
-
-                    // Esc key
-                    KeyButton(
-                        text = stringResource(R.string.button_key_esc),
-                        contentDescription = stringResource(R.string.image_description_send_escape_character),
-                        onClick = onEscPress
-                    )
-
-                    // Tab key
-                    KeyButton(
-                        text = "⇥",
-                        contentDescription = stringResource(R.string.image_description_send_tab_character),
-                        onClick = onTabPress
                     )
 
                     // Arrow keys (repeatable)
@@ -295,6 +261,40 @@ private fun TerminalKeyboardContent(
                         icon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                         contentDescription = stringResource(R.string.image_description_right),
                         onPress = { onKeyPress(VTermKey.RIGHT) }
+                    )
+
+                    // Ctrl key (sticky modifier)
+                    ModifierKeyButton(
+                        text = stringResource(R.string.button_key_ctrl),
+                        contentDescription = stringResource(R.string.image_description_toggle_control_character),
+                        modifierLevel = modifierState.ctrlState,
+                        onClick = onCtrlPress
+                    )
+
+                    // Esc key
+                    KeyButton(
+                        text = stringResource(R.string.button_key_esc),
+                        contentDescription = stringResource(R.string.image_description_send_escape_character),
+                        onClick = onEscPress
+                    )
+
+                    // Tab key
+                    KeyButton(
+                        text = "⇥",
+                        contentDescription = stringResource(R.string.image_description_send_tab_character),
+                        onClick = onTabPress
+                    )
+
+                    ControlSequenceButton(
+                        text = "^D",
+                        contentDescription = "Ctrl+Dを送信",
+                        onClick = { onControlSequence("\u0004") }
+                    )
+
+                    ControlSequenceButton(
+                        text = "^Z",
+                        contentDescription = "Ctrl+Zを送信",
+                        onClick = { onControlSequence("\u001A") }
                     )
 
                     // Home/End
@@ -541,12 +541,14 @@ private fun ControlSequenceButton(
     Surface(
         onClick = onClick,
         modifier = modifier
-            .width(68.dp)
+            .width(48.dp)
             .height(TERMINAL_KEYBOARD_HEIGHT_DP.dp),
         shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
-        color = MaterialTheme.colorScheme.primary,
-        contentColor = MaterialTheme.colorScheme.onPrimary
+        // 変更理由: ^Cなどは重要だが危険色ではないため、白黒テーマに馴染む
+        // primaryContainerの控えめな強調に留める。
+        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
+        color = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
     ) {
         Box(
             contentAlignment = Alignment.Center,
@@ -555,7 +557,7 @@ private fun ControlSequenceButton(
             Text(
                 text = text,
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onPrimary
+                color = MaterialTheme.colorScheme.onPrimaryContainer
             )
         }
     }

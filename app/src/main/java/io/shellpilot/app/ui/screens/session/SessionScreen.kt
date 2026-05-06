@@ -118,6 +118,7 @@ fun SessionScreen(
     val probeResults by viewModel.probeResults.collectAsState()
     val selectedProfileId by viewModel.selectedProfileId.collectAsState()
     val profileOrder by viewModel.profileOrder.collectAsState()
+    val hiddenProfileIds by viewModel.hiddenProfileIds.collectAsState()
     val isIntentionalDisconnect by viewModel.isIntentionalDisconnect.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -194,6 +195,7 @@ fun SessionScreen(
                             customShortcuts = shortcuts,
                             selectedProfileId = selectedProfileId,
                             profileOrder = profileOrder,
+                            hiddenProfileIds = hiddenProfileIds,
                             onProfileChange = { viewModel.setProfile(it) },
                             onShortcutClick = { shortcut ->
                                 viewModel.executeShortcut(shortcut)
@@ -372,6 +374,7 @@ private fun TerminalContent(
     selectedProfileId: String?,
     // 変更理由: プロファイルタブの表示順序をShortcutBarに渡す
     profileOrder: List<String?> = emptyList(),
+    hiddenProfileIds: Set<String> = emptySet(),
     onProfileChange: (String?) -> Unit,
     onShortcutClick: (Shortcut) -> Unit,
     modifier: Modifier = Modifier
@@ -436,7 +439,10 @@ private fun TerminalContent(
                 selectedProfileId = selectedProfileId,
                 onProfileChange = onProfileChange,
                 onShortcutClick = onShortcutClick,
-                profileOrder = profileOrder
+                profileOrder = profileOrder,
+                hiddenProfileIds = hiddenProfileIds,
+                // 変更理由: ソフトキーボード表示中はコマンドタブとチップの圧迫を抑える。
+                compact = showSoftwareKeyboard
             )
         }
 

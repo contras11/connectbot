@@ -18,7 +18,9 @@
 package io.shellpilot.app.ui.screens.shortcutlist
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -40,7 +42,6 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,6 +52,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -69,6 +71,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import io.shellpilot.app.data.entity.Shortcut
 import io.shellpilot.app.session.CliCommandRegistry
+import io.shellpilot.app.ui.components.CommandSurfaceCard
+import io.shellpilot.app.ui.components.StatusChip
 
 /**
  * ショートカット一覧・編集画面。
@@ -106,6 +110,7 @@ fun ShortcutListScreen(
 ) {
     val shortcuts by viewModel.shortcuts.collectAsState()
     val profileOrder by viewModel.profileOrder.collectAsState()
+    val hiddenProfileIds by viewModel.hiddenProfileIds.collectAsState()
     val templateSyncMessage by viewModel.templateSyncMessage.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var editingShortcut by remember { mutableStateOf<Shortcut?>(null) }
@@ -153,6 +158,9 @@ fun ShortcutListScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showAddDialog = true }) {
+                        Icon(Icons.Default.Add, contentDescription = "追加")
+                    }
                     // 変更理由: カテゴリ別一括インポート機能へのアクセスを追加
                     IconButton(onClick = { showImportDialog = true }) {
                         Icon(
@@ -170,11 +178,6 @@ fun ShortcutListScreen(
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "追加")
-            }
-        },
         modifier = modifier.fillMaxSize()
     ) { innerPadding ->
         if (shortcuts.isEmpty()) {
@@ -203,16 +206,39 @@ fun ShortcutListScreen(
             // 折り畳み可能なExpandableセクションで表示する。
             // プロファイルタブ順序セクションをリスト先頭に追加。
             LazyColumn(
-                modifier = Modifier.padding(innerPadding)
+                modifier = Modifier.padding(innerPadding),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                item(key = "shortcut_command_center") {
+                    CommandSurfaceCard(accent = MaterialTheme.colorScheme.outlineVariant) {
+                        Text(
+                            text = "ショートカットを整理",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "表示するタブとコマンド一覧を分けて管理します。非表示にしても登録済みコマンドは保持されます。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            StatusChip(label = "タブ ${profileOrder.size}")
+                            StatusChip(label = "コマンド ${shortcuts.size}")
+                            StatusChip(label = "公式テンプレート")
+                        }
+                    }
+                }
+
                 // 変更理由: プロファイルタブの表示順序を設定するセクション。
                 // ShortcutBarのプロファイルタブ(カスタム/Claude Code/Git等)の
                 // 表示順をユーザが上下ボタンで変更できるようにする。
                 item(key = "profile_order_header") {
                     val profileExpanded = expandedGroups["profile_order"] ?: false
                     Surface(
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.fillMaxWidth()
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.small
                     ) {
                         Row(
                             modifier = Modifier
@@ -226,19 +252,19 @@ fun ShortcutListScreen(
                                 imageVector = if (profileExpanded) Icons.Default.KeyboardArrowDown
                                 else Icons.AutoMirrored.Filled.KeyboardArrowRight,
                                 contentDescription = if (profileExpanded) "折り畳む" else "展開する",
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "プロファイルタブ順序",
+                                text = "表示タブ管理",
                                 style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.weight(1f)
                             )
                             Text(
                                 text = "${profileOrder.size}件",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -263,8 +289,27 @@ fun ShortcutListScreen(
                                     overflow = TextOverflow.Ellipsis
                                 )
                             },
+                            supportingContent = {
+                                Text(
+                                    text = if (profileId == null || profileId !in hiddenProfileIds) {
+                                        "セッション画面に表示"
+                                    } else {
+                                        "セッション画面では非表示"
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
                             trailingContent = {
                                 Row {
+                                    if (profileId != null) {
+                                        Switch(
+                                            checked = profileId !in hiddenProfileIds,
+                                            onCheckedChange = { checked ->
+                                                viewModel.setProfileVisible(profileId, checked)
+                                            }
+                                        )
+                                    }
                                     IconButton(
                                         onClick = { viewModel.moveProfileUp(profileId) }
                                     ) {
@@ -295,6 +340,31 @@ fun ShortcutListScreen(
                 }
 
                 // ショートカット一覧セクション
+                item(key = "command_list_header") {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.small
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "コマンド一覧管理",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                text = "${shortcuts.size}件",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
                 sortedHostKeys.forEach { hostKey ->
                     val categoryMap = grouped[hostKey] ?: return@forEach
                     val hostGroupExpanded = expandedGroups[hostKey] ?: true
@@ -352,8 +422,8 @@ fun ShortcutListScreen(
                     }
                 }
 
-                // FAB分の余白
-                item { Spacer(modifier = Modifier.height(88.dp)) }
+                // BottomNavigationBar分の余白
+                item { Spacer(modifier = Modifier.height(72.dp)) }
             }
         }
     }

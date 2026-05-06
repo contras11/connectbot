@@ -46,7 +46,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -262,21 +261,16 @@ fun ColorsScreenContent(
             }
         },
         actions = {
+            IconButton(onClick = onShowNewSchemeDialog) {
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = stringResource(R.string.button_new_scheme)
+                )
+            }
             IconButton(onClick = onImportScheme) {
                 Icon(
                     Icons.Default.FileUpload,
                     contentDescription = stringResource(R.string.button_import_scheme)
-                )
-            }
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onShowNewSchemeDialog,
-                modifier = Modifier.padding(end = 16.dp, bottom = 16.dp)
-            ) {
-                Icon(
-                    Icons.Default.Add,
-                    contentDescription = stringResource(R.string.button_new_scheme)
                 )
             }
         },
@@ -312,10 +306,27 @@ fun ColorsScreenContent(
                             start = 16.dp,
                             end = 16.dp,
                             top = 16.dp,
-                            bottom = 104.dp
+                            bottom = 24.dp
                         ),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        item {
+                            CommandSurfaceCard(accent = MaterialTheme.colorScheme.outlineVariant) {
+                                Text(
+                                    text = "配色を管理",
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                Text(
+                                    text = "ターミナルのプレビューとANSIパレットを確認しながら、作業環境に合う配色を選びます。",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    StatusChip(label = "スキーム ${uiState.schemes.size}")
+                                    StatusChip(label = "ANSI 16色")
+                                }
+                            }
+                        }
                         items(uiState.schemes) { scheme ->
                             SchemeItem(
                                 scheme = scheme,

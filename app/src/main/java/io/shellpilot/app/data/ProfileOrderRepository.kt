@@ -71,6 +71,40 @@ class ProfileOrderRepository @Inject constructor(
     }
 
     /**
+     * 非表示にしたプロファイルタブIDを取得する。
+     *
+     * 変更理由: Claude Code / Codex などのコマンドカテゴリが多い場合に、
+     * ユーザが使うカテゴリだけをセッション画面へ表示できるようにする。
+     */
+    fun getHiddenProfileIds(): Set<String> {
+        val json = prefs.getString(PREF_HIDDEN_KEY, null) ?: return emptySet()
+        return try {
+            val array = JSONArray(json)
+            (0 until array.length()).mapTo(mutableSetOf()) { i -> array.getString(i) }
+        } catch (_: Exception) {
+            emptySet()
+        }
+    }
+
+    /** 非表示プロファイルタブIDを保存する。 */
+    fun saveHiddenProfileIds(hiddenIds: Set<String>) {
+        val array = JSONArray()
+        hiddenIds.sorted().forEach { array.put(it) }
+        prefs.edit().putString(PREF_HIDDEN_KEY, array.toString()).apply()
+    }
+
+    /** 指定プロファイルタブの表示/非表示を切り替える。 */
+    fun setProfileVisible(profileId: String, visible: Boolean) {
+        val hidden = getHiddenProfileIds().toMutableSet()
+        if (visible) {
+            hidden.remove(profileId)
+        } else {
+            hidden.add(profileId)
+        }
+        saveHiddenProfileIds(hidden)
+    }
+
+    /**
      * デフォルトのプロファイルタブ順序。
      * カスタム + CliCommandRegistryの全カテゴリ順。
      */
@@ -83,6 +117,7 @@ class ProfileOrderRepository @Inject constructor(
 
     companion object {
         private const val PREF_KEY = "profile_tab_order"
+        private const val PREF_HIDDEN_KEY = "profile_tab_hidden"
         private const val NULL_MARKER = "null"
     }
 }

@@ -37,19 +37,19 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -57,7 +57,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -77,6 +76,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
@@ -296,6 +296,9 @@ fun HostListScreenContent(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         actions = {
             if (!makingShortcut) {
+                IconButton(onClick = { onNavigateToEditHost(null) }) {
+                    Icon(Icons.Default.Add, contentDescription = stringResource(R.string.hostpref_add_host))
+                }
                 IconButton(onClick = { showMenu = true }) {
                     Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.button_more_options))
                 }
@@ -367,17 +370,6 @@ fun HostListScreenContent(
                 }
             }
         },
-        floatingActionButton = {
-            if (!makingShortcut) {
-                FloatingActionButton(
-                    onClick = { onNavigateToEditHost(null) },
-                    // This matches the FloatingActionButtonMenu padding
-                    modifier = Modifier.padding(end = 16.dp, bottom = 16.dp)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = stringResource(R.string.hostpref_add_host))
-                }
-            }
-        },
         modifier = modifier
     ) { padding ->
         Box(
@@ -409,7 +401,9 @@ fun HostListScreenContent(
                             start = 16.dp,
                             end = 16.dp,
                             top = 16.dp,
-                            bottom = 104.dp // Extra padding to avoid FAB menu overlap (88dp + 16dp for menu padding)
+                            // 変更理由: 追加操作はTopBarへ移し、カード上にFABを重ねない。
+                            // BottomNavigationBarと端末ナビゲーション分の余白だけを確保する。
+                            bottom = 120.dp
                         ),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
@@ -481,38 +475,42 @@ private fun HostListItem(
     var showDisconnectDialog by remember { mutableStateOf(false) }
     var showForgetHostKeysDialog by remember { mutableStateOf(false) }
 
-    // 変更理由: 接続状態をカード枠とchipへ反映し、一覧で状態を素早く読めるようにする。
-    val borderColor = when (connectionState) {
-        ConnectionState.CONNECTED -> colorResource(R.color.host_green)
-
-        // Green
-        ConnectionState.DISCONNECTED -> colorResource(R.color.host_red)
-
-        // Red
-        ConnectionState.UNKNOWN -> Color.Transparent
-    }
+    // 変更理由: ホスト識別色の原色表示を避けるため、一覧では細い補助線だけに使う。
+    // 接続状態はchipと小さなdotへ分離し、色の意味を混同しないようにする。
+    val hostIndicatorColor = hostAccentIndicatorColor(host.color)
+    val statusColor = connectionStatusColor(connectionState)
 
     CommandSurfaceCard(
         modifier = modifier,
         onClick = onClick,
-        accent = if (connectionState == ConnectionState.UNKNOWN) parseColor(host.color) else borderColor
+        accent = MaterialTheme.colorScheme.outlineVariant
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(modifier = Modifier.size(44.dp)) {
+            Box(
+                modifier = Modifier
+                    .width(3.dp)
+                    .height(52.dp)
+                    .background(
+                        color = hostIndicatorColor,
+                        shape = RoundedCornerShape(999.dp)
+                    )
+            )
+
+            Box(modifier = Modifier.size(40.dp)) {
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(40.dp)
                         .background(
-                            color = parseColor(host.color),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
                             shape = CircleShape
                         )
                         .border(
-                            width = 3.dp,
-                            color = borderColor,
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant,
                             shape = CircleShape
                         ),
                     contentAlignment = Alignment.Center
@@ -528,37 +526,30 @@ private fun HostListItem(
                             ConnectionState.DISCONNECTED -> stringResource(R.string.image_description_disconnected)
                             ConnectionState.UNKNOWN -> null
                         },
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
 
-                if (connectionState != ConnectionState.UNKNOWN) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .size(16.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.surface,
-                                shape = CircleShape
-                            )
-                    ) {
-                        Icon(
-                            imageVector = when (connectionState) {
-                                ConnectionState.CONNECTED -> Icons.Default.CheckCircle
-                                ConnectionState.DISCONNECTED -> Icons.Default.Error
-                                ConnectionState.UNKNOWN -> Icons.Default.Computer // Unreachable
-                            },
-                            contentDescription = null,
-                            tint = when (connectionState) {
-                                ConnectionState.CONNECTED -> colorResource(R.color.host_green)
-                                ConnectionState.DISCONNECTED -> colorResource(R.color.host_red)
-                                ConnectionState.UNKNOWN -> Color.Gray // Unreachable
-                            },
-                            modifier = Modifier.size(16.dp)
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .size(10.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.surface,
+                            shape = CircleShape
                         )
-                    }
-                }
+                        .border(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                            shape = CircleShape
+                        )
+                        .padding(1.8.dp)
+                        .background(
+                            color = statusColor,
+                            shape = CircleShape
+                        )
+                )
             }
 
             Column(
@@ -668,8 +659,8 @@ private fun HostListItem(
                     ConnectionState.UNKNOWN -> "待機"
                 },
                 accent = when (connectionState) {
-                    ConnectionState.CONNECTED -> colorResource(R.color.host_green)
-                    ConnectionState.DISCONNECTED -> colorResource(R.color.host_red)
+                    ConnectionState.CONNECTED -> statusColor
+                    ConnectionState.DISCONNECTED -> statusColor
                     ConnectionState.UNKNOWN -> MaterialTheme.colorScheme.onSurfaceVariant
                 }
             )
@@ -688,17 +679,30 @@ private fun HostListItem(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick = onClick,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 7.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 ) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text("接続")
                 }
-                TextButton(onClick = onEdit) {
+                TextButton(
+                    onClick = onEdit,
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 7.dp)
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text("編集")
                 }
-                TextButton(onClick = onPortForwards) {
+                TextButton(
+                    onClick = onPortForwards,
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 7.dp)
+                ) {
+                    Icon(Icons.Default.Link, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text("転送")
                 }
             }
@@ -750,12 +754,14 @@ private fun CommandCenterHeader(
     CommandSurfaceCard(accent = MaterialTheme.colorScheme.primary) {
         Text(
             text = "コマンドセンター",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.ExtraBold
+            // 変更理由: 参照モックの業務アプリ密度に合わせ、
+            // カード内見出しが画面タイトルより強くならないよう調整する。
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
         )
         Text(
             text = "SSHホストとAI CLIの作業導線をここから開始します。",
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -783,7 +789,7 @@ private fun EmptyCommandCenterCard(
     CommandSurfaceCard(modifier = modifier, accent = MaterialTheme.colorScheme.secondary) {
         Text(
             text = "ShellPilotワークスペースを準備",
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold
         )
         Text(
@@ -811,6 +817,24 @@ private fun Host.displayEndpoint(): String {
             "$userPart$hostname:$port"
         }
         else -> "$protocol://$hostname:$port"
+    }
+}
+
+@Composable
+private fun hostAccentIndicatorColor(colorString: String?): Color {
+    // 変更理由: ImageGen参照ボードの中立アイコン方針に合わせ、
+    // 保存済みhost.colorの色相は残しつつ、一覧ではニュートラルに強く寄せる。
+    val neutral = MaterialTheme.colorScheme.onSurfaceVariant
+    val source = parseColor(colorString)
+    return lerp(neutral, source, 0.18f).copy(alpha = 0.56f)
+}
+
+@Composable
+private fun connectionStatusColor(connectionState: ConnectionState): Color {
+    return when (connectionState) {
+        ConnectionState.CONNECTED -> Color(0xFF4F7C5C)
+        ConnectionState.DISCONNECTED -> MaterialTheme.colorScheme.error
+        ConnectionState.UNKNOWN -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
     }
 }
 

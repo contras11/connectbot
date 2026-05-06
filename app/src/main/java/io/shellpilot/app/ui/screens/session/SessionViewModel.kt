@@ -102,6 +102,13 @@ class SessionViewModel @Inject constructor(
     /** プロファイルタブの表示順序 */
     val profileOrder: StateFlow<List<String?>> = _profileOrder.asStateFlow()
 
+    private val _hiddenProfileIds = MutableStateFlow<Set<String>>(
+        profileOrderRepository.getHiddenProfileIds()
+    )
+
+    /** 非表示にしたプロファイルタブID */
+    val hiddenProfileIds: StateFlow<Set<String>> = _hiddenProfileIds.asStateFlow()
+
     /**
      * 変更理由: 意図的切断かどうかを追跡するフラグ。
      * trueの場合は「切断」ボタンからの操作。
@@ -218,6 +225,8 @@ class SessionViewModel @Inject constructor(
 
     /** ショートカット一覧を再読込する (設定画面から戻った際に呼び出す) */
     fun reloadShortcuts() {
+        _profileOrder.value = profileOrderRepository.getOrder()
+        _hiddenProfileIds.value = profileOrderRepository.getHiddenProfileIds()
         loadShortcuts()
     }
 
