@@ -336,7 +336,7 @@
   <string name="dialog_title_edit_color">Upravit barvu %1$d</string>
   <string name="dialog_title_reset_all">Resetovat všechny barvy?</string>
   <string name="dialog_message_reset_all">Tohle resetuje všechny 256 barev na jejich výchozí hodnoty. Tento krok nelze vrátit zpět.</string>
-  <string name="app_is_running">ConnectBot běží</string>
+  <string name="app_is_running">ShellPilot běží</string>
   <string name="label_red">Červená</string>
   <string name="label_green">zelená</string>
   <string name="label_blue">Modrý</string>
@@ -480,7 +480,7 @@
   <string name="logs_title">Záznamy aplikace</string>
   <string name="copy_logs">Kopírovat protokoly</string>
   <string name="logs_copied">Protokoly zkopírovány do schránky</string>
-  <string name="logs_bug_report_info">Chcete-li nahlásit chybu, zkopírujte tyto protokoly a otevřete nový problém na adrese https://connectbot.org/bug</string>
+  <string name="logs_bug_report_info">Chcete-li nahlásit chybu, zkopírujte tyto protokoly a otevřete nový problém na adrese https://github.com/contras11/connectbot/issues</string>
   <string name="no_logs_available">Žádné záznamy nejsou k dispozici</string>
   <string name="help_section_about">O aplikaci</string>
   <string name="title_contact">Kontakt a podpora</string>
@@ -536,8 +536,8 @@
   <string name="pref_auth_on_launch_title">Ověření při spuštění</string>
   <string name="pref_auth_on_launch_summary">Při spuštění aplikace vyžadujte ověření pomocí otisku prstu, rozpoznávání obličeje nebo PIN kódu zařízení</string>
   <string name="pref_security_category">Bezpečnost</string>
-  <string name="auth_screen_title">ConnectBot je uzamčen</string>
+  <string name="auth_screen_title">ShellPilot je uzamčen</string>
   <string name="auth_screen_unlock_button">Klepnutím odemkněte</string>
-  <string name="auth_prompt_title">Odemkněte ConnectBot</string>
+  <string name="auth_prompt_title">Odemkněte ShellPilot</string>
   <string name="auth_prompt_subtitle">Ověřte svou identitu a pokračujte</string>
 </resources>

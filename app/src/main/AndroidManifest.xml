@@ -39,7 +39,7 @@
 		android:xlargeScreens="true" />
 
 	<application
-		android:name=".ConnectBotApplication"
+		android:name=".ShellPilotApplication"
 		android:allowBackup="true"
 		android:backupAgent=".service.BackupAgent"
 		android:description="@string/app_desc"
@@ -90,7 +90,7 @@
 		</activity>
 
 		<service
-			android:name="org.connectbot.service.TerminalManager"
+			android:name="io.shellpilot.app.service.TerminalManager"
 			android:configChanges="keyboardHidden|orientation|screenSize|screenLayout"
 			android:description="@string/service_desc"
 			android:foregroundServiceType="remoteMessaging"/>

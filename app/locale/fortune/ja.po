@@ -2674,8 +2674,8 @@ msgstr "クリップボードにログをコピーしました"
 msgctxt "logs_bug_report_info"
 msgid ""
 "To report a bug, copy these logs and open a new issue at "
-"https://connectbot.org/bug"
-msgstr "バグを報告するにはこれらのログをコピーしてhttps://connectbot.org/bugで新しい課題を開いてください"
+"https://github.com/contras11/connectbot/issues"
+msgstr "バグを報告するにはこれらのログをコピーしてhttps://github.com/contras11/connectbot/issuesで新しい課題を開いてください"
 
 #. Message shown when no logs are available
 msgctxt "no_logs_available"

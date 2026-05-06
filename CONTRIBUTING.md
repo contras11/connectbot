@@ -1,17 +1,18 @@
 # How to contribute
 
-ConnectBot is maintained by a small number of people and we don't have access to the device models that everyone may have. We want your help in solving issues that make ConnectBot a better client. Here are a few guidelines that we ask contributors to follow.
+ShellPilot is maintained as a fork of ConnectBot. Contributions should keep
+the ShellPilot app name, `io.shellpilot.app` package namespace, and existing
+SSH/core compatibility intact.
 
 ## Getting started
 
 * Make sure you have a [GitHub account](https://github.com/signup/free)
-* [Open an issue](https://github.com/connectbot/connectbot/issues) if one doesn't already exist
-* Fork the repository on GitHub and then clone:
-  * `git clone git@github.com:your-username/connectbot.git`
+* Open an issue in the ShellPilot repository if one doesn't already exist.
+* Fork the repository on GitHub and then clone your fork.
 * Try to build for the first time:
-  * `./gradlew assemble`
+  * `JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew :app:assembleOssDebug`
 * Run the tests:
-  * `./gradlew test`
+  * `JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew testOssDebugUnitTest`
 
 ## Making changes
 
@@ -52,8 +53,8 @@ ConnectBot is maintained by a small number of people and we don't have access to
 ## Submitting changes
 
 * Push your changes to a topic branch in your fork of the repository.
-* Start a [pull request](https://github.com/connectbot/connectbot/compare/) for ConnectBot.
+* Start a pull request for ShellPilot.
 
 ## Additional resources
 
-* [#connectbot IRC channel](http://webchat.freenode.net/?channels=%23connectbot&uio=OT10cnVlJjExPTIwNQa5) on [Freenode](https://freenode.net/).
+* Preserve ConnectBot attribution where required by license headers, dependency names, and legacy migration docs.

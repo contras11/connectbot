@@ -1,4 +1,4 @@
-# ConnectBot Inventory
+# ShellPilot Inventory
 
 ## 目的
 
@@ -29,12 +29,12 @@
 
 | ファイル | クラス | 役割 |
 |----------|--------|------|
-| `app/src/main/java/org/connectbot/ui/MainActivity.kt` | `MainActivity` | アプリ起動・サービスバインド・Intent処理 |
-| `app/src/main/java/org/connectbot/service/TerminalManager.kt` | `TerminalManager` | 全接続を管理するForeground Service |
-| `app/src/main/java/org/connectbot/service/TerminalBridge.kt` | `TerminalBridge` | 1つのSSH接続を表すブリッジ |
-| `app/src/main/java/org/connectbot/transport/TransportFactory.kt` | `TransportFactory` | プロトコル別トランスポート生成ファクトリ |
-| `app/src/main/java/org/connectbot/transport/SSH.kt` | `SSH` | SSH接続・認証・セッション管理 |
-| `app/src/main/java/org/connectbot/data/entity/Host.kt` | `Host` | 接続先ホスト設定のRoomエンティティ |
+| `app/src/main/java/io/shellpilot/app/ui/MainActivity.kt` | `MainActivity` | アプリ起動・サービスバインド・Intent処理 |
+| `app/src/main/java/io/shellpilot/app/service/TerminalManager.kt` | `TerminalManager` | 全接続を管理するForeground Service |
+| `app/src/main/java/io/shellpilot/app/service/TerminalBridge.kt` | `TerminalBridge` | 1つのSSH接続を表すブリッジ |
+| `app/src/main/java/io/shellpilot/app/transport/TransportFactory.kt` | `TransportFactory` | プロトコル別トランスポート生成ファクトリ |
+| `app/src/main/java/io/shellpilot/app/transport/SSH.kt` | `SSH` | SSH接続・認証・セッション管理 |
+| `app/src/main/java/io/shellpilot/app/data/entity/Host.kt` | `Host` | 接続先ホスト設定のRoomエンティティ |
 
 ### 接続開始フロー (ユーザ操作 → SSH確立)
 

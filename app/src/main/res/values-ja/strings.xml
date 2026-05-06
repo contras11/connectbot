@@ -336,7 +336,7 @@
   <string name="dialog_title_edit_color">カラーエディット %1$d</string>
   <string name="dialog_title_reset_all">すべての色をリセットしますか?</string>
   <string name="dialog_message_reset_all">これにより、256色すべてがデフォルト値にリセットされます。この操作は取り消すことができません。</string>
-  <string name="app_is_running">ConnectBot起動中</string>
+  <string name="app_is_running">ShellPilot起動中</string>
   <string name="label_red">レッド</string>
   <string name="label_green">グリーン</string>
   <string name="label_blue">ブルー</string>
@@ -480,7 +480,7 @@
   <string name="logs_title">アプリケーションログ</string>
   <string name="copy_logs">ログのコピー</string>
   <string name="logs_copied">クリップボードにログをコピーしました</string>
-  <string name="logs_bug_report_info">バグを報告するにはこれらのログをコピーしてhttps://connectbot.org/bugで新しい課題を開いてください</string>
+  <string name="logs_bug_report_info">バグを報告するにはこれらのログをコピーしてhttps://github.com/contras11/connectbot/issuesで新しい課題を開いてください</string>
   <string name="no_logs_available">ログは利用できない</string>
   <string name="help_section_about">概要</string>
   <string name="title_contact">お問い合わせとサポート</string>
@@ -536,8 +536,8 @@
   <string name="pref_auth_on_launch_title">起動時の認証</string>
   <string name="pref_auth_on_launch_summary">アプリを開く際に、指紋、顔認証、またはデバイスのPINコードの入力を必須にする</string>
   <string name="pref_security_category">セキュリティ</string>
-  <string name="auth_screen_title">ConnectBotがロックされています</string>
+  <string name="auth_screen_title">ShellPilotがロックされています</string>
   <string name="auth_screen_unlock_button">アンロックするためにタップしてください</string>
-  <string name="auth_prompt_title">ConnectBotのロックを解除</string>
+  <string name="auth_prompt_title">ShellPilotのロックを解除</string>
   <string name="auth_prompt_subtitle">本人確認を行い、続行してください。</string>
 </resources>

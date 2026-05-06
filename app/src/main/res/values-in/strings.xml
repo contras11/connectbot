@@ -336,7 +336,7 @@
   <string name="dialog_title_edit_color">Edit Warna %1$d</string>
   <string name="dialog_title_reset_all">Atur Ulang Semua Warna?</string>
   <string name="dialog_message_reset_all">Ini akan mengatur ulang semua 256 warna ke nilai bawaannya. Tindakan ini tidak dapat dibatalkan.</string>
-  <string name="app_is_running">ConnectBot sedang berjalan</string>
+  <string name="app_is_running">ShellPilot sedang berjalan</string>
   <string name="label_red">Merah</string>
   <string name="label_green">Hijau</string>
   <string name="label_blue">Biru</string>
@@ -479,7 +479,7 @@
   <string name="logs_title">Catatan Aplikasi</string>
   <string name="copy_logs">Salin Log</string>
   <string name="logs_copied">Log disalin ke papan klip</string>
-  <string name="logs_bug_report_info">Untuk melaporkan bug, salin log ini dan buka laporan baru di https://connectbot.org/bug</string>
+  <string name="logs_bug_report_info">Untuk melaporkan bug, salin log ini dan buka laporan baru di https://github.com/contras11/connectbot/issues</string>
   <string name="no_logs_available">Tidak ada log yang tersedia</string>
   <string name="help_section_about">Tentang</string>
   <string name="title_contact">Hubungi &amp; Dukungan</string>
@@ -535,8 +535,8 @@
   <string name="pref_auth_on_launch_title">Autentikasi saat peluncuran</string>
   <string name="pref_auth_on_launch_summary">Meminta sidik jari, pemindaian wajah, atau PIN perangkat saat membuka aplikasi</string>
   <string name="pref_security_category">Keamanan</string>
-  <string name="auth_screen_title">ConnectBot terkunci</string>
+  <string name="auth_screen_title">ShellPilot terkunci</string>
   <string name="auth_screen_unlock_button">Ketuk untuk membuka kunci</string>
-  <string name="auth_prompt_title">Buka ConnectBot</string>
+  <string name="auth_prompt_title">Buka ShellPilot</string>
   <string name="auth_prompt_subtitle">Verifikasi identitas Anda untuk melanjutkan</string>
 </resources>

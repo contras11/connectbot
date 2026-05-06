@@ -38,7 +38,7 @@ spotless {
     ratchetFrom = "origin/main"
 
     java {
-        target("app/src/main/java/org/connectbot/**/*.java")
+        target("app/src/main/java/io/shellpilot/app/**/*.java")
         importOrder()
         removeUnusedImports()
         googleJavaFormat()

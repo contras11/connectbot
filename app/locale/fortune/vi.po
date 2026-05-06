@@ -2714,10 +2714,10 @@ msgstr "Nhật ký đã được sao chép vào bộ nhớ tạm"
 msgctxt "logs_bug_report_info"
 msgid ""
 "To report a bug, copy these logs and open a new issue at "
-"https://connectbot.org/bug"
+"https://github.com/contras11/connectbot/issues"
 msgstr ""
 "Để báo cáo lỗi, hãy sao chép các nhật ký này và mở một báo cáo mới tại "
-"https://connectbot.org/bug"
+"https://github.com/contras11/connectbot/issues"
 
 #. Message shown when no logs are available
 msgctxt "no_logs_available"

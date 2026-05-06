@@ -480,7 +480,7 @@
   <string name="logs_title">سجلات التطبيق</string>
   <string name="copy_logs">نسخ السجلات</string>
   <string name="logs_copied">تم نسخ السجلات إلى الحافظة</string>
-  <string name="logs_bug_report_info">لإبلاغ عن خطأ، انسخ سجلات الأخطاء هذه وافتح مشكلة جديدة على الرابط التالي: https://connectbot.org/bug</string>
+  <string name="logs_bug_report_info">لإبلاغ عن خطأ، انسخ سجلات الأخطاء هذه وافتح مشكلة جديدة على الرابط التالي: https://github.com/contras11/connectbot/issues</string>
   <string name="no_logs_available">لا توجد سجلات متاحة</string>
   <string name="help_section_about">حول</string>
   <string name="title_contact">اتصل بنا للحصول على الدعم</string>
@@ -536,8 +536,8 @@
   <string name="pref_auth_on_launch_title">المصادقة عند التشغيل</string>
   <string name="pref_auth_on_launch_summary">اطلب بصمة الإصبع أو التعرف على الوجه أو رمز PIN الخاص بالجهاز عند فتح التطبيق.</string>
   <string name="pref_security_category">الأمان</string>
-  <string name="auth_screen_title">تم قفل ConnectBot</string>
+  <string name="auth_screen_title">تم قفل ShellPilot</string>
   <string name="auth_screen_unlock_button">اضغط لفتح القفل</string>
-  <string name="auth_prompt_title">افتح ConnectBot</string>
+  <string name="auth_prompt_title">افتح ShellPilot</string>
   <string name="auth_prompt_subtitle">تحقق من هويتك للمتابعة.</string>
 </resources>
