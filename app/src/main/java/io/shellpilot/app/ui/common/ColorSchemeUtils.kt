@@ -44,3 +44,16 @@ fun getLocalizedColorSchemeDescription(scheme: ColorScheme): String {
         else -> scheme.description // Fallback to stored description
     }
 }
+
+/**
+ * Built-in scheme names shown in UI.
+ *
+ * 変更理由: DB互換のため保存名は変えず、表示だけ日本語化して英語混在を避ける。
+ */
+@Composable
+fun getLocalizedColorSchemeName(scheme: ColorScheme): String {
+    return when (scheme.name) {
+        "Default" -> stringResource(R.string.colorscheme_default)
+        else -> scheme.name
+    }
+}

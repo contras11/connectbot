@@ -29,7 +29,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,7 +38,6 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -86,19 +84,22 @@ fun ShortcutCustomizationDialog(
 
     val selectedColorDisplay = findColorDisplayName(effectiveColor, iconColors)
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.shortcut_customize_title)) },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Image(
-                    bitmap = previewBitmap.asImageBitmap(),
-                    contentDescription = null,
-                    modifier = Modifier.size(72.dp)
-                )
+    ShellPilotActionDialog(
+        title = stringResource(R.string.shortcut_customize_title),
+        onDismiss = onDismiss,
+        confirmLabel = stringResource(R.string.shortcut_create),
+        onConfirm = { onConfirm(effectiveColor, selectedStyle) },
+        dismissLabel = stringResource(R.string.button_cancel)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Image(
+                bitmap = previewBitmap.asImageBitmap(),
+                contentDescription = null,
+                modifier = Modifier.size(64.dp)
+            )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -205,19 +206,8 @@ fun ShortcutCustomizationDialog(
                         }
                     }
                 }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(effectiveColor, selectedStyle) }) {
-                Text(stringResource(R.string.shortcut_create))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(android.R.string.cancel))
-            }
         }
-    )
+    }
 }
 
 @Composable

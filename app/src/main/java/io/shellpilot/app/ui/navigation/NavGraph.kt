@@ -88,6 +88,9 @@ fun ShellPilotNavHost(
                 onNavigateToProfiles = {
                     navController.navigateSafely(NavDestinations.PROFILES)
                 },
+                onNavigateToColors = {
+                    navController.navigateSafely(NavDestinations.COLORS)
+                },
                 onNavigateToHelp = {
                     navController.navigateSafely(NavDestinations.HELP)
                 }

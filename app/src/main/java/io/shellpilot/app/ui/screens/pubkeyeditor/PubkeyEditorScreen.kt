@@ -34,6 +34,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
@@ -42,11 +43,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -61,6 +60,10 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import io.shellpilot.app.R
 import io.shellpilot.app.ui.ScreenPreviews
+import io.shellpilot.app.ui.components.CommandSurfaceCard
+import io.shellpilot.app.ui.components.ShellPilotScaffold
+import io.shellpilot.app.ui.components.ShellPilotStatePanel
+import io.shellpilot.app.ui.components.StatusChip
 import io.shellpilot.app.ui.theme.ShellPilotTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -119,31 +122,32 @@ fun PubkeyEditorScreenContent(
         }
     }
 
-    Scaffold(
+    ShellPilotScaffold(
+        title = "公開鍵を編集",
+        subtitle = "保存名・暗号化・利用確認",
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.title_pubkey_list)) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                    }
-                }
-            )
+        navigationIcon = {
+            IconButton(onClick = onNavigateBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+            }
         },
         modifier = modifier
     ) { innerPadding ->
         when {
             uiState.isLoading -> {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
+                ShellPilotStatePanel(
+                    title = "公開鍵を読み込み中",
+                    body = "鍵の保存名、種類、暗号化状態を確認しています。",
+                    icon = Icons.Default.Key,
+                    actions = {
+                        CircularProgressIndicator(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
                     modifier = Modifier
                         .consumeWindowInsets(innerPadding)
-                        .fillMaxSize()
-                ) {
-                    CircularProgressIndicator()
-                }
+                        .padding(innerPadding)
+                )
             }
 
             else -> {
@@ -157,42 +161,48 @@ fun PubkeyEditorScreenContent(
                         .padding(16.dp)
                         .imePadding()
                 ) {
-                    // Nickname
-                    OutlinedTextField(
-                        value = uiState.nickname,
-                        onValueChange = onNicknameChange,
-                        label = { Text(stringResource(R.string.prompt_nickname)) },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        isError = uiState.nicknameExists,
-                        supportingText = if (uiState.nicknameExists) {
-                            { Text(stringResource(R.string.pubkey_nickname_exists)) }
-                        } else null
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Key Type (read-only)
-                    OutlinedTextField(
-                        value = uiState.keyType,
-                        onValueChange = {},
-                        label = { Text(stringResource(R.string.pubkey_editor_key_type_label)) },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = false,
-                        singleLine = true
-                    )
+                    CommandSurfaceCard {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            StatusChip(label = uiState.keyType.ifBlank { "鍵" })
+                            StatusChip(label = if (uiState.isEncrypted) "暗号化済み" else "未暗号化")
+                            if (uiState.confirmUse) {
+                                StatusChip(label = "利用時に確認")
+                            }
+                        }
+                        OutlinedTextField(
+                            value = uiState.nickname,
+                            onValueChange = onNicknameChange,
+                            label = { Text(stringResource(R.string.prompt_nickname)) },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            isError = uiState.nicknameExists,
+                            supportingText = if (uiState.nicknameExists) {
+                                { Text(stringResource(R.string.pubkey_nickname_exists)) }
+                            } else null
+                        )
+                        OutlinedTextField(
+                            value = uiState.keyType,
+                            onValueChange = {},
+                            label = { Text(stringResource(R.string.pubkey_editor_key_type_label)) },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = false,
+                            singleLine = true
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // Change Password Section
-                    Text(
-                        text = stringResource(R.string.pubkey_change_password),
-                        style = MaterialTheme.typography.titleMedium
-                    )
+                    CommandSurfaceCard {
+                        Text(
+                            text = stringResource(R.string.pubkey_change_password),
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            text = "空欄のまま保存すると、現在の暗号化状態を維持します。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    if (uiState.isEncrypted) {
                         OutlinedTextField(
                             value = uiState.oldPassword,
                             onValueChange = onOldPasswordChange,
@@ -200,118 +210,113 @@ fun PubkeyEditorScreenContent(
                             visualTransformation = PasswordVisualTransformation(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                             modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            enabled = uiState.isEncrypted
+                        )
+                        OutlinedTextField(
+                            value = uiState.newPassword1,
+                            onValueChange = onNewPassword1Change,
+                            label = { Text(stringResource(R.string.prompt_password)) },
+                            supportingText = { Text(stringResource(R.string.prompt_password_can_be_blank)) },
+                            visualTransformation = PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                            modifier = Modifier.fillMaxWidth(),
                             singleLine = true
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
+                        OutlinedTextField(
+                            value = uiState.newPassword2,
+                            onValueChange = onNewPassword2Change,
+                            label = {
+                                Text(
+                                    "${stringResource(R.string.prompt_password)} ${
+                                        stringResource(
+                                            R.string.prompt_again
+                                        )
+                                    }"
+                                )
+                            },
+                            visualTransformation = PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            isError = uiState.passwordMismatch
+                        )
 
-                    OutlinedTextField(
-                        value = uiState.newPassword1,
-                        onValueChange = onNewPassword1Change,
-                        label = { Text(stringResource(R.string.prompt_password)) },
-                        supportingText = { Text(stringResource(R.string.prompt_password_can_be_blank)) },
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    OutlinedTextField(
-                        value = uiState.newPassword2,
-                        onValueChange = onNewPassword2Change,
-                        label = {
+                        if (uiState.passwordMismatch) {
                             Text(
-                                "${stringResource(R.string.prompt_password)} ${
-                                    stringResource(
-                                        R.string.prompt_again
-                                    )
-                                }"
+                                text = stringResource(R.string.alert_passwords_do_not_match_msg),
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(start = 16.dp, top = 4.dp)
                             )
-                        },
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        isError = uiState.passwordMismatch
-                    )
+                        }
 
-                    if (uiState.passwordMismatch) {
-                        Text(
-                            text = stringResource(R.string.alert_passwords_do_not_match_msg),
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(start = 16.dp, top = 4.dp)
-                        )
-                    }
-
-                    if (uiState.wrongPassword) {
-                        Text(
-                            text = stringResource(R.string.alert_wrong_password_msg),
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(start = 16.dp, top = 4.dp)
-                        )
+                        if (uiState.wrongPassword) {
+                            Text(
+                                text = stringResource(R.string.alert_wrong_password_msg),
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // Options
-                    Text(
-                        text = stringResource(R.string.pubkey_editor_options_label),
-                        style = MaterialTheme.typography.titleMedium
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(enabled = !uiState.willBeEncrypted) {
-                                onUnlockAtStartupChange(!uiState.unlockAtStartup)
-                            }
-                    ) {
-                        Checkbox(
-                            checked = uiState.unlockAtStartup,
-                            onCheckedChange = onUnlockAtStartupChange,
-                            enabled = !uiState.willBeEncrypted
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
+                    CommandSurfaceCard {
                         Text(
-                            text = stringResource(R.string.pubkey_load_on_start),
-                            color = if (!uiState.willBeEncrypted) {
-                                MaterialTheme.colorScheme.onSurface
-                            } else {
-                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                            }
+                            text = stringResource(R.string.pubkey_editor_options_label),
+                            style = MaterialTheme.typography.titleMedium
                         )
-                    }
 
-                    if (uiState.willBeEncrypted && uiState.unlockAtStartup) {
-                        Text(
-                            text = stringResource(R.string.pubkey_editor_encrypted_startup_warning),
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(start = 48.dp)
-                        )
-                    }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(enabled = !uiState.willBeEncrypted) {
+                                    onUnlockAtStartupChange(!uiState.unlockAtStartup)
+                                }
+                        ) {
+                            Checkbox(
+                                checked = uiState.unlockAtStartup,
+                                onCheckedChange = onUnlockAtStartupChange,
+                                enabled = !uiState.willBeEncrypted
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = stringResource(R.string.pubkey_load_on_start),
+                                color = if (!uiState.willBeEncrypted) {
+                                    MaterialTheme.colorScheme.onSurface
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                                }
+                            )
+                        }
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                onConfirmUseChange(!uiState.confirmUse)
-                            }
-                    ) {
-                        Checkbox(
-                            checked = uiState.confirmUse,
-                            onCheckedChange = onConfirmUseChange
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(stringResource(R.string.pubkey_confirm_use))
+                        if (uiState.willBeEncrypted && uiState.unlockAtStartup) {
+                            Text(
+                                text = stringResource(R.string.pubkey_editor_encrypted_startup_warning),
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(start = 48.dp)
+                            )
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onConfirmUseChange(!uiState.confirmUse)
+                                }
+                        ) {
+                            Checkbox(
+                                checked = uiState.confirmUse,
+                                onCheckedChange = onConfirmUseChange
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(stringResource(R.string.pubkey_confirm_use))
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))

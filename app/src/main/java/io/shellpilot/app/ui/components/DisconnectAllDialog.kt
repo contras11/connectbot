@@ -17,9 +17,7 @@
 
 package io.shellpilot.app.ui.components
 
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import io.shellpilot.app.R
@@ -29,21 +27,14 @@ fun DisconnectAllDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = null,
-        text = {
-            Text(stringResource(R.string.disconnect_all_message))
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(stringResource(R.string.disconnect_all_pos))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.disconnect_all_neg))
-            }
-        }
-    )
+    ShellPilotActionDialog(
+        title = stringResource(R.string.disconnect_all_pos),
+        onDismiss = onDismiss,
+        confirmLabel = stringResource(R.string.disconnect_all_pos),
+        onConfirm = onConfirm,
+        dismissLabel = stringResource(R.string.disconnect_all_neg),
+        destructiveConfirm = true
+    ) {
+        Text(stringResource(R.string.disconnect_all_message))
+    }
 }

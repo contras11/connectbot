@@ -112,7 +112,7 @@ private fun CheckingMigrationContent() {
         modifier = Modifier
             .size(48.dp)
             .semantics {
-                contentDescription = "Checking database migration status"
+                contentDescription = "データベース移行状態を確認中"
             }
     )
     Spacer(modifier = Modifier.height(16.dp))

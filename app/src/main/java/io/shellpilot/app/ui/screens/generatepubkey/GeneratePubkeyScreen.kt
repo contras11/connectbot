@@ -19,6 +19,7 @@ package io.shellpilot.app.ui.screens.generatepubkey
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -41,11 +42,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -58,6 +57,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import io.shellpilot.app.R
 import io.shellpilot.app.ui.ScreenPreviews
+import io.shellpilot.app.ui.components.CommandSurfaceCard
+import io.shellpilot.app.ui.components.ShellPilotScaffold
+import io.shellpilot.app.ui.components.StatusChip
 import io.shellpilot.app.ui.theme.ShellPilotTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -108,16 +110,13 @@ fun GeneratePubkeyScreenContent(
     onCancelGeneration: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.title_pubkey_generate)) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                    }
-                }
-            )
+    ShellPilotScaffold(
+        title = stringResource(R.string.title_pubkey_generate),
+        subtitle = "鍵タイプ・強度・保護設定",
+        navigationIcon = {
+            IconButton(onClick = onNavigateBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+            }
         },
         modifier = modifier
     ) { innerPadding ->
@@ -126,70 +125,82 @@ fun GeneratePubkeyScreenContent(
                 .padding(innerPadding)
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp)
+                .padding(12.dp)
                 .imePadding()
         ) {
-            // Nickname
-            OutlinedTextField(
-                value = uiState.nickname,
-                onValueChange = onNicknameChange,
-                label = { Text(stringResource(R.string.prompt_nickname)) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                isError = uiState.nicknameExists,
-                supportingText = if (uiState.nicknameExists) {
-                    { Text(stringResource(R.string.pubkey_nickname_exists)) }
-                } else null
-            )
+            CommandSurfaceCard {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatusChip(label = uiState.keyType.name)
+                    StatusChip(label = "${uiState.bits} bit")
+                    StatusChip(label = if (uiState.useBiometric) "生体認証" else "パスフレーズ")
+                }
+                OutlinedTextField(
+                    value = uiState.nickname,
+                    onValueChange = onNicknameChange,
+                    label = { Text(stringResource(R.string.prompt_nickname)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    isError = uiState.nicknameExists,
+                    supportingText = if (uiState.nicknameExists) {
+                        { Text(stringResource(R.string.pubkey_nickname_exists)) }
+                    } else null
+                )
+            }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Key Type Selection
-            Text(
-                text = stringResource(R.string.pubkey_editor_key_type_label),
-                style = MaterialTheme.typography.titleMedium
-            )
             Spacer(modifier = Modifier.height(8.dp))
 
-            KeyTypeOption(
-                label = stringResource(R.string.pubkey_type_rsa),
-                selected = uiState.keyType == KeyType.RSA,
-                onClick = { onKeyTypeChange(KeyType.RSA) }
-            )
-            KeyTypeOption(
-                label = stringResource(R.string.pubkey_type_dsa),
-                selected = uiState.keyType == KeyType.DSA,
-                onClick = { onKeyTypeChange(KeyType.DSA) }
-            )
-            KeyTypeOption(
-                label = stringResource(R.string.pubkey_type_ecdsa),
-                selected = uiState.keyType == KeyType.EC,
-                onClick = { onKeyTypeChange(KeyType.EC) },
-                enabled = uiState.ecdsaAvailable
-            )
-            KeyTypeOption(
-                label = stringResource(R.string.pubkey_type_ed25519),
-                selected = uiState.keyType == KeyType.ED25519,
-                onClick = { onKeyTypeChange(KeyType.ED25519) }
-            )
+            CommandSurfaceCard {
+                Text(
+                    text = stringResource(R.string.pubkey_editor_key_type_label),
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = "互換性が必要な場合はRSA、通常はEd25519を選択します。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
 
-            Spacer(modifier = Modifier.height(16.dp))
+                KeyTypeOption(
+                    label = stringResource(R.string.pubkey_type_rsa),
+                    selected = uiState.keyType == KeyType.RSA,
+                    onClick = { onKeyTypeChange(KeyType.RSA) }
+                )
+                KeyTypeOption(
+                    label = stringResource(R.string.pubkey_type_dsa),
+                    selected = uiState.keyType == KeyType.DSA,
+                    onClick = { onKeyTypeChange(KeyType.DSA) }
+                )
+                KeyTypeOption(
+                    label = stringResource(R.string.pubkey_type_ecdsa),
+                    selected = uiState.keyType == KeyType.EC,
+                    onClick = { onKeyTypeChange(KeyType.EC) },
+                    enabled = uiState.ecdsaAvailable
+                )
+                KeyTypeOption(
+                    label = stringResource(R.string.pubkey_type_ed25519),
+                    selected = uiState.keyType == KeyType.ED25519,
+                    onClick = { onKeyTypeChange(KeyType.ED25519) }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             // Bit Strength
             if (uiState.allowBitStrengthChange) {
-                Text(
-                    text = "${stringResource(R.string.prompt_bits)} ${uiState.bits}",
-                    style = MaterialTheme.typography.titleMedium
-                )
+                CommandSurfaceCard {
+                    Text(
+                        text = "${stringResource(R.string.prompt_bits)} ${uiState.bits}",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Slider(
+                        value = uiState.bits.toFloat(),
+                        onValueChange = { onBitsChange(it.toInt()) },
+                        valueRange = uiState.minBits.toFloat()..uiState.maxBits.toFloat(),
+                        steps = ((uiState.maxBits - uiState.minBits) / 8) - 1,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
                 Spacer(modifier = Modifier.height(8.dp))
-                Slider(
-                    value = uiState.bits.toFloat(),
-                    onValueChange = { onBitsChange(it.toInt()) },
-                    valueRange = uiState.minBits.toFloat()..uiState.maxBits.toFloat(),
-                    steps = ((uiState.maxBits - uiState.minBits) / 8) - 1,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(16.dp))
             }
 
             // Biometric Protection Option
@@ -227,7 +238,7 @@ fun GeneratePubkeyScreenContent(
                         onCheckedChange = onUseBiometricChange
                     )
                 }
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
             // Show biometric not enrolled warning
@@ -284,7 +295,7 @@ fun GeneratePubkeyScreenContent(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
             // Options
@@ -329,7 +340,7 @@ fun GeneratePubkeyScreenContent(
                 Text(stringResource(R.string.pubkey_confirm_use))
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Generate Button
             Button(

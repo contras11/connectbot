@@ -154,7 +154,7 @@ fun HostEditorScreenContent(
         } else {
             stringResource(R.string.hostpref_setting_title)
         },
-        subtitle = if (expandedMode) "接続先・認証・ターミナル表示" else "Quick Connect",
+        subtitle = if (expandedMode) "接続先・認証・ターミナル表示" else stringResource(R.string.host_editor_quick_connect_label),
         navigationIcon = {
             IconButton(onClick = onNavigateBack) {
                 Icon(
@@ -187,16 +187,16 @@ fun HostEditorScreenContent(
                 .padding(padding)
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp)
+                .padding(12.dp)
                 .imePadding(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             if (!expandedMode) {
-                // 変更理由: 初回入力の意図を明確にするためQuick Connectをカード化する。
+                // 変更理由: 初回入力の意図を明確にするためクイック接続をカード化する。
                 CommandSurfaceCard(accent = MaterialTheme.colorScheme.secondary) {
                     Text(
-                        text = "Quick Connect",
-                        style = MaterialTheme.typography.titleLarge
+                        text = stringResource(R.string.host_editor_quick_connect_label),
+                        style = MaterialTheme.typography.titleMedium
                     )
                     OutlinedTextField(
                         value = uiState.quickConnect,
@@ -216,7 +216,7 @@ fun HostEditorScreenContent(
                 }
             } else {
                 CommandSurfaceCard(accent = MaterialTheme.colorScheme.primary) {
-                    Text("接続先", style = MaterialTheme.typography.titleLarge)
+                    Text("接続先", style = MaterialTheme.typography.titleMedium)
                     OutlinedTextField(
                         value = uiState.nickname,
                         onValueChange = onNicknameChange,
@@ -245,7 +245,7 @@ fun HostEditorScreenContent(
                     onExpandedChange = { showProtocolMenu = it },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 8.dp)
+                        .padding(top = 4.dp)
                 ) {
                     OutlinedTextField(
                         value = uiState.protocol,
@@ -287,7 +287,7 @@ fun HostEditorScreenContent(
                         label = { Text(stringResource(R.string.hostpref_username_title)) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 8.dp),
+                            .padding(top = 4.dp),
                         singleLine = true
                     )
 
@@ -298,7 +298,7 @@ fun HostEditorScreenContent(
                         isError = uiState.hostname.isBlank(),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 8.dp),
+                            .padding(top = 4.dp),
                         singleLine = true
                     )
 
@@ -308,7 +308,7 @@ fun HostEditorScreenContent(
                         label = { Text(stringResource(R.string.hostpref_port_title)) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 8.dp),
+                            .padding(top = 4.dp),
                         singleLine = true
                     )
 
@@ -317,12 +317,12 @@ fun HostEditorScreenContent(
                         ipVersion = uiState.ipVersion,
                         hostname = uiState.hostname,
                         onIpVersionSelect = onIpVersionChange,
-                        modifier = Modifier.padding(top = 8.dp)
+                        modifier = Modifier.padding(top = 4.dp)
                     )
 
                     // Save password section (SSH only)
                     if (uiState.protocol == "ssh") {
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                         OutlinedTextField(
                             value = uiState.password,
                             onValueChange = onPasswordChange,
@@ -357,14 +357,14 @@ fun HostEditorScreenContent(
             }
 
             // Color selector
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             ColorSelector(
                 selectedColor = uiState.color,
                 onColorSelect = onColorChange
             )
 
             // Pubkey selector
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             PubkeySelector(
                 pubkeyId = uiState.pubkeyId,
                 availablePubkeys = uiState.availablePubkeys,
@@ -372,7 +372,7 @@ fun HostEditorScreenContent(
             )
 
             // Profile selector
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             ProfileSelector(
                 profileId = uiState.profileId,
                 availableProfiles = uiState.availableProfiles,
@@ -381,7 +381,7 @@ fun HostEditorScreenContent(
 
             // Jump host selector (only for SSH protocol)
             if (uiState.protocol == "ssh") {
-                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 JumpHostSelector(
                     jumpHostId = uiState.jumpHostId,
                     availableJumpHosts = uiState.availableJumpHosts,
@@ -390,7 +390,7 @@ fun HostEditorScreenContent(
             }
 
             // SSH Auth agent
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             SwitchPreference(
                 title = stringResource(R.string.hostpref_authagent_title),
                 checked = uiState.useAuthAgent != "no",
@@ -410,7 +410,7 @@ fun HostEditorScreenContent(
             }
 
             // Compression
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             SwitchPreference(
                 title = stringResource(R.string.hostpref_compression_title),
                 summary = stringResource(R.string.hostpref_compression_summary),
@@ -419,7 +419,7 @@ fun HostEditorScreenContent(
             )
 
             // Want session
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             SwitchPreference(
                 title = stringResource(R.string.hostpref_wantsession_title),
                 summary = stringResource(R.string.hostpref_wantsession_summary),
@@ -428,7 +428,7 @@ fun HostEditorScreenContent(
             )
 
             // Stay connected
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             SwitchPreference(
                 title = stringResource(R.string.hostpref_stayconnected_title),
                 summary = stringResource(R.string.hostpref_stayconnected_summary),
@@ -437,7 +437,7 @@ fun HostEditorScreenContent(
             )
 
             // Quick disconnect
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             SwitchPreference(
                 title = stringResource(R.string.hostpref_quickdisconnect_title),
                 summary = stringResource(R.string.hostpref_quickdisconnect_summary),
@@ -446,7 +446,7 @@ fun HostEditorScreenContent(
             )
 
             // Post-login automation
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             OutlinedTextField(
                 value = uiState.postLogin,
                 onValueChange = onPostLoginChange,
@@ -456,7 +456,7 @@ fun HostEditorScreenContent(
                 maxLines = 8,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp)
+                    .padding(top = 4.dp)
             )
         }
     }

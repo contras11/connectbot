@@ -24,7 +24,6 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -38,19 +37,21 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.FontDownload
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Terminal
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -60,6 +61,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -71,6 +73,7 @@ import io.shellpilot.app.ui.ScreenPreviews
 import io.shellpilot.app.ui.common.getLocalizedFontDisplayName
 import io.shellpilot.app.ui.components.CommandSurfaceCard
 import io.shellpilot.app.ui.components.FontDownloadProgressDialog
+import io.shellpilot.app.ui.components.ShellPilotActionDialog
 import io.shellpilot.app.ui.components.ShellPilotScaffold
 import io.shellpilot.app.ui.theme.ShellPilotTheme
 import io.shellpilot.app.util.LocalFontProvider
@@ -267,14 +270,67 @@ fun SettingsScreenContent(
                 CommandSurfaceCard(accent = MaterialTheme.colorScheme.secondary) {
                     Text(
                         text = "ShellPilot設定",
-                        style = MaterialTheme.typography.titleLarge
+                        style = MaterialTheme.typography.titleMedium
                     )
                     Text(
                         text = "接続維持、ターミナル表示、AI CLIショートカット、通知とバックアップを作業単位で調整します。",
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+            }
+            item {
+                PreferenceCategory(title = "設定カテゴリ")
+            }
+            item {
+                SettingsCategoryCard(
+                    icon = Icons.Default.Link,
+                    title = "接続",
+                    summary = "認証、接続維持、Wi-Fi、バックアップ"
+                )
+            }
+            item {
+                SettingsCategoryCard(
+                    icon = Icons.Default.Terminal,
+                    title = "ターミナル",
+                    summary = "スクロールバック、TERM、フォント、プロファイル"
+                )
+            }
+            item {
+                SettingsCategoryCard(
+                    icon = Icons.Default.Keyboard,
+                    title = "AIショートカット",
+                    summary = "Claude Code / Codex コマンド、表示タブ",
+                    onClick = onNavigateToShortcuts
+                )
+            }
+            item {
+                SettingsCategoryCard(
+                    icon = Icons.Default.Palette,
+                    title = "表示",
+                    summary = "言語、画面の向き、全画面、補助キー"
+                )
+            }
+            item {
+                SettingsCategoryCard(
+                    icon = Icons.Default.Notifications,
+                    title = "通知とバックアップ",
+                    summary = "ベル、通知、端末のバックグラウンド状態"
+                )
+            }
+            item {
+                SettingsCategoryCard(
+                    icon = Icons.Default.Storage,
+                    title = "データ管理",
+                    summary = "鍵、ホスト情報、プロファイル、インポート/復元"
+                )
+            }
+            item {
+                SettingsCategoryCard(
+                    icon = Icons.Default.Info,
+                    title = "アプリ情報",
+                    summary = "バージョン、ライセンス、フォーク元情報"
+                )
             }
             if (uiState.canAuthenticate) {
                 item {
@@ -520,19 +576,27 @@ fun SettingsScreenContent(
             }
 
             item {
-                ListItem(
-                    headlineContent = { Text("ショートカット設定") },
-                    supportingContent = { Text("コマンドショートカットの追加・編集・削除") },
-                    leadingContent = {
+                CommandSurfaceCard(onClick = onNavigateToShortcuts) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Icon(
                             Icons.Default.Terminal,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    },
-                    modifier = Modifier.clickable(onClick = onNavigateToShortcuts)
-                )
-                HorizontalDivider()
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("ショートカット設定", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                "コマンドショートカットの追加・編集・削除",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
             }
 
             item {
@@ -728,6 +792,40 @@ private fun PreferenceCategory(
 }
 
 @Composable
+private fun SettingsCategoryCard(
+    icon: ImageVector,
+    title: String,
+    summary: String,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null
+) {
+    CommandSurfaceCard(
+        modifier = modifier,
+        onClick = onClick
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleSmall)
+                Text(
+                    summary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun SwitchPreference(
     title: String,
     summary: String,
@@ -811,28 +909,20 @@ private fun TextPreferenceDialog(
 ) {
     var textValue by remember { mutableStateOf(value) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            OutlinedTextField(
-                value = textValue,
-                onValueChange = { textValue = it },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(textValue) }) {
-                Text(stringResource(android.R.string.ok))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.delete_neg))
-            }
-        }
-    )
+    ShellPilotActionDialog(
+        title = title,
+        onDismiss = onDismiss,
+        confirmLabel = stringResource(R.string.button_ok),
+        onConfirm = { onConfirm(textValue) },
+        dismissLabel = stringResource(R.string.delete_neg)
+    ) {
+        OutlinedTextField(
+            value = textValue,
+            onValueChange = { textValue = it },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
 }
 
 @Composable
@@ -881,25 +971,22 @@ private fun ListPreferenceDialog(
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                entries.forEach { (label, entryValue) ->
-                    ListItem(
-                        headlineContent = { Text(label) },
-                        modifier = Modifier.clickable { onConfirm(entryValue) }
-                    )
+    ShellPilotActionDialog(
+        title = title,
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(R.string.delete_neg)
+    ) {
+        Column(
+            modifier = Modifier.verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            entries.forEach { (label, entryValue) ->
+                CommandSurfaceCard(onClick = { onConfirm(entryValue) }) {
+                    Text(label, style = MaterialTheme.typography.titleSmall)
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.delete_neg))
-            }
         }
-    )
+    }
 }
 
 @Composable
@@ -955,75 +1042,53 @@ private fun ListPreferenceWithCustomDialog(
     var customValue by remember { mutableStateOf(value) }
 
     if (showCustomInput) {
-        AlertDialog(
-            onDismissRequest = {
+        ShellPilotActionDialog(
+            title = title,
+            onDismiss = {
                 showCustomInput = false
                 onDismiss()
             },
-            title = { Text(title) },
-            text = {
-                OutlinedTextField(
-                    value = customValue,
-                    onValueChange = { customValue = it },
-                    label = { Text(stringResource(R.string.dialog_custom_value_label)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        if (customValue.isNotBlank()) {
-                            onConfirm(customValue)
-                        }
-                    },
-                    enabled = customValue.isNotBlank()
-                ) {
-                    Text(stringResource(android.R.string.ok))
+            confirmLabel = stringResource(R.string.button_ok),
+            confirmEnabled = customValue.isNotBlank(),
+            onConfirm = {
+                if (customValue.isNotBlank()) {
+                    onConfirm(customValue)
                 }
             },
-            dismissButton = {
-                TextButton(onClick = {
-                    showCustomInput = false
-                    onDismiss()
-                }) {
-                    Text(stringResource(android.R.string.cancel))
-                }
-            }
-        )
+            dismissLabel = stringResource(R.string.button_cancel)
+        ) {
+            OutlinedTextField(
+                value = customValue,
+                onValueChange = { customValue = it },
+                label = { Text(stringResource(R.string.dialog_custom_value_label)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     } else {
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = { Text(title) },
-            text = {
-                Column {
-                    entries.forEach { (label, entryValue) ->
-                        ListItem(
-                            headlineContent = { Text(label) },
-                            modifier = Modifier.clickable { onConfirm(entryValue) }
-                        )
+        ShellPilotActionDialog(
+            title = title,
+            onDismiss = onDismiss,
+            dismissLabel = stringResource(R.string.delete_neg)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                entries.forEach { (label, entryValue) ->
+                    CommandSurfaceCard(onClick = { onConfirm(entryValue) }) {
+                        Text(label, style = MaterialTheme.typography.titleSmall)
                     }
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                    ListItem(
-                        headlineContent = {
-                            Text(
-                                text = customLabel,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        },
-                        modifier = Modifier.clickable {
-                            customValue = value
-                            showCustomInput = true
-                        }
+                }
+                CommandSurfaceCard(onClick = {
+                    customValue = value
+                    showCustomInput = true
+                }) {
+                    Text(
+                        text = customLabel,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
-            },
-            confirmButton = {
-                TextButton(onClick = onDismiss) {
-                    Text(stringResource(R.string.delete_neg))
-                }
             }
-        )
+        }
     }
 }
 
@@ -1066,77 +1131,66 @@ private fun AddCustomTerminalTypePreference(
     var newTerminalType by remember { mutableStateOf("") }
 
     Column(modifier = modifier) {
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.pref_customterminal_title)) },
-            supportingContent = { Text(stringResource(R.string.pref_customterminal_summary)) },
-            modifier = Modifier.clickable { showAddDialog = true }
-        )
+        CommandSurfaceCard(onClick = { showAddDialog = true }) {
+            Text(stringResource(R.string.pref_customterminal_title), style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(R.string.pref_customterminal_summary),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
 
         // Show existing custom terminal types with remove option
         customTerminalTypes.forEach { terminalType ->
-            ListItem(
-                headlineContent = { Text(terminalType) },
-                leadingContent = {
+            CommandSurfaceCard {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Icon(
                         imageVector = Icons.Default.Terminal,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                },
-                trailingContent = {
+                    Text(terminalType, modifier = Modifier.weight(1f))
                     IconButton(onClick = { onRemoveTerminalType(terminalType) }) {
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = stringResource(R.string.button_remove)
                         )
                     }
-                },
-                modifier = Modifier.padding(start = 16.dp)
-            )
+                }
+            }
         }
-
-        HorizontalDivider()
     }
 
     if (showAddDialog) {
-        AlertDialog(
-            onDismissRequest = {
+        ShellPilotActionDialog(
+            title = stringResource(R.string.dialog_customterminal_title),
+            onDismiss = {
                 showAddDialog = false
                 newTerminalType = ""
             },
-            title = { Text(stringResource(R.string.dialog_customterminal_title)) },
-            text = {
-                OutlinedTextField(
-                    value = newTerminalType,
-                    onValueChange = { newTerminalType = it },
-                    label = { Text(stringResource(R.string.dialog_customterminal_hint)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        if (newTerminalType.isNotBlank()) {
-                            onAddTerminalType(newTerminalType.trim())
-                            showAddDialog = false
-                            newTerminalType = ""
-                        }
-                    },
-                    enabled = newTerminalType.isNotBlank()
-                ) {
-                    Text(stringResource(R.string.button_add))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = {
+            confirmLabel = stringResource(R.string.button_add),
+            confirmEnabled = newTerminalType.isNotBlank(),
+            onConfirm = {
+                if (newTerminalType.isNotBlank()) {
+                    onAddTerminalType(newTerminalType.trim())
                     showAddDialog = false
                     newTerminalType = ""
-                }) {
-                    Text(stringResource(R.string.delete_neg))
                 }
-            }
-        )
+            },
+            dismissLabel = stringResource(R.string.delete_neg)
+        ) {
+            OutlinedTextField(
+                value = newTerminalType,
+                onValueChange = { newTerminalType = it },
+                label = { Text(stringResource(R.string.dialog_customterminal_hint)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 
@@ -1162,96 +1216,79 @@ private fun AddCustomFontPreference(
     }
 
     Column(modifier = modifier) {
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.pref_customfont_title)) },
-            supportingContent = { Text(stringResource(R.string.pref_customfont_summary)) },
-            modifier = Modifier.clickable { showAddDialog = true }
-        )
+        CommandSurfaceCard(onClick = { showAddDialog = true }) {
+            Text(stringResource(R.string.pref_customfont_title), style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(R.string.pref_customfont_summary),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
 
         // Show existing custom fonts with remove option
         customFonts.forEach { fontName ->
-            ListItem(
-                headlineContent = { Text(fontName) },
-                leadingContent = {
+            CommandSurfaceCard {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Icon(
                         imageVector = Icons.Default.FontDownload,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                },
-                trailingContent = {
+                    Text(fontName, modifier = Modifier.weight(1f))
                     IconButton(onClick = { onRemoveFont(fontName) }) {
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = stringResource(R.string.button_remove)
                         )
                     }
-                },
-                modifier = Modifier.padding(start = 16.dp)
-            )
+                }
+            }
         }
-
-        HorizontalDivider()
     }
 
     if (showAddDialog) {
-        AlertDialog(
-            onDismissRequest = {
+        ShellPilotActionDialog(
+            title = stringResource(R.string.dialog_customfont_title),
+            onDismiss = {
                 if (!validationInProgress) {
                     showAddDialog = false
                     newFontName = ""
                     onClearError()
                 }
             },
-            title = { Text(stringResource(R.string.dialog_customfont_title)) },
-            text = {
-                Column {
-                    OutlinedTextField(
-                        value = newFontName,
-                        onValueChange = {
-                            newFontName = it
-                            onClearError()
-                        },
-                        label = { Text(stringResource(R.string.dialog_customfont_hint)) },
-                        singleLine = true,
-                        enabled = !validationInProgress,
-                        isError = validationError != null,
-                        supportingText = if (validationError != null) {
-                            { Text(validationError, color = MaterialTheme.colorScheme.error) }
-                        } else if (validationInProgress) {
-                            { Text(stringResource(R.string.font_validating)) }
-                        } else {
-                            null
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+            confirmLabel = stringResource(R.string.button_add),
+            confirmEnabled = newFontName.isNotBlank() && !validationInProgress,
+            onConfirm = {
+                if (newFontName.isNotBlank()) {
+                    onAddFont(newFontName.trim())
                 }
             },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        if (newFontName.isNotBlank()) {
-                            onAddFont(newFontName.trim())
-                        }
-                    },
-                    enabled = newFontName.isNotBlank() && !validationInProgress
-                ) {
-                    Text(stringResource(R.string.button_add))
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        showAddDialog = false
-                        newFontName = ""
-                        onClearError()
-                    },
-                    enabled = !validationInProgress
-                ) {
-                    Text(stringResource(android.R.string.cancel))
-                }
-            }
-        )
+            dismissLabel = stringResource(R.string.button_cancel)
+        ) {
+            OutlinedTextField(
+                value = newFontName,
+                onValueChange = {
+                    newFontName = it
+                    onClearError()
+                },
+                label = { Text(stringResource(R.string.dialog_customfont_hint)) },
+                singleLine = true,
+                enabled = !validationInProgress,
+                isError = validationError != null,
+                supportingText = if (validationError != null) {
+                    { Text(validationError, color = MaterialTheme.colorScheme.error) }
+                } else if (validationInProgress) {
+                    { Text(stringResource(R.string.font_validating)) }
+                } else {
+                    null
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 
     // Close dialog when font is successfully added
@@ -1290,52 +1327,54 @@ private fun LocalFontPreference(
     }
 
     Column(modifier = modifier) {
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.pref_localfont_title)) },
-            supportingContent = {
-                Text(
-                    if (importInProgress) {
-                        stringResource(R.string.font_importing)
-                    } else {
-                        stringResource(R.string.pref_localfont_summary)
-                    }
-                )
-            },
-            modifier = Modifier.clickable(enabled = !importInProgress) {
-                fontPickerLauncher.launch(arrayOf("font/*", "application/x-font-ttf", "application/x-font-otf"))
+        CommandSurfaceCard(
+            onClick = if (importInProgress) null else {
+                {
+                    fontPickerLauncher.launch(arrayOf("font/*", "application/x-font-ttf", "application/x-font-otf"))
+                }
             }
-        )
-
+        ) {
+            Text(stringResource(R.string.pref_localfont_title), style = MaterialTheme.typography.titleMedium)
+            Text(
+                if (importInProgress) {
+                    stringResource(R.string.font_importing)
+                } else {
+                    stringResource(R.string.pref_localfont_summary)
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         // Show existing local fonts with delete option
         localFonts.forEach { (displayName, fileName) ->
-            ListItem(
-                headlineContent = { Text(displayName) },
-                leadingContent = {
+            CommandSurfaceCard {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Icon(
                         imageVector = Icons.Default.FolderOpen,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                },
-                trailingContent = {
+                    Text(displayName, modifier = Modifier.weight(1f))
                     IconButton(onClick = { onDeleteFont(fileName) }) {
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = stringResource(R.string.button_remove)
                         )
                     }
-                },
-                modifier = Modifier.padding(start = 16.dp)
-            )
+                }
+            }
         }
-
-        HorizontalDivider()
     }
 
     // Dialog to get display name for imported font
     if (showNameDialog) {
-        AlertDialog(
-            onDismissRequest = {
+        ShellPilotActionDialog(
+            title = stringResource(R.string.dialog_localfont_title),
+            onDismiss = {
                 if (!importInProgress) {
                     showNameDialog = false
                     pendingUri = null
@@ -1343,58 +1382,37 @@ private fun LocalFontPreference(
                     onClearError()
                 }
             },
-            title = { Text(stringResource(R.string.dialog_localfont_title)) },
-            text = {
-                Column {
-                    OutlinedTextField(
-                        value = fontDisplayName,
-                        onValueChange = {
-                            fontDisplayName = it
-                            onClearError()
-                        },
-                        label = { Text(stringResource(R.string.dialog_localfont_hint)) },
-                        singleLine = true,
-                        enabled = !importInProgress,
-                        isError = importError != null,
-                        supportingText = if (importError != null) {
-                            { Text(importError, color = MaterialTheme.colorScheme.error) }
-                        } else if (importInProgress) {
-                            { Text(stringResource(R.string.font_importing)) }
-                        } else {
-                            null
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+            confirmLabel = stringResource(R.string.button_import),
+            confirmEnabled = fontDisplayName.isNotBlank() && !importInProgress,
+            onConfirm = {
+                pendingUri?.let { uri ->
+                    if (fontDisplayName.isNotBlank()) {
+                        onImportFont(uri, fontDisplayName.trim())
+                    }
                 }
             },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        pendingUri?.let { uri ->
-                            if (fontDisplayName.isNotBlank()) {
-                                onImportFont(uri, fontDisplayName.trim())
-                            }
-                        }
-                    },
-                    enabled = fontDisplayName.isNotBlank() && !importInProgress
-                ) {
-                    Text(stringResource(R.string.button_import))
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        showNameDialog = false
-                        pendingUri = null
-                        fontDisplayName = ""
-                        onClearError()
-                    },
-                    enabled = !importInProgress
-                ) {
-                    Text(stringResource(android.R.string.cancel))
-                }
-            }
-        )
+            dismissLabel = stringResource(R.string.button_cancel)
+        ) {
+            OutlinedTextField(
+                value = fontDisplayName,
+                onValueChange = {
+                    fontDisplayName = it
+                    onClearError()
+                },
+                label = { Text(stringResource(R.string.dialog_localfont_hint)) },
+                singleLine = true,
+                enabled = !importInProgress,
+                isError = importError != null,
+                supportingText = if (importError != null) {
+                    { Text(importError, color = MaterialTheme.colorScheme.error) }
+                } else if (importInProgress) {
+                    { Text(stringResource(R.string.font_importing)) }
+                } else {
+                    null
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 
     // Close dialog when font is successfully imported
@@ -1490,19 +1508,13 @@ private fun NotificationPermissionDeniedDialog(
     onDismiss: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.notification_permission_denied_title)) },
-        text = { Text(stringResource(R.string.notification_permission_denied_message)) },
-        confirmButton = {
-            TextButton(onClick = onOpenSettings) {
-                Text(stringResource(R.string.open_settings))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(android.R.string.cancel))
-            }
-        }
-    )
+    ShellPilotActionDialog(
+        title = stringResource(R.string.notification_permission_denied_title),
+        onDismiss = onDismiss,
+        confirmLabel = stringResource(R.string.open_settings),
+        onConfirm = onOpenSettings,
+        dismissLabel = stringResource(R.string.button_cancel)
+    ) {
+        Text(stringResource(R.string.notification_permission_denied_message))
+    }
 }

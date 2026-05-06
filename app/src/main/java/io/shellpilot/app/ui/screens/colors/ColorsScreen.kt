@@ -39,7 +39,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -78,7 +77,9 @@ import io.shellpilot.app.R
 import io.shellpilot.app.data.entity.ColorScheme
 import io.shellpilot.app.ui.ScreenPreviews
 import io.shellpilot.app.ui.common.getLocalizedColorSchemeDescription
+import io.shellpilot.app.ui.common.getLocalizedColorSchemeName
 import io.shellpilot.app.ui.components.CommandSurfaceCard
+import io.shellpilot.app.ui.components.ShellPilotActionDialog
 import io.shellpilot.app.ui.components.ShellPilotScaffold
 import io.shellpilot.app.ui.components.StatusChip
 import io.shellpilot.app.ui.theme.ShellPilotTheme
@@ -499,7 +500,7 @@ private fun SchemeItem(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = scheme.name,
+                    text = getLocalizedColorSchemeName(scheme),
                     style = MaterialTheme.typography.titleMedium
                 )
                 val localizedDescription = getLocalizedColorSchemeDescription(scheme)
@@ -606,43 +607,46 @@ private fun NewSchemeDialog(
         mutableLongStateOf(preselectedSchemeId ?: -1L)
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.dialog_title_new_scheme)) },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text(stringResource(R.string.label_scheme_name)) },
-                    singleLine = true,
-                    isError = error != null,
-                    modifier = Modifier.fillMaxWidth()
-                )
+    ShellPilotActionDialog(
+        title = stringResource(R.string.dialog_title_new_scheme),
+        onDismiss = onDismiss,
+        confirmLabel = stringResource(R.string.button_confirm),
+        onConfirm = { onConfirm(name, description, selectedBaseSchemeId) },
+        dismissLabel = stringResource(R.string.button_cancel)
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(stringResource(R.string.label_scheme_name)) },
+                singleLine = true,
+                isError = error != null,
+                modifier = Modifier.fillMaxWidth()
+            )
 
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text(stringResource(R.string.label_scheme_description)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+            OutlinedTextField(
+                value = description,
+                onValueChange = { description = it },
+                label = { Text(stringResource(R.string.label_scheme_description)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
 
-                Text(
-                    text = stringResource(R.string.label_base_scheme),
-                    style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
+            Text(
+                text = stringResource(R.string.label_base_scheme),
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.padding(top = 8.dp)
+            )
 
-                Column {
-                    availableSchemes.take(5).forEach { scheme ->
+            Column {
+                availableSchemes.take(5).forEach { scheme ->
+                    CommandSurfaceCard(
+                        onClick = { selectedBaseSchemeId = scheme.id }
+                    ) {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { selectedBaseSchemeId = scheme.id }
-                                .padding(8.dp),
+                            modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(
@@ -650,35 +654,23 @@ private fun NewSchemeDialog(
                                 onClick = { selectedBaseSchemeId = scheme.id }
                             )
                             Text(
-                                text = scheme.name,
+                                text = getLocalizedColorSchemeName(scheme),
                                 modifier = Modifier.padding(start = 8.dp)
                             )
                         }
                     }
                 }
+            }
 
-                if (error != null) {
-                    Text(
-                        text = error,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onConfirm(name, description, selectedBaseSchemeId) }
-            ) {
-                Text(stringResource(R.string.button_confirm))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.button_cancel))
+            if (error != null) {
+                Text(
+                    text = error,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
         }
-    )
+    }
 }
 
 /**
@@ -690,24 +682,14 @@ private fun DeleteSchemeDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.dialog_title_delete_scheme)) },
-        text = {
-            Text(stringResource(R.string.dialog_message_delete_scheme, schemeName))
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(
-                    stringResource(R.string.button_delete_scheme),
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.button_cancel))
-            }
-        }
-    )
+    ShellPilotActionDialog(
+        title = stringResource(R.string.dialog_title_delete_scheme),
+        onDismiss = onDismiss,
+        confirmLabel = stringResource(R.string.button_delete_scheme),
+        onConfirm = onConfirm,
+        dismissLabel = stringResource(R.string.button_cancel),
+        destructiveConfirm = true
+    ) {
+        Text(stringResource(R.string.dialog_message_delete_scheme, schemeName))
+    }
 }

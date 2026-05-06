@@ -27,12 +27,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -90,98 +88,88 @@ fun RgbColorPickerDialog(
         isUpdatingFromSliders = false
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Color preview
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(80.dp)
-                        .background(
-                            color = Color(currentColor),
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .border(
-                            width = 1.dp,
-                            color = MaterialTheme.colorScheme.outline,
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                )
+    ShellPilotActionDialog(
+        title = title,
+        subtitle = "#${String.format("%06X", currentColor and 0xFFFFFF)}",
+        onDismiss = onDismiss,
+        confirmLabel = stringResource(R.string.button_ok),
+        onConfirm = {
+            onColorSelected(currentColor)
+            onDismiss()
+        },
+        dismissLabel = stringResource(R.string.button_cancel)
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Color preview
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .background(
+                        color = Color(currentColor),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    .border(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.outline,
+                        shape = RoundedCornerShape(8.dp)
+                    )
+            )
 
-                // Hex value input
-                OutlinedTextField(
-                    value = hexInput,
-                    onValueChange = { newHex ->
-                        // Strip # if present
-                        val cleanedHex = newHex.removePrefix("#").uppercase()
+            // Hex value input
+            OutlinedTextField(
+                value = hexInput,
+                onValueChange = { newHex ->
+                    // Strip # if present
+                    val cleanedHex = newHex.removePrefix("#").uppercase()
 
-                        // Only allow valid hex characters
-                        if (cleanedHex.all { it in "0123456789ABCDEF" }) {
-                            hexInput = cleanedHex
+                    // Only allow valid hex characters
+                    if (cleanedHex.all { it in "0123456789ABCDEF" }) {
+                        hexInput = cleanedHex
 
-                            // Parse and update RGB values
-                            val parsedColor = parseHexColor(cleanedHex)
-                            if (parsedColor != null) {
-                                isUpdatingFromSliders = true
-                                red = ((parsedColor shr 16) and 0xFF).toFloat()
-                                green = ((parsedColor shr 8) and 0xFF).toFloat()
-                                blue = (parsedColor and 0xFF).toFloat()
-                            }
+                        // Parse and update RGB values
+                        val parsedColor = parseHexColor(cleanedHex)
+                        if (parsedColor != null) {
+                            isUpdatingFromSliders = true
+                            red = ((parsedColor shr 16) and 0xFF).toFloat()
+                            green = ((parsedColor shr 8) and 0xFF).toFloat()
+                            blue = (parsedColor and 0xFF).toFloat()
                         }
-                    },
-                    label = { Text(stringResource(R.string.label_hex_color)) },
-                    prefix = { Text("#") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(
-                        capitalization = KeyboardCapitalization.Characters
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
+                    }
+                },
+                label = { Text(stringResource(R.string.label_hex_color)) },
+                prefix = { Text("#") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Characters
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
 
-                // Red slider
-                ColorSliderRow(
-                    label = stringResource(R.string.label_red),
-                    value = red,
-                    color = Color.Red,
-                    onValueChange = { red = it }
-                )
+            ColorSliderRow(
+                label = stringResource(R.string.label_red),
+                value = red,
+                color = Color.Red,
+                onValueChange = { red = it }
+            )
 
-                // Green slider
-                ColorSliderRow(
-                    label = stringResource(R.string.label_green),
-                    value = green,
-                    color = Color.Green,
-                    onValueChange = { green = it }
-                )
+            ColorSliderRow(
+                label = stringResource(R.string.label_green),
+                value = green,
+                color = Color.Green,
+                onValueChange = { green = it }
+            )
 
-                // Blue slider
-                ColorSliderRow(
-                    label = stringResource(R.string.label_blue),
-                    value = blue,
-                    color = Color.Blue,
-                    onValueChange = { blue = it }
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                onColorSelected(currentColor)
-                onDismiss()
-            }) {
-                Text(stringResource(R.string.button_ok))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.button_cancel))
-            }
+            ColorSliderRow(
+                label = stringResource(R.string.label_blue),
+                value = blue,
+                color = Color.Blue,
+                onValueChange = { blue = it }
+            )
         }
-    )
+    }
 }
 
 /**

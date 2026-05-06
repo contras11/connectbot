@@ -17,27 +17,26 @@
 
 package io.shellpilot.app.ui.screens.hints
 
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.shellpilot.app.R
 import io.shellpilot.app.ui.ScreenPreviews
+import io.shellpilot.app.ui.components.CommandSurfaceCard
+import io.shellpilot.app.ui.components.ShellPilotScaffold
+import io.shellpilot.app.ui.components.StatusChip
 import io.shellpilot.app.ui.theme.ShellPilotTheme
 
 data class Hint(
@@ -47,44 +46,44 @@ data class Hint(
 
 private val hints = listOf(
     Hint(
-        title = "Quick Connect",
-        description = "Tap the + button on the main screen to quickly connect to a host using a URI like ssh://user@hostname:port"
+        title = "クイック接続",
+        description = "ホスト追加画面で user@example.com:22 のように入力すると、接続先をすばやく作成できます。"
     ),
     Hint(
-        title = "Volume Keys",
-        description = "Use volume up/down to send special keys. Volume Up = Ctrl, Volume Down = Tab"
+        title = "音量キー",
+        description = "設定で有効にすると、音量キーをターミナル操作の補助キーとして使えます。"
     ),
     Hint(
-        title = "Scroll Back",
-        description = "Swipe up/down on the screen to scroll through terminal history"
+        title = "スクロールバック",
+        description = "ターミナル履歴はスワイプで戻れます。保持する行数は設定またはプロファイルで調整できます。"
     ),
     Hint(
-        title = "Multiple Connections",
-        description = "Swipe left/right to switch between multiple active terminal sessions"
+        title = "複数セッション",
+        description = "ホスト一覧から複数の接続を開始し、セッション画面で作業中の端末を確認します。"
     ),
     Hint(
-        title = "Copy/Paste",
-        description = "Long-press on the terminal to select text, then use the standard Android copy/paste"
+        title = "コピーと貼り付け",
+        description = "端末の長押しやメニューからコピー/貼り付けを使えます。CLIの出力確認に便利です。"
     ),
     Hint(
-        title = "Port Forwarding",
-        description = "Set up SSH port forwarding in the host editor for secure tunneling"
+        title = "ポート転送",
+        description = "ホストカードの転送ボタンから、Local / Remote / Dynamic の転送ルールを管理できます。"
     ),
     Hint(
-        title = "Public Keys",
-        description = "Generate and manage SSH keys in the Manage Keys section for password-less authentication"
+        title = "公開鍵",
+        description = "ツールの公開鍵画面で鍵の生成、インポート、ロード状態の確認を行えます。"
     ),
     Hint(
-        title = "Color Schemes",
-        description = "Customize terminal colors for each host in the host editor"
+        title = "カラースキーム",
+        description = "プロファイルとカラースキームを組み合わせて、作業環境ごとの端末表示を切り替えます。"
     ),
     Hint(
-        title = "Keep Alive",
-        description = "Enable 'Keep screen awake' in settings to prevent the screen from timing out during long sessions"
+        title = "画面スリープ防止",
+        description = "長時間のセッションでは、設定の画面スリープ防止を有効にすると作業が中断されにくくなります。"
     ),
     Hint(
-        title = "Disconnect All",
-        description = "Use the menu on the main screen to quickly disconnect all active connections"
+        title = "すべて切断",
+        description = "ホスト一覧のメニューから、アクティブな接続をまとめて切断できます。"
     )
 )
 
@@ -94,46 +93,48 @@ fun HintsScreen(
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.hints)) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                    }
-                }
-            )
+    ShellPilotScaffold(
+        title = stringResource(R.string.hints),
+        subtitle = "接続・端末操作・AI CLI作業のコツ",
+        navigationIcon = {
+            IconButton(onClick = onNavigateBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+            }
         },
         modifier = modifier
     ) { padding ->
-        LazyColumn(modifier = Modifier.padding(padding)) {
+        LazyColumn(
+            modifier = Modifier.padding(padding),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
             item {
-                Column(modifier = Modifier.padding(16.dp)) {
+                CommandSurfaceCard {
                     Text(
-                        text = "Here are some tips to help you get the most out of ShellPilot:",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(bottom = 8.dp)
+                        text = "ShellPilotを使いこなす",
+                        style = MaterialTheme.typography.titleMedium
                     )
+                    Text(
+                        text = "SSH端末とClaude Code / Codexの操作でよく使う導線をまとめています。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    StatusChip(label = "日本語ヒント")
                 }
             }
 
             items(hints) { hint ->
-                ListItem(
-                    headlineContent = {
-                        Text(
-                            text = hint.title,
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                    },
-                    supportingContent = {
-                        Text(
-                            text = hint.description,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                )
-                HorizontalDivider()
+                CommandSurfaceCard {
+                    Text(
+                        text = hint.title,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        text = hint.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }

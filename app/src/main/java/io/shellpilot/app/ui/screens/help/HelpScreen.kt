@@ -35,13 +35,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -56,12 +54,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import io.shellpilot.app.BuildConfig
 import io.shellpilot.app.R
 import io.shellpilot.app.ui.ScreenPreviews
 import io.shellpilot.app.ui.components.CommandSurfaceCard
+import io.shellpilot.app.ui.components.ShellPilotActionDialog
 import io.shellpilot.app.ui.components.ShellPilotScaffold
 import io.shellpilot.app.ui.components.StatusChip
 import io.shellpilot.app.ui.theme.ShellPilotTheme
@@ -91,15 +89,15 @@ fun HelpScreen(
         LazyColumn(
             modifier = Modifier
                 .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             item {
                 CommandSurfaceCard(accent = MaterialTheme.colorScheme.primary) {
                     // 変更理由: フォーク元を明示するためアプリ名とフォーク表記を変更
                     Text(
                         text = "ShellPilot",
-                        style = MaterialTheme.typography.headlineMedium
+                        style = MaterialTheme.typography.titleLarge
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         StatusChip(label = "AI CLI対応")
@@ -219,31 +217,26 @@ private fun HelpActionCard(
 private fun KeyboardShortcutsDialog(
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.keyboard_shortcuts)) },
-        text = {
-            Column {
-                ShortcutRow(
-                    shortcut = stringResource(R.string.paste_shortcut),
-                    description = stringResource(R.string.console_menu_paste)
-                )
-                ShortcutRow(
-                    shortcut = stringResource(R.string.increase_font_shortcut),
-                    description = stringResource(R.string.increase_font_size)
-                )
-                ShortcutRow(
-                    shortcut = stringResource(R.string.decrease_font_shortcut),
-                    description = stringResource(R.string.decrease_font_size)
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(android.R.string.ok))
-            }
+    ShellPilotActionDialog(
+        title = stringResource(R.string.keyboard_shortcuts),
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(R.string.button_close)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            ShortcutRow(
+                shortcut = stringResource(R.string.paste_shortcut),
+                description = stringResource(R.string.console_menu_paste)
+            )
+            ShortcutRow(
+                shortcut = stringResource(R.string.increase_font_shortcut),
+                description = stringResource(R.string.increase_font_size)
+            )
+            ShortcutRow(
+                shortcut = stringResource(R.string.decrease_font_shortcut),
+                description = stringResource(R.string.decrease_font_size)
+            )
         }
-    )
+    }
 }
 
 @Composable
@@ -282,53 +275,32 @@ private fun LogViewerDialog(
         viewModel.loadLogs()
     }
 
-    AlertDialog(
+    ShellPilotActionDialog(
         modifier = Modifier
             .fillMaxWidth(0.96f)
             .fillMaxHeight(0.86f),
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.logs_title)) },
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-        text = {
-            Column(
-                modifier = Modifier.fillMaxHeight()
-            ) {
-                Text(
-                    text = stringResource(R.string.logs_bug_report_info),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-
-                val scrollState = rememberScrollState()
-                Text(
-                    text = logs.ifEmpty { stringResource(R.string.no_logs_available) },
-                    style = MaterialTheme.typography.bodySmall,
-                    fontFamily = FontFamily.Monospace,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .verticalScroll(scrollState)
-                        .horizontalScroll(rememberScrollState())
-                        .padding(8.dp)
-                )
-            }
+        title = stringResource(R.string.logs_title),
+        subtitle = stringResource(R.string.logs_bug_report_info),
+        onDismiss = onDismiss,
+        confirmLabel = stringResource(R.string.copy_logs),
+        onConfirm = {
+            copyLogsToClipboard(context, logs)
         },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    copyLogsToClipboard(context, logs)
-                }
-            ) {
-                Text(stringResource(R.string.copy_logs))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(android.R.string.ok))
-            }
-        }
-    )
+        dismissLabel = stringResource(R.string.button_close)
+    ) {
+        val scrollState = rememberScrollState()
+        Text(
+            text = logs.ifEmpty { stringResource(R.string.no_logs_available) },
+            style = MaterialTheme.typography.bodySmall,
+            fontFamily = FontFamily.Monospace,
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.72f)
+                .verticalScroll(scrollState)
+                .horizontalScroll(rememberScrollState())
+                .padding(8.dp)
+        )
+    }
 }
 
 private fun copyLogsToClipboard(context: Context, logs: String) {

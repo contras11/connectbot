@@ -18,30 +18,35 @@
 package io.shellpilot.app.ui.screens.contact
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Coffee
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.shellpilot.app.R
 import io.shellpilot.app.ui.ScreenPreviews
+import io.shellpilot.app.ui.components.CommandSurfaceCard
+import io.shellpilot.app.ui.components.ShellPilotScaffold
+import io.shellpilot.app.ui.components.StatusChip
 import io.shellpilot.app.ui.theme.ShellPilotTheme
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContactScreen(
     onNavigateBack: () -> Unit,
@@ -49,30 +54,42 @@ fun ContactScreen(
 ) {
     val uriHandler = LocalUriHandler.current
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.title_contact)) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                    }
-                }
-            )
+    ShellPilotScaffold(
+        title = stringResource(R.string.title_contact),
+        subtitle = "サポート・GitHub・フォーク元情報",
+        navigationIcon = {
+            IconButton(onClick = onNavigateBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+            }
         },
         modifier = modifier
     ) { padding ->
-        LazyColumn(modifier = Modifier.padding(padding)) {
+        LazyColumn(
+            modifier = Modifier.padding(padding),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             item {
-                Text(
-                    text = stringResource(R.string.help_section_contact),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(16.dp)
-                )
+                CommandSurfaceCard {
+                    Text(
+                        text = stringResource(R.string.help_section_contact),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        text = "ログや再現手順を添えて送ると、問題を確認しやすくなります。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        StatusChip(label = "GitHub")
+                        StatusChip(label = "サポート")
+                    }
+                }
             }
 
             item {
                 ContactLinkItem(
+                    icon = Icons.Default.Language,
                     label = stringResource(R.string.help_website),
                     url = stringResource(R.string.help_website_url),
                     onClick = { uriHandler.openUri(it) }
@@ -81,6 +98,7 @@ fun ContactScreen(
 
             item {
                 ContactLinkItem(
+                    icon = Icons.AutoMirrored.Filled.OpenInNew,
                     label = stringResource(R.string.help_github),
                     url = stringResource(R.string.help_github_url),
                     onClick = { uriHandler.openUri(it) }
@@ -89,6 +107,7 @@ fun ContactScreen(
 
             item {
                 ContactLinkItem(
+                    icon = Icons.Default.BugReport,
                     label = stringResource(R.string.help_report_bug),
                     url = stringResource(R.string.help_report_bug_url),
                     onClick = { uriHandler.openUri(it) }
@@ -99,12 +118,27 @@ fun ContactScreen(
                 Text(
                     text = stringResource(R.string.help_section_donate),
                     style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 16.dp)
+                    modifier = Modifier.padding(top = 12.dp)
                 )
             }
 
             item {
+                CommandSurfaceCard {
+                    Text(
+                        text = "ConnectBot attribution",
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Text(
+                        text = "以下はフォーク元ConnectBotの継続開発を支援する外部リンクです。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            item {
                 ContactLinkItem(
+                    icon = Icons.Default.Coffee,
                     label = stringResource(R.string.help_donate_github),
                     url = stringResource(R.string.help_donate_github_url),
                     onClick = { uriHandler.openUri(it) }
@@ -113,6 +147,7 @@ fun ContactScreen(
 
             item {
                 ContactLinkItem(
+                    icon = Icons.Default.Coffee,
                     label = stringResource(R.string.help_donate_coffee),
                     url = stringResource(R.string.help_donate_coffee_url),
                     onClick = { uriHandler.openUri(it) }
@@ -124,27 +159,33 @@ fun ContactScreen(
 
 @Composable
 private fun ContactLinkItem(
+    icon: ImageVector,
     label: String,
     url: String,
     onClick: (String) -> Unit
 ) {
-    ListItem(
-        headlineContent = {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.titleMedium
-            )
-        },
-        supportingContent = {
-            Text(
-                text = url,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-        },
+    CommandSurfaceCard(
         modifier = Modifier.clickable { onClick(url) }
-    )
-    HorizontalDivider()
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Column {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = url,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
 }
 
 @ScreenPreviews

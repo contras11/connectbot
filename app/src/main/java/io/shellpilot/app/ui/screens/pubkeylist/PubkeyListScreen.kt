@@ -48,7 +48,6 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Fingerprint
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockOpen
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -85,6 +84,7 @@ import io.shellpilot.app.data.entity.Pubkey
 import io.shellpilot.app.ui.LocalTerminalManager
 import io.shellpilot.app.ui.ScreenPreviews
 import io.shellpilot.app.ui.components.CommandSurfaceCard
+import io.shellpilot.app.ui.components.ShellPilotActionDialog
 import io.shellpilot.app.ui.components.ShellPilotScaffold
 import io.shellpilot.app.ui.components.StatusChip
 import io.shellpilot.app.ui.components.rememberBiometricPromptState
@@ -730,40 +730,29 @@ private fun PubkeyPasswordDialog(
 ) {
     var password by remember { mutableStateOf("") }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Default.Lock, contentDescription = null) },
-        title = { Text(stringResource(R.string.pubkey_unlock)) },
-        text = {
-            Column {
-                Text(
-                    text = stringResource(R.string.pubkey_unlock_message, pubkey.nickname),
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text(stringResource(R.string.prompt_password)) },
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onPasswordProvided(password) }
-            ) {
-                Text(stringResource(R.string.pubkey_unlock))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(android.R.string.cancel))
-            }
+    ShellPilotActionDialog(
+        title = stringResource(R.string.pubkey_unlock),
+        onDismiss = onDismiss,
+        confirmLabel = stringResource(R.string.pubkey_unlock),
+        onConfirm = { onPasswordProvided(password) },
+        dismissLabel = stringResource(R.string.button_cancel)
+    ) {
+        Column {
+            Text(
+                text = stringResource(R.string.pubkey_unlock_message, pubkey.nickname),
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text(stringResource(R.string.prompt_password)) },
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
         }
-    )
+    }
 }
 
 @Composable
@@ -772,26 +761,16 @@ private fun PubkeyDeleteDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Default.Delete, contentDescription = null) },
-        title = { Text(stringResource(R.string.pubkey_delete)) },
-        text = {
-            Text(stringResource(R.string.delete_message, pubkey.nickname))
-        },
-        confirmButton = {
-            TextButton(
-                onClick = onConfirm
-            ) {
-                Text(stringResource(R.string.delete_pos))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.delete_neg))
-            }
-        }
-    )
+    ShellPilotActionDialog(
+        title = stringResource(R.string.pubkey_delete),
+        onDismiss = onDismiss,
+        confirmLabel = stringResource(R.string.delete_pos),
+        onConfirm = onConfirm,
+        dismissLabel = stringResource(R.string.delete_neg),
+        destructiveConfirm = true
+    ) {
+        Text(stringResource(R.string.delete_message, pubkey.nickname))
+    }
 }
 
 @Composable
@@ -813,103 +792,92 @@ private fun ImportPasswordDialog(
         (newPassword.isNotEmpty() && newPassword == confirmPassword)
     )
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Default.Lock, contentDescription = null) },
-        title = { Text(stringResource(R.string.pubkey_import_encrypted_title)) },
-        text = {
-            Column {
-                Text(
-                    text = stringResource(R.string.pubkey_import_encrypted_message, nickname, keyType),
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text(stringResource(R.string.prompt_password)) },
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
+    ShellPilotActionDialog(
+        title = stringResource(R.string.pubkey_import_encrypted_title),
+        onDismiss = onDismiss,
+        confirmLabel = stringResource(R.string.pubkey_import_button),
+        confirmEnabled = canImport,
+        onConfirm = {
+            val encryptPassword = when {
+                !encryptKey -> null
+                reusePassword -> password
+                else -> newPassword
+            }
+            onImport(password, encryptKey, encryptPassword)
+        },
+        dismissLabel = stringResource(R.string.button_cancel)
+    ) {
+        Column {
+            Text(
+                text = stringResource(R.string.pubkey_import_encrypted_message, nickname, keyType),
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text(stringResource(R.string.prompt_password)) },
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
 
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp)
+                    .clickable { encryptKey = !encryptKey }
+            ) {
+                Checkbox(
+                    checked = encryptKey,
+                    onCheckedChange = { encryptKey = it }
+                )
+                Text(stringResource(R.string.pubkey_import_encrypt_key))
+            }
+
+            if (encryptKey) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 16.dp)
-                        .clickable { encryptKey = !encryptKey }
+                        .clickable { reusePassword = !reusePassword }
                 ) {
                     Checkbox(
-                        checked = encryptKey,
-                        onCheckedChange = { encryptKey = it }
+                        checked = reusePassword,
+                        onCheckedChange = { reusePassword = it }
                     )
-                    Text(stringResource(R.string.pubkey_import_encrypt_key))
+                    Text(stringResource(R.string.pubkey_import_reuse_password))
                 }
 
-                if (encryptKey) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
+                if (!reusePassword) {
+                    OutlinedTextField(
+                        value = newPassword,
+                        onValueChange = { newPassword = it },
+                        label = { Text(stringResource(R.string.pubkey_import_new_password)) },
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { reusePassword = !reusePassword }
-                    ) {
-                        Checkbox(
-                            checked = reusePassword,
-                            onCheckedChange = { reusePassword = it }
-                        )
-                        Text(stringResource(R.string.pubkey_import_reuse_password))
-                    }
-
-                    if (!reusePassword) {
-                        OutlinedTextField(
-                            value = newPassword,
-                            onValueChange = { newPassword = it },
-                            label = { Text(stringResource(R.string.pubkey_import_new_password)) },
-                            visualTransformation = PasswordVisualTransformation(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp),
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = confirmPassword,
-                            onValueChange = { confirmPassword = it },
-                            label = { Text(stringResource(R.string.pubkey_import_confirm_password)) },
-                            visualTransformation = PasswordVisualTransformation(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp),
-                            singleLine = true,
-                            isError = confirmPassword.isNotEmpty() && newPassword != confirmPassword
-                        )
-                    }
+                            .padding(top = 8.dp),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = confirmPassword,
+                        onValueChange = { confirmPassword = it },
+                        label = { Text(stringResource(R.string.pubkey_import_confirm_password)) },
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        singleLine = true,
+                        isError = confirmPassword.isNotEmpty() && newPassword != confirmPassword
+                    )
                 }
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    val encryptPassword = when {
-                        !encryptKey -> null
-                        reusePassword -> password
-                        else -> newPassword
-                    }
-                    onImport(password, encryptKey, encryptPassword)
-                },
-                enabled = canImport
-            ) {
-                Text(stringResource(R.string.pubkey_import_button))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(android.R.string.cancel))
-            }
         }
-    )
+    }
 }
 
 @Composable
@@ -921,72 +889,61 @@ private fun ExportPassphraseDialog(
     var confirmPassphrase by remember { mutableStateOf("") }
     var showError by remember { mutableStateOf(false) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Default.Lock, contentDescription = null) },
-        title = { Text(stringResource(R.string.pubkey_export_set_passphrase)) },
-        text = {
-            Column {
+    ShellPilotActionDialog(
+        title = stringResource(R.string.pubkey_export_set_passphrase),
+        onDismiss = onDismiss,
+        confirmLabel = stringResource(R.string.button_ok),
+        onConfirm = {
+            if (passphrase == confirmPassphrase && passphrase.isNotEmpty()) {
+                onPassphraseProvided(passphrase)
+            } else {
+                showError = true
+            }
+        },
+        dismissLabel = stringResource(R.string.button_cancel)
+    ) {
+        Column {
+            Text(
+                text = stringResource(R.string.pubkey_export_passphrase_message),
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+            OutlinedTextField(
+                value = passphrase,
+                onValueChange = {
+                    passphrase = it
+                    showError = false
+                },
+                label = { Text(stringResource(R.string.prompt_password)) },
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+            OutlinedTextField(
+                value = confirmPassphrase,
+                onValueChange = {
+                    confirmPassphrase = it
+                    showError = false
+                },
+                label = { Text(stringResource(R.string.pubkey_export_confirm_passphrase)) },
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                singleLine = true,
+                isError = showError
+            )
+            if (showError) {
                 Text(
-                    text = stringResource(R.string.pubkey_export_passphrase_message),
-                    modifier = Modifier.padding(bottom = 16.dp)
+                    text = stringResource(R.string.pubkey_export_passphrase_mismatch),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 4.dp)
                 )
-                OutlinedTextField(
-                    value = passphrase,
-                    onValueChange = {
-                        passphrase = it
-                        showError = false
-                    },
-                    label = { Text(stringResource(R.string.prompt_password)) },
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    value = confirmPassphrase,
-                    onValueChange = {
-                        confirmPassphrase = it
-                        showError = false
-                    },
-                    label = { Text(stringResource(R.string.pubkey_export_confirm_passphrase)) },
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                    singleLine = true,
-                    isError = showError
-                )
-                if (showError) {
-                    Text(
-                        text = stringResource(R.string.pubkey_export_passphrase_mismatch),
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    if (passphrase == confirmPassphrase && passphrase.isNotEmpty()) {
-                        onPassphraseProvided(passphrase)
-                    } else {
-                        showError = true
-                    }
-                }
-            ) {
-                Text(stringResource(android.R.string.ok))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(android.R.string.cancel))
             }
         }
-    )
+    }
 }
 
 @ScreenPreviews

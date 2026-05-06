@@ -39,7 +39,6 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
@@ -48,18 +47,17 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -72,6 +70,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import io.shellpilot.app.data.entity.Shortcut
 import io.shellpilot.app.session.CliCommandRegistry
 import io.shellpilot.app.ui.components.CommandSurfaceCard
+import io.shellpilot.app.ui.components.CommandChipButton
+import io.shellpilot.app.ui.components.ShellPilotActionDialog
+import io.shellpilot.app.ui.components.ShellPilotScaffold
 import io.shellpilot.app.ui.components.StatusChip
 
 /**
@@ -116,6 +117,7 @@ fun ShortcutListScreen(
     var editingShortcut by remember { mutableStateOf<Shortcut?>(null) }
     var showAddDialog by remember { mutableStateOf(false) }
     var showImportDialog by remember { mutableStateOf(false) }
+    var selectedMode by remember { mutableIntStateOf(0) }
 
     // 変更理由: ホストグループとカテゴリグループの折り畳み状態を管理する。
     // キー: "host:${hostId}" または "cat:${hostId}:${categoryId}"
@@ -142,40 +144,37 @@ fun ShortcutListScreen(
         viewModel.consumeTemplateSyncMessage()
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("ショートカット設定") },
-                navigationIcon = {
-                    // 変更理由: タブ表示時はArrowBackを非表示にする
-                    if (showNavigationIcon) {
-                        IconButton(onClick = onNavigateBack) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "戻る"
-                            )
-                        }
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { showAddDialog = true }) {
-                        Icon(Icons.Default.Add, contentDescription = "追加")
-                    }
-                    // 変更理由: カテゴリ別一括インポート機能へのアクセスを追加
-                    IconButton(onClick = { showImportDialog = true }) {
-                        Icon(
-                            Icons.Default.Download,
-                            contentDescription = "テンプレートからインポート"
-                        )
-                    }
-                    IconButton(onClick = { viewModel.syncOfficialTemplates() }) {
-                        Icon(
-                            Icons.Default.Refresh,
-                            contentDescription = "公式テンプレートを更新"
-                        )
-                    }
+    ShellPilotScaffold(
+        title = "ショートカット設定",
+        subtitle = "表示タブ・コマンド・公式テンプレート",
+        navigationIcon = {
+            // 変更理由: タブ表示時はArrowBackを非表示にする
+            if (showNavigationIcon) {
+                IconButton(onClick = onNavigateBack) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "戻る"
+                    )
                 }
-            )
+            }
+        },
+        actions = {
+            IconButton(onClick = { showAddDialog = true }) {
+                Icon(Icons.Default.Add, contentDescription = "追加")
+            }
+            // 変更理由: カテゴリ別一括インポート機能へのアクセスを追加
+            IconButton(onClick = { showImportDialog = true }) {
+                Icon(
+                    Icons.Default.Download,
+                    contentDescription = "テンプレートからインポート"
+                )
+            }
+            IconButton(onClick = { viewModel.syncOfficialTemplates() }) {
+                Icon(
+                    Icons.Default.Refresh,
+                    contentDescription = "公式テンプレートを更新"
+                )
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         modifier = modifier.fillMaxSize()
@@ -230,47 +229,44 @@ fun ShortcutListScreen(
                     }
                 }
 
+                item(key = "shortcut_mode_tabs") {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        CommandChipButton(
+                            label = "表示タブ管理",
+                            onClick = { selectedMode = 0 },
+                            emphasized = selectedMode == 0,
+                            modifier = Modifier.weight(1f)
+                        )
+                        CommandChipButton(
+                            label = "コマンド一覧管理",
+                            onClick = { selectedMode = 1 },
+                            emphasized = selectedMode == 1,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+
                 // 変更理由: プロファイルタブの表示順序を設定するセクション。
                 // ShortcutBarのプロファイルタブ(カスタム/Claude Code/Git等)の
                 // 表示順をユーザが上下ボタンで変更できるようにする。
-                item(key = "profile_order_header") {
-                    val profileExpanded = expandedGroups["profile_order"] ?: false
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = MaterialTheme.shapes.small
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .clickable {
-                                    expandedGroups["profile_order"] = !profileExpanded
-                                }
-                                .padding(horizontal = 16.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = if (profileExpanded) Icons.Default.KeyboardArrowDown
-                                else Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                contentDescription = if (profileExpanded) "折り畳む" else "展開する",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
+                if (selectedMode == 0) {
+                    item(key = "profile_order_header") {
+                        CommandSurfaceCard {
                             Text(
                                 text = "表示タブ管理",
                                 style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.weight(1f)
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "${profileOrder.size}件",
-                                style = MaterialTheme.typography.labelSmall,
+                                text = "セッション画面に出すカテゴリと並び順を設定します。",
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
-                }
-
-                if (expandedGroups["profile_order"] == true) {
                     items(
                         items = profileOrder,
                         key = { "profile_${it ?: "custom"}" }
@@ -281,26 +277,34 @@ fun ShortcutListScreen(
                             CliCommandRegistry.findCategory(profileId)?.displayName
                                 ?: profileId
                         }
-                        ListItem(
-                            headlineContent = {
-                                Text(
-                                    text = profileLabel,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                        CommandSurfaceCard {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                            },
-                            supportingContent = {
-                                Text(
-                                    text = if (profileId == null || profileId !in hiddenProfileIds) {
-                                        "セッション画面に表示"
-                                    } else {
-                                        "セッション画面では非表示"
-                                    },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            },
-                            trailingContent = {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = profileLabel,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        style = MaterialTheme.typography.titleSmall
+                                    )
+                                    Text(
+                                        text = if (profileId == null || profileId !in hiddenProfileIds) {
+                                            "セッション画面に表示"
+                                        } else {
+                                            "セッション画面では非表示"
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                                 Row {
                                     if (profileId != null) {
                                         Switch(
@@ -329,93 +333,80 @@ fun ShortcutListScreen(
                                         )
                                     }
                                 }
-                            },
-                            modifier = Modifier.padding(start = 16.dp)
-                        )
-                        HorizontalDivider(
-                            modifier = Modifier.padding(start = 16.dp),
-                            thickness = 0.5.dp
-                        )
-                    }
-                }
-
-                // ショートカット一覧セクション
-                item(key = "command_list_header") {
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = MaterialTheme.shapes.small
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "コマンド一覧管理",
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Text(
-                                text = "${shortcuts.size}件",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            }
                         }
                     }
                 }
 
-                sortedHostKeys.forEach { hostKey ->
-                    val categoryMap = grouped[hostKey] ?: return@forEach
-                    val hostGroupExpanded = expandedGroups[hostKey] ?: true
-
-                    // ホストグループヘッダー (グローバル or ホスト別)
-                    item(key = "host_header_$hostKey") {
-                        HostGroupHeader(
-                            hostKey = hostKey,
-                            shortcutCount = categoryMap.values.sumOf { it.size },
-                            expanded = hostGroupExpanded,
-                            onClick = {
-                                expandedGroups[hostKey] = !hostGroupExpanded
-                            }
-                        )
+                // ショートカット一覧セクション
+                if (selectedMode == 1) {
+                    item(key = "command_list_header") {
+                        CommandSurfaceCard {
+                            Text(
+                                text = "コマンド一覧管理",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "コマンドの追加・編集・並び替えを行います。カスタム項目は公式更新後も保持されます。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
 
-                    if (hostGroupExpanded) {
-                        // カテゴリ別サブグループ
-                        val sortedCategoryKeys = categoryMap.keys.sortedWith(
-                            compareBy { if (it == "UNCATEGORIZED") "zzz" else it }
-                        )
-                        sortedCategoryKeys.forEach { categoryKey ->
-                            val categoryShortcuts = categoryMap[categoryKey] ?: return@forEach
-                            val catGroupKey = "cat:$hostKey:$categoryKey"
-                            val catExpanded = expandedGroups[catGroupKey] ?: true
+                    sortedHostKeys.forEach { hostKey ->
+                        val categoryMap = grouped[hostKey] ?: return@forEach
+                        val hostGroupExpanded = expandedGroups[hostKey] ?: true
 
-                            item(key = "cat_header_${hostKey}_$categoryKey") {
-                                CategoryGroupHeader(
-                                    categoryKey = categoryKey,
-                                    shortcutCount = categoryShortcuts.size,
-                                    expanded = catExpanded,
-                                    onClick = {
-                                        expandedGroups[catGroupKey] = !catExpanded
-                                    }
-                                )
-                            }
+                        // ホストグループヘッダー (グローバル or ホスト別)
+                        item(key = "host_header_$hostKey") {
+                            HostGroupHeader(
+                                hostKey = hostKey,
+                                shortcutCount = categoryMap.values.sumOf { it.size },
+                                expanded = hostGroupExpanded,
+                                onClick = {
+                                    expandedGroups[hostKey] = !hostGroupExpanded
+                                }
+                            )
+                        }
 
-                            if (catExpanded) {
-                                items(
-                                    items = categoryShortcuts.sortedBy { it.order },
-                                    key = { it.id }
-                                ) { shortcut ->
-                                    // 変更理由: 上下移動ボタンを追加し
-                                    // ショートカットの表示順を変更可能にする
-                                    ShortcutListItem(
-                                        shortcut = shortcut,
-                                        onClick = { editingShortcut = shortcut },
-                                        onDelete = { viewModel.delete(shortcut.id) },
-                                        onMoveUp = { viewModel.moveUp(shortcut) },
-                                        onMoveDown = { viewModel.moveDown(shortcut) }
+                        if (hostGroupExpanded) {
+                            // カテゴリ別サブグループ
+                            val sortedCategoryKeys = categoryMap.keys.sortedWith(
+                                compareBy { if (it == "UNCATEGORIZED") "zzz" else it }
+                            )
+                            sortedCategoryKeys.forEach { categoryKey ->
+                                val categoryShortcuts = categoryMap[categoryKey] ?: return@forEach
+                                val catGroupKey = "cat:$hostKey:$categoryKey"
+                                val catExpanded = expandedGroups[catGroupKey] ?: true
+
+                                item(key = "cat_header_${hostKey}_$categoryKey") {
+                                    CategoryGroupHeader(
+                                        categoryKey = categoryKey,
+                                        shortcutCount = categoryShortcuts.size,
+                                        expanded = catExpanded,
+                                        onClick = {
+                                            expandedGroups[catGroupKey] = !catExpanded
+                                        }
                                     )
+                                }
+
+                                if (catExpanded) {
+                                    items(
+                                        items = categoryShortcuts.sortedBy { it.order },
+                                        key = { it.id }
+                                    ) { shortcut ->
+                                        // 変更理由: 上下移動ボタンを追加し
+                                        // ショートカットの表示順を変更可能にする
+                                        ShortcutListItem(
+                                            shortcut = shortcut,
+                                            onClick = { editingShortcut = shortcut },
+                                            onDelete = { viewModel.delete(shortcut.id) },
+                                            onMoveUp = { viewModel.moveUp(shortcut) },
+                                            onMoveDown = { viewModel.moveDown(shortcut) }
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -581,25 +572,28 @@ private fun ShortcutListItem(
         .replace("\u001A", "^Z")
         .take(60)
 
-    ListItem(
-        headlineContent = {
-            Text(
-                text = shortcut.label,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        },
-        supportingContent = {
-            Text(
-                text = commandPreview,
-                style = MaterialTheme.typography.bodySmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        },
-        trailingContent = {
-            // 変更理由: 上下移動ボタンを追加して並び替えを可能にする
+    CommandSurfaceCard(onClick = onClick) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = shortcut.label,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Text(
+                    text = commandPreview,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            // 変更理由: 削除だけが強い赤面に見えないよう、通常時は中立アイコンに揃える。
             Row {
                 IconButton(onClick = onMoveUp) {
                     Icon(
@@ -619,16 +613,12 @@ private fun ShortcutListItem(
                     Icon(
                         Icons.Default.Delete,
                         contentDescription = "削除",
-                        tint = MaterialTheme.colorScheme.error
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
-        },
-        modifier = Modifier
-            .padding(start = 16.dp)
-            .clickable(onClick = onClick)
-    )
-    HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
+        }
+    }
 }
 
 /**
@@ -647,40 +637,40 @@ private fun ImportCategoryDialog(
     onDismiss: () -> Unit,
     onImport: (CliCommandRegistry.ToolCategory) -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("テンプレートからインポート") },
-        text = {
-            LazyColumn {
-                items(CliCommandRegistry.categories) { category ->
-                    val newCount = category.commands.count { (it.label to category.id) !in existingPairs }
-                    ListItem(
-                        headlineContent = { Text(category.displayName) },
-                        supportingContent = {
+    ShellPilotActionDialog(
+        title = "テンプレートからインポート",
+        onDismiss = onDismiss,
+        dismissLabel = "閉じる"
+    ) {
+        LazyColumn {
+            items(CliCommandRegistry.categories) { category ->
+                val newCount = category.commands.count { (it.label to category.id) !in existingPairs }
+                CommandSurfaceCard {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(category.displayName)
                             Text(
                                 "${category.commands.size}件のコマンド" +
-                                    if (newCount < category.commands.size) " (新規${newCount}件)" else ""
+                                    if (newCount < category.commands.size) " (新規${newCount}件)" else "",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                        },
-                        trailingContent = {
-                            FilledTonalButton(
-                                onClick = { onImport(category) },
-                                enabled = newCount > 0
-                            ) {
-                                Text(if (newCount > 0) "追加" else "追加済み")
-                            }
                         }
-                    )
-                    HorizontalDivider()
+                        FilledTonalButton(
+                            onClick = { onImport(category) },
+                            enabled = newCount > 0
+                        ) {
+                            Text(if (newCount > 0) "追加" else "追加済み")
+                        }
+                    }
                 }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("閉じる")
+                Spacer(modifier = Modifier.height(6.dp))
             }
         }
-    )
+    }
 }
 
 /**
@@ -705,92 +695,80 @@ private fun ShortcutEditDialog(
     // 変更理由: カテゴリ入力フィールドを追加
     var categoryText by remember { mutableStateOf(shortcut?.category ?: "") }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = label,
-                    onValueChange = { label = it },
-                    label = { Text("ラベル") },
-                    placeholder = { Text("例: ls") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+    ShellPilotActionDialog(
+        title = title,
+        onDismiss = onDismiss,
+        dismissLabel = "キャンセル",
+        confirmLabel = "保存",
+        confirmEnabled = label.isNotBlank() && command.isNotBlank(),
+        onConfirm = {
+            if (label.isNotBlank() && command.isNotBlank()) {
+                val hostId = hostIdText.toLongOrNull()
+                // 変更理由: 空文字列はnullとして扱い未分類グループに表示
+                val category = categoryText.trim().ifBlank { null }
+                val newShortcut = Shortcut(
+                    id = shortcut?.id ?: java.util.UUID.randomUUID().toString(),
+                    label = label.trim(),
+                    command = command,
+                    hostId = hostId,
+                    category = category,
+                    order = shortcut?.order ?: 0
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = command,
-                    onValueChange = { command = it },
-                    label = { Text("コマンド") },
-                    placeholder = { Text("例: ls -la\\n") },
-                    minLines = 2,
-                    maxLines = 5,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "末尾に \\n を付けると自動実行されます\n" +
-                        "プレースホルダ: {{hostname}}, {{username}}, {{port}} 等",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = hostIdText,
-                    onValueChange = { hostIdText = it },
-                    label = { Text("ホストID (空欄=グローバル)") },
-                    placeholder = { Text("空欄でグローバル") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                // 変更理由: カテゴリ入力フィールドを追加
-                // ShortcutListScreenのグルーピング表示に使用される
-                OutlinedTextField(
-                    value = categoryText,
-                    onValueChange = { categoryText = it },
-                    label = { Text("カテゴリ (空欄=未分類)") },
-                    placeholder = { Text("例: git, docker, claude_code") },
-                    supportingText = {
-                        Text(
-                            text = "使用可能: " + CliCommandRegistry.categories.joinToString { it.id },
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            Row {
-                TextButton(onClick = onDismiss) {
-                    Text("キャンセル")
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                TextButton(
-                    onClick = {
-                        if (label.isNotBlank() && command.isNotBlank()) {
-                            val hostId = hostIdText.toLongOrNull()
-                            // 変更理由: 空文字列はnullとして扱い未分類グループに表示
-                            val category = categoryText.trim().ifBlank { null }
-                            val newShortcut = Shortcut(
-                                id = shortcut?.id ?: java.util.UUID.randomUUID().toString(),
-                                label = label.trim(),
-                                command = command,
-                                hostId = hostId,
-                                category = category,
-                                order = shortcut?.order ?: 0
-                            )
-                            onSave(newShortcut)
-                        }
-                    },
-                    enabled = label.isNotBlank() && command.isNotBlank()
-                ) {
-                    Text("保存")
-                }
+                onSave(newShortcut)
             }
         }
-    )
+    ) {
+        Column {
+            OutlinedTextField(
+                value = label,
+                onValueChange = { label = it },
+                label = { Text("ラベル") },
+                placeholder = { Text("例: ls") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = command,
+                onValueChange = { command = it },
+                label = { Text("コマンド") },
+                placeholder = { Text("例: ls -la\\n") },
+                minLines = 2,
+                maxLines = 5,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "末尾に \\n を付けると自動実行されます\n" +
+                    "プレースホルダ: {{hostname}}, {{username}}, {{port}} 等",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.outline
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = hostIdText,
+                onValueChange = { hostIdText = it },
+                label = { Text("ホストID (空欄=グローバル)") },
+                placeholder = { Text("空欄でグローバル") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            // 変更理由: カテゴリ入力フィールドを追加し、一覧のグルーピングに使う。
+            OutlinedTextField(
+                value = categoryText,
+                onValueChange = { categoryText = it },
+                label = { Text("カテゴリ (空欄=未分類)") },
+                placeholder = { Text("例: git, docker, claude_code") },
+                supportingText = {
+                    Text(
+                        text = "使用可能: " + CliCommandRegistry.categories.joinToString { it.id },
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
 }

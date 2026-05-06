@@ -20,7 +20,6 @@ package io.shellpilot.app.ui.screens.generatepubkey
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,6 +33,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.shellpilot.app.R
 import io.shellpilot.app.ui.components.EntropyGatherer
+import io.shellpilot.app.ui.components.ShellPilotActionDialog
 
 @Composable
 fun EntropyGatherDialog(
@@ -42,56 +42,50 @@ fun EntropyGatherDialog(
 ) {
     var progress by remember { mutableIntStateOf(0) }
 
-    AlertDialog(
-        onDismissRequest = {
+    ShellPilotActionDialog(
+        title = stringResource(R.string.pubkey_gather_entropy),
+        onDismiss = {
             onEntropyGathered(null)
             onDismiss()
-        },
-        title = { Text(stringResource(R.string.pubkey_gather_entropy)) },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(stringResource(R.string.pubkey_touch_hint))
+        }
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(stringResource(R.string.pubkey_touch_hint))
 
-                Text(
-                    text = stringResource(R.string.pubkey_touch_prompt, progress),
-                    modifier = Modifier.padding(vertical = 16.dp)
-                )
+            Text(
+                text = stringResource(R.string.pubkey_touch_prompt, progress),
+                modifier = Modifier.padding(vertical = 16.dp)
+            )
 
-                EntropyGatherer(
-                    onEntropyGathered = { entropy ->
-                        onEntropyGathered(entropy)
-                    },
-                    onProgressUpdated = { newProgress ->
-                        progress = newProgress
-                    },
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
-            }
-        },
-        confirmButton = {},
-        dismissButton = {}
-    )
+            EntropyGatherer(
+                onEntropyGathered = { entropy ->
+                    onEntropyGathered(entropy)
+                },
+                onProgressUpdated = { newProgress ->
+                    progress = newProgress
+                },
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+        }
+    }
 }
 
 @Composable
 fun GeneratingKeyDialog() {
-    AlertDialog(
-        onDismissRequest = { /* Can't dismiss while generating */ },
-        title = { Text(stringResource(R.string.pubkey_generating)) },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.padding(top = 16.dp)
-                )
-            }
-        },
-        confirmButton = {},
-        dismissButton = {}
-    )
+    ShellPilotActionDialog(
+        title = stringResource(R.string.pubkey_generating),
+        onDismiss = { /* 生成中は閉じない */ }
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.padding(top = 16.dp)
+            )
+        }
+    }
 }

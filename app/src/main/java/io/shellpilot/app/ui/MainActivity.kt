@@ -30,9 +30,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -56,6 +54,7 @@ import io.shellpilot.app.R
 import io.shellpilot.app.data.entity.Host
 import io.shellpilot.app.service.TerminalManager
 import io.shellpilot.app.ui.components.DisconnectAllDialog
+import io.shellpilot.app.ui.components.ShellPilotActionDialog
 import io.shellpilot.app.ui.navigation.NavDestinations
 import io.shellpilot.app.ui.theme.ShellPilotTheme
 import io.shellpilot.app.util.IconStyle
@@ -400,19 +399,13 @@ private fun NotificationPermissionRationaleDialog(
     onDismiss: () -> Unit,
     onAllow: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.notification_permission_title)) },
-        text = { Text(stringResource(R.string.notification_permission_message)) },
-        confirmButton = {
-            TextButton(onClick = onAllow) {
-                Text(stringResource(R.string.grant_permission))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.connect_anyway))
-            }
-        }
-    )
+    ShellPilotActionDialog(
+        title = stringResource(R.string.notification_permission_title),
+        onDismiss = onDismiss,
+        confirmLabel = stringResource(R.string.grant_permission),
+        onConfirm = onAllow,
+        dismissLabel = stringResource(R.string.connect_anyway)
+    ) {
+        Text(stringResource(R.string.notification_permission_message))
+    }
 }

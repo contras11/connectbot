@@ -81,18 +81,18 @@ import org.connectbot.terminal.VTermKey
  * 変更理由: Ctrl+Cなどの制御キー追加後も矢印が初期表示に収まるよう、
  * 端末専用バーでは44dpへ圧縮する。
  */
-const val TERMINAL_KEYBOARD_HEIGHT_DP = 44
+const val TERMINAL_KEYBOARD_HEIGHT_DP = 42
 
 /**
  * Width of the virtual keyboard keys in dp.
  * 変更理由: ImageGen参照ボードの固定キー列に合わせ、省スペースな正方形ボタンに統一。
  */
-private const val TERMINAL_KEYBOARD_WIDTH_DP = 44
+private const val TERMINAL_KEYBOARD_WIDTH_DP = 40
 
 /**
  * Size of the content (icons and text) for the virtual keyboard keys in dp.
  */
-private const val TERMINAL_KEYBOARD_CONTENT_SIZE_DP = 18
+private const val TERMINAL_KEYBOARD_CONTENT_SIZE_DP = 17
 
 /**
  * Virtual keyboard with terminal special keys (Ctrl, Esc, arrows, function keys, etc.)

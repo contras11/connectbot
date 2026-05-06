@@ -20,7 +20,7 @@ package io.shellpilot.app.ui.components
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -45,6 +46,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -156,40 +158,46 @@ private fun BooleanPromptContent(
 ) {
     val terminalColors = MaterialTheme.colorScheme.terminal
 
-    Column(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .background(terminalColors.overlayBackground)
-            .padding(16.dp)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        shape = RoundedCornerShape(8.dp),
+        color = terminalColors.overlayBackground,
+        contentColor = terminalColors.overlayText,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.86f))
     ) {
-        if (!instructions.isNullOrEmpty()) {
-            Text(
-                text = instructions,
-                style = MaterialTheme.typography.bodyMedium,
-                color = terminalColors.overlayText,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-        }
-
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyLarge,
-            color = terminalColors.overlayText,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End
+        Column(
+            modifier = Modifier.padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            TextButton(onClick = onNo) {
-                Text(stringResource(R.string.button_no), color = terminalColors.overlayText)
+            if (!instructions.isNullOrEmpty()) {
+                Text(
+                    text = instructions,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = terminalColors.overlayText
+                )
             }
-            Button(
-                onClick = onYes,
-                modifier = Modifier.padding(start = 8.dp)
+
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = terminalColors.overlayText
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
             ) {
-                Text(stringResource(R.string.button_yes))
+                TextButton(onClick = onNo) {
+                    Text(stringResource(R.string.button_no), color = terminalColors.overlayText)
+                }
+                Button(
+                    onClick = onYes,
+                    modifier = Modifier.padding(start = 8.dp)
+                ) {
+                    Text(stringResource(R.string.button_yes))
+                }
             }
         }
     }
@@ -211,64 +219,69 @@ private fun StringPromptContent(
         focusRequester.requestFocus()
     }
 
-    Column(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .background(terminalColors.overlayBackground)
-            .padding(16.dp)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        shape = RoundedCornerShape(8.dp),
+        color = terminalColors.overlayBackground,
+        contentColor = terminalColors.overlayText,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.86f))
     ) {
-        if (!instructions.isNullOrEmpty()) {
-            Text(
-                text = instructions,
-                style = MaterialTheme.typography.bodyMedium,
-                color = terminalColors.overlayText,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-        }
-
-        OutlinedTextField(
-            value = text,
-            onValueChange = { text = it },
-            label = hint?.let { { Text(it, color = terminalColors.overlayTextSecondary) } },
-            visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
-            keyboardOptions = KeyboardOptions(
-                imeAction = ImeAction.Done,
-                keyboardType = if (isPassword) KeyboardType.Password else KeyboardType.Unspecified,
-            ),
-            keyboardActions = KeyboardActions(
-                onDone = {
-                    onSubmit(text)
-                }
-            ),
-            singleLine = true,
-            colors = TextFieldDefaults.colors(
-                focusedTextColor = terminalColors.overlayText,
-                unfocusedTextColor = terminalColors.overlayText,
-                focusedContainerColor = Color.Transparent,
-                unfocusedContainerColor = Color.Transparent,
-                cursorColor = terminalColors.overlayText,
-                focusedIndicatorColor = terminalColors.overlayTextSecondary,
-                unfocusedIndicatorColor = terminalColors.overlayTextSecondary.copy(alpha = 0.5f)
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .focusRequester(focusRequester)
-        )
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp),
-            horizontalArrangement = Arrangement.End
+        Column(
+            modifier = Modifier.padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            TextButton(onClick = onCancel) {
-                Text(stringResource(R.string.delete_neg), color = terminalColors.overlayText)
+            if (!instructions.isNullOrEmpty()) {
+                Text(
+                    text = instructions,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = terminalColors.overlayText
+                )
             }
-            Button(
-                onClick = { onSubmit(text) },
-                modifier = Modifier.padding(start = 8.dp)
+
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                label = hint?.let { { Text(it, color = terminalColors.overlayTextSecondary) } },
+                visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
+                keyboardOptions = KeyboardOptions(
+                    imeAction = ImeAction.Done,
+                    keyboardType = if (isPassword) KeyboardType.Password else KeyboardType.Unspecified,
+                ),
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        onSubmit(text)
+                    }
+                ),
+                singleLine = true,
+                colors = TextFieldDefaults.colors(
+                    focusedTextColor = terminalColors.overlayText,
+                    unfocusedTextColor = terminalColors.overlayText,
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    cursorColor = terminalColors.overlayText,
+                    focusedIndicatorColor = terminalColors.overlayTextSecondary,
+                    unfocusedIndicatorColor = terminalColors.overlayTextSecondary.copy(alpha = 0.5f)
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focusRequester)
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
             ) {
-                Text(stringResource(R.string.button_ok))
+                TextButton(onClick = onCancel) {
+                    Text(stringResource(R.string.delete_neg), color = terminalColors.overlayText)
+                }
+                Button(
+                    onClick = { onSubmit(text) },
+                    modifier = Modifier.padding(start = 8.dp)
+                ) {
+                    Text(stringResource(R.string.button_ok))
+                }
             }
         }
     }
@@ -295,35 +308,36 @@ private fun HostKeyFingerprintPromptContent(
     var selectedFormatIndex by remember { mutableIntStateOf(0) } // SHA-256 is first (default)
     var dropdownExpanded by remember { mutableStateOf(false) }
 
-    Column(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .background(terminalColors.overlayBackground)
-            .padding(16.dp)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        shape = RoundedCornerShape(8.dp),
+        color = terminalColors.overlayBackground,
+        contentColor = terminalColors.overlayText,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.86f))
     ) {
+        Column(
+            modifier = Modifier.padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
         Text(
             text = stringResource(R.string.host_key_verification_title),
             style = MaterialTheme.typography.titleMedium,
             color = terminalColors.overlayText,
-            modifier = Modifier.padding(bottom = 8.dp),
         )
 
         Text(
             text = prompt.hostname,
             style = MaterialTheme.typography.bodyLarge,
             color = terminalColors.overlayTextSecondary,
-            modifier = Modifier.padding(top = 8.dp)
         )
-
-        Spacer(modifier = Modifier.height(8.dp))
 
         Text(
             text = stringResource(R.string.host_key_type_and_size, prompt.keyType, prompt.keySize),
             style = MaterialTheme.typography.bodyMedium,
             color = terminalColors.overlayText
         )
-
-        Spacer(modifier = Modifier.height(8.dp))
 
         // Display selected fingerprint with copy button
         Row(
@@ -356,8 +370,6 @@ private fun HostKeyFingerprintPromptContent(
                 )
             }
         }
-
-        Spacer(modifier = Modifier.height(8.dp))
 
         // Fingerprint format selector
         ExposedDropdownMenuBox(
@@ -403,15 +415,11 @@ private fun HostKeyFingerprintPromptContent(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
         Text(
             text = stringResource(R.string.prompt_continue_connecting),
             style = MaterialTheme.typography.bodyLarge,
             color = terminalColors.overlayText
         )
-
-        Spacer(modifier = Modifier.height(16.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -426,6 +434,7 @@ private fun HostKeyFingerprintPromptContent(
             ) {
                 Text(stringResource(R.string.button_yes))
             }
+        }
         }
     }
 }

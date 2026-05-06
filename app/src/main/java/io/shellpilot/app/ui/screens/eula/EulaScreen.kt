@@ -17,58 +17,73 @@
 
 package io.shellpilot.app.ui.screens.eula
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.shellpilot.app.ui.ScreenPreviews
+import io.shellpilot.app.ui.components.CommandSurfaceCard
+import io.shellpilot.app.ui.components.ShellPilotScaffold
+import io.shellpilot.app.ui.components.StatusChip
 import io.shellpilot.app.ui.theme.ShellPilotTheme
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EulaScreen(
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("License") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                    }
-                }
-            )
+    ShellPilotScaffold(
+        title = "ライセンス",
+        subtitle = "ConnectBot attribution / Apache License 2.0",
+        navigationIcon = {
+            IconButton(onClick = onNavigateBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+            }
         },
         modifier = modifier
     ) { padding ->
         LazyColumn(
-            modifier = Modifier
-                .padding(padding)
-                .padding(16.dp)
+            modifier = Modifier.padding(padding),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             item {
-                Text(
-                    text = "Apache License 2.0",
-                    style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
+                CommandSurfaceCard {
+                    Text(
+                        text = "ShellPilot",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    Text(
+                        text = "ShellPilotはConnectBotをベースにしたSSHクライアントです。フォーク元への帰属とライセンスを維持します。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    androidx.compose.foundation.layout.Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        StatusChip(label = "Apache 2.0")
+                        StatusChip(label = "ConnectBotベース")
+                    }
+                }
             }
 
             item {
-                Text(
-                    text = """
+                CommandSurfaceCard {
+                    Text(
+                        text = "Apache License 2.0",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        text = """
                         ConnectBot: simple, powerful, open-source SSH client for Android
 
                         Copyright © Kenny Root
@@ -85,9 +100,10 @@ fun EulaScreen(
                         See the License for the specific language governing permissions and
                         limitations under the License.
                     """.trimIndent(),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                }
             }
         }
     }

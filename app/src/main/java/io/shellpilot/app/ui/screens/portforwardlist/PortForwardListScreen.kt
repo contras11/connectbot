@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Circle
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -154,12 +155,24 @@ fun PortForwardListScreenContent(
                 }
 
                 uiState.portForwards.isEmpty() -> {
-                    Text(
-                        text = stringResource(R.string.empty_port_forwards_message),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
+                    CommandSurfaceCard(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(20.dp)
+                    ) {
+                        Text(
+                            text = "ポート転送がありません",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            text = stringResource(R.string.empty_port_forwards_message),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Button(onClick = { showAddDialog = true }) {
+                            Text(stringResource(R.string.portforward_pos))
+                        }
+                    }
                 }
 
                 else -> {

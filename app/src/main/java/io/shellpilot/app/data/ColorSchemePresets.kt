@@ -24,11 +24,11 @@ package io.shellpilot.app.data
 object ColorSchemePresets {
 
     /**
-     * Default terminal colors.
+     * 標準のターミナル配色。
      */
     val default = PresetScheme(
         name = "Default",
-        description = "Default terminal colors",
+        description = "標準のターミナル配色",
         defaultFg = 7,
         defaultBg = 0,
         colors = intArrayOf(

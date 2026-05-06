@@ -44,7 +44,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -60,7 +59,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -112,6 +110,7 @@ import io.shellpilot.app.ui.LocalTerminalManager
 import io.shellpilot.app.ui.components.FloatingTextInputDialog
 import io.shellpilot.app.ui.components.InlinePrompt
 import io.shellpilot.app.ui.components.ResizeDialog
+import io.shellpilot.app.ui.components.ShellPilotActionDialog
 import io.shellpilot.app.ui.components.TERMINAL_KEYBOARD_HEIGHT_DP
 import io.shellpilot.app.ui.components.TerminalKeyboard
 import io.shellpilot.app.ui.components.UrlScanDialog
@@ -826,22 +825,14 @@ private fun HostDisconnectDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        text = {
-            Text(stringResource(R.string.disconnect_host_alert, host.nickname))
-        },
-        confirmButton = {
-            TextButton(
-                onClick = onConfirm
-            ) {
-                Text(stringResource(R.string.button_yes))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.button_no))
-            }
-        }
-    )
+    ShellPilotActionDialog(
+        title = stringResource(R.string.list_host_disconnect),
+        onDismiss = onDismiss,
+        confirmLabel = stringResource(R.string.button_yes),
+        onConfirm = onConfirm,
+        dismissLabel = stringResource(R.string.button_no),
+        destructiveConfirm = true
+    ) {
+        Text(stringResource(R.string.disconnect_host_alert, host.nickname))
+    }
 }

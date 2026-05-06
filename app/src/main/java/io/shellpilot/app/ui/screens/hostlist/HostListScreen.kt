@@ -50,7 +50,8 @@ import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -78,7 +79,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -91,6 +91,7 @@ import io.shellpilot.app.ui.LocalTerminalManager
 import io.shellpilot.app.ui.ScreenPreviews
 import io.shellpilot.app.ui.components.CommandSurfaceCard
 import io.shellpilot.app.ui.components.DisconnectAllDialog
+import io.shellpilot.app.ui.components.ShellPilotActionDialog
 import io.shellpilot.app.ui.components.ShellPilotScaffold
 import io.shellpilot.app.ui.components.ShortcutCustomizationDialog
 import io.shellpilot.app.ui.components.StatusChip
@@ -296,6 +297,12 @@ fun HostListScreenContent(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         actions = {
             if (!makingShortcut) {
+                IconButton(onClick = { /* 表示フィルタは後続実装用。モックに合わせて入口を先に揃える。 */ }) {
+                    Icon(Icons.Default.Search, contentDescription = "ホストを検索")
+                }
+                IconButton(onClick = onToggleSortOrder) {
+                    Icon(Icons.Default.FilterList, contentDescription = "ホストを並び替え")
+                }
                 IconButton(onClick = { onNavigateToEditHost(null) }) {
                     Icon(Icons.Default.Add, contentDescription = stringResource(R.string.hostpref_add_host))
                 }
@@ -400,21 +407,19 @@ fun HostListScreenContent(
                         contentPadding = PaddingValues(
                             start = 16.dp,
                             end = 16.dp,
-                            top = 16.dp,
+                            top = 10.dp,
                             // 変更理由: 追加操作はTopBarへ移し、カード上にFABを重ねない。
                             // BottomNavigationBarと端末ナビゲーション分の余白だけを確保する。
-                            bottom = 120.dp
+                            bottom = 92.dp
                         ),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         item {
-                            CommandCenterHeader(
-                                hostCount = uiState.hosts.size,
-                                connectedCount = connectedCount,
-                                keyReadyCount = uiState.hosts.count { it.protocol == "ssh" && it.useKeys },
-                                onImportHosts = onImportHosts,
-                                onNavigateToPubkeys = onNavigateToPubkeys
-                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                StatusChip(label = "すべて ${uiState.hosts.size}")
+                                StatusChip(label = "グループ")
+                                StatusChip(label = "タグ")
+                            }
                         }
                         items(
                             items = uiState.hosts,
@@ -493,17 +498,17 @@ private fun HostListItem(
             Box(
                 modifier = Modifier
                     .width(3.dp)
-                    .height(52.dp)
+                    .height(48.dp)
                     .background(
                         color = hostIndicatorColor,
                         shape = RoundedCornerShape(999.dp)
                     )
             )
 
-            Box(modifier = Modifier.size(40.dp)) {
+            Box(modifier = Modifier.size(36.dp)) {
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(36.dp)
                         .background(
                             color = MaterialTheme.colorScheme.surfaceContainerHigh,
                             shape = CircleShape
@@ -527,7 +532,7 @@ private fun HostListItem(
                             ConnectionState.UNKNOWN -> null
                         },
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
 
@@ -571,7 +576,31 @@ private fun HostListItem(
             }
 
             if (!makingShortcut) {
-                Box {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = onClick, modifier = Modifier.size(36.dp)) {
+                        Icon(
+                            Icons.Default.PlayArrow,
+                            contentDescription = "接続",
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "編集",
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    IconButton(onClick = onPortForwards, modifier = Modifier.size(36.dp)) {
+                        Icon(
+                            Icons.Default.Link,
+                            contentDescription = "転送",
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                     IconButton(onClick = { showMenu = true }) {
                         Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.button_host_options))
                     }
@@ -675,38 +704,6 @@ private fun HostListItem(
             }
         }
 
-        if (!makingShortcut) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = onClick,
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 7.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    )
-                ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("接続")
-                }
-                TextButton(
-                    onClick = onEdit,
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 7.dp)
-                ) {
-                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("編集")
-                }
-                TextButton(
-                    onClick = onPortForwards,
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 7.dp)
-                ) {
-                    Icon(Icons.Default.Link, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("転送")
-                }
-            }
-        }
     }
 
     if (showDeleteDialog) {
@@ -844,25 +841,16 @@ private fun HostDeleteDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.list_host_delete)) },
-        text = {
-            Text(stringResource(R.string.delete_host_confirm, host.nickname))
-        },
-        confirmButton = {
-            TextButton(
-                onClick = onConfirm
-            ) {
-                Text(stringResource(R.string.button_yes))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.button_no))
-            }
-        }
-    )
+    ShellPilotActionDialog(
+        title = stringResource(R.string.list_host_delete),
+        onDismiss = onDismiss,
+        confirmLabel = stringResource(R.string.button_yes),
+        onConfirm = onConfirm,
+        dismissLabel = stringResource(R.string.button_no),
+        destructiveConfirm = true
+    ) {
+        Text(stringResource(R.string.delete_host_confirm, host.nickname))
+    }
 }
 
 @Composable
@@ -871,25 +859,16 @@ private fun HostDisconnectDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.list_host_disconnect)) },
-        text = {
-            Text(stringResource(R.string.disconnect_host_alert, host.nickname))
-        },
-        confirmButton = {
-            TextButton(
-                onClick = onConfirm
-            ) {
-                Text(stringResource(R.string.button_yes))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.button_no))
-            }
-        }
-    )
+    ShellPilotActionDialog(
+        title = stringResource(R.string.list_host_disconnect),
+        onDismiss = onDismiss,
+        confirmLabel = stringResource(R.string.button_yes),
+        onConfirm = onConfirm,
+        dismissLabel = stringResource(R.string.button_no),
+        destructiveConfirm = true
+    ) {
+        Text(stringResource(R.string.disconnect_host_alert, host.nickname))
+    }
 }
 
 @Composable
@@ -898,31 +877,22 @@ private fun ForgetHostKeysDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.list_host_forget_keys)) },
-        text = {
-            Text(stringResource(R.string.forget_host_keys_confirm, host.nickname))
-        },
-        confirmButton = {
-            TextButton(
-                onClick = onConfirm
-            ) {
-                Text(stringResource(R.string.button_yes))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.button_no))
-            }
-        }
-    )
+    ShellPilotActionDialog(
+        title = stringResource(R.string.list_host_forget_keys),
+        onDismiss = onDismiss,
+        confirmLabel = stringResource(R.string.button_yes),
+        onConfirm = onConfirm,
+        dismissLabel = stringResource(R.string.button_no),
+        destructiveConfirm = true
+    ) {
+        Text(stringResource(R.string.forget_host_keys_confirm, host.nickname))
+    }
 }
 
 @Composable
 private fun parseColor(colorString: String?): Color {
     if (colorString.isNullOrBlank()) {
-        return colorResource(R.color.host_blue)
+        return MaterialTheme.colorScheme.onSurfaceVariant
     } else {
         val colorInt = colorString.toColorInt()
         return Color(colorInt)

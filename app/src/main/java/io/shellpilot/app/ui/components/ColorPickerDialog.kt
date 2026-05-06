@@ -25,14 +25,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,71 +58,63 @@ fun ColorPickerDialog(
     onColorSelected: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            Column {
-                Text(
-                    text = stringResource(R.string.title_color_picker),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
+    ShellPilotActionDialog(
+        title = title,
+        subtitle = stringResource(R.string.title_color_picker),
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(R.string.button_close)
+    ) {
+        Column {
+            // Grid of 16 colors (8 columns)
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(8),
+                contentPadding = PaddingValues(4.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp)
+            ) {
+                items(palette.size) { index ->
+                    val color = palette[index]
+                    val isSelected = index == selectedColorIndex
 
-                // Grid of 16 colors (8 columns)
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(8),
-                    contentPadding = PaddingValues(4.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    items(palette.size) { index ->
-                        val color = palette[index]
-                        val isSelected = index == selectedColorIndex
-
-                        Box(
-                            modifier = Modifier
-                                .padding(2.dp)
-                                .aspectRatio(1f)
-                                .background(
-                                    color = Color(color),
-                                    shape = RoundedCornerShape(4.dp)
-                                )
-                                .border(
-                                    width = if (isSelected) 3.dp else 1.dp,
-                                    color = if (isSelected) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        Color.Gray.copy(alpha = 0.5f)
-                                    },
-                                    shape = RoundedCornerShape(4.dp)
-                                )
-                                .clickable {
-                                    onColorSelected(index)
-                                    onDismiss()
+                    Box(
+                        modifier = Modifier
+                            .padding(2.dp)
+                            .aspectRatio(1f)
+                            .background(
+                                color = Color(color),
+                                shape = RoundedCornerShape(4.dp)
+                            )
+                            .border(
+                                width = if (isSelected) 2.dp else 1.dp,
+                                color = if (isSelected) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.outlineVariant
                                 },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            // Show index for first 16 ANSI colors for easier identification
-                            if (index < 16 && isSelected) {
-                                Text(
-                                    text = index.toString(),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (index == 0 || (index in 1..6)) {
-                                        Color.White
-                                    } else {
-                                        Color.Black
-                                    }
-                                )
-                            }
+                                shape = RoundedCornerShape(4.dp)
+                            )
+                            .clickable {
+                                onColorSelected(index)
+                                onDismiss()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        // Show index for first 16 ANSI colors for easier identification
+                        if (index < 16 && isSelected) {
+                            Text(
+                                text = index.toString(),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (index == 0 || (index in 1..6)) {
+                                    Color.White
+                                } else {
+                                    Color.Black
+                                }
+                            )
                         }
                     }
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.button_close))
-            }
         }
-    )
+    }
 }

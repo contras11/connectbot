@@ -17,12 +17,28 @@
 
 package io.shellpilot.app.ui.screens.main
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Computer
+import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -31,16 +47,25 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
 import io.shellpilot.app.data.entity.Host
+import io.shellpilot.app.ui.LocalTerminalManager
+import io.shellpilot.app.ui.components.CommandSurfaceCard
+import io.shellpilot.app.ui.components.StatusChip
 import io.shellpilot.app.ui.screens.hostlist.HostListScreen
 import io.shellpilot.app.ui.screens.settings.SettingsScreen
 import io.shellpilot.app.ui.screens.shortcutlist.ShortcutListScreen
 import io.shellpilot.app.util.IconStyle
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 /**
  * ホーム画面のメインコンテナ。
@@ -75,6 +100,7 @@ fun MainScreen(
     onNavigateToPubkeys: () -> Unit,
     onNavigateToPortForwards: (Host) -> Unit,
     onNavigateToProfiles: () -> Unit,
+    onNavigateToColors: () -> Unit,
     onNavigateToHelp: () -> Unit,
     modifier: Modifier = Modifier,
     makingShortcut: Boolean = false,
@@ -104,7 +130,7 @@ fun MainScreen(
                     onNavigateToConsole = onNavigateToConsole,
                     onNavigateToEditHost = onNavigateToEditHost,
                     // 変更理由: メニューの「設定」をタブ切替に変更
-                    onNavigateToSettings = { selectedTab = 2 },
+                    onNavigateToSettings = { selectedTab = 4 },
                     onNavigateToPubkeys = onNavigateToPubkeys,
                     onNavigateToPortForwards = onNavigateToPortForwards,
                     onNavigateToProfiles = onNavigateToProfiles,
@@ -113,16 +139,28 @@ fun MainScreen(
                     onSelectShortcut = onSelectShortcut
                 )
 
-                1 -> ShortcutListScreen(
+                1 -> SessionOverviewTab(
+                    onNavigateToHosts = { selectedTab = 0 }
+                )
+
+                2 -> ShortcutListScreen(
                     // 変更理由: タブ表示ではArrowBackアイコンを非表示にする
                     onNavigateBack = { selectedTab = 0 },
                     showNavigationIcon = false
                 )
 
-                2 -> SettingsScreen(
+                3 -> ToolsHubTab(
+                    onNavigateToPubkeys = onNavigateToPubkeys,
+                    onNavigateToProfiles = onNavigateToProfiles,
+                    onNavigateToColors = onNavigateToColors,
+                    onNavigateToHelp = onNavigateToHelp,
+                    onNavigateToHosts = { selectedTab = 0 }
+                )
+
+                4 -> SettingsScreen(
                     // 変更理由: タブ表示ではArrowBackアイコンを非表示にする
                     onNavigateBack = { selectedTab = 0 },
-                    onNavigateToShortcuts = { selectedTab = 1 },
+                    onNavigateToShortcuts = { selectedTab = 2 },
                     showNavigationIcon = false
                 )
             }
@@ -130,11 +168,212 @@ fun MainScreen(
     }
 }
 
+@Composable
+private fun SessionOverviewTab(
+    onNavigateToHosts: () -> Unit
+) {
+    val terminalManager = LocalTerminalManager.current
+    val bridges by terminalManager?.bridgesFlow?.collectAsState(initial = emptyList())
+        ?: androidx.compose.runtime.remember {
+            androidx.compose.runtime.mutableStateOf(emptyList<io.shellpilot.app.service.TerminalBridge>())
+        }
+    val disconnected by terminalManager?.disconnectedFlow?.collectAsState(initial = emptyList())
+        ?: androidx.compose.runtime.remember {
+            androidx.compose.runtime.mutableStateOf(emptyList<Host>())
+        }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        item {
+            CommandSurfaceCard {
+                Text(
+                    text = "セッション",
+                    style = MaterialTheme.typography.titleLarge
+                )
+                Text(
+                    text = "接続中の端末を確認し、必要な場合はホスト一覧から再接続します。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatusChip(label = "接続中 ${bridges.size}")
+                    StatusChip(label = "切断 ${disconnected.size}")
+                }
+            }
+        }
+        if (bridges.isEmpty() && disconnected.isEmpty()) {
+            item {
+                CommandSurfaceCard {
+                    Text(
+                        text = "アクティブなセッションはありません",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        text = "ホストカードの接続ボタンからSSH、Telnet、Localセッションを開始できます。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Button(onClick = onNavigateToHosts) {
+                        Text("ホストを開く")
+                    }
+                }
+            }
+        }
+        items(bridges, key = { it.host.id }) { bridge ->
+            CommandSurfaceCard {
+                Text(
+                    text = bridge.host.nickname,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = bridge.host.getUri().toString(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontFamily = FontFamily.Monospace
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatusChip(label = if (bridge.isDisconnected) "切断済み" else "接続中")
+                    StatusChip(label = bridge.host.protocol.uppercase())
+                }
+            }
+        }
+        if (disconnected.isNotEmpty()) {
+            item {
+                Text(
+                    text = "最近切断したセッション",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+            items(disconnected, key = { it.id }) { host ->
+                CommandSurfaceCard {
+                    Row {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(host.nickname, style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                text = host.getUri().toString(),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        StatusChip(label = "切断")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ToolsHubTab(
+    onNavigateToPubkeys: () -> Unit,
+    onNavigateToProfiles: () -> Unit,
+    onNavigateToColors: () -> Unit,
+    onNavigateToHelp: () -> Unit,
+    onNavigateToHosts: () -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        item {
+            CommandSurfaceCard {
+                Text(
+                    text = "ツール",
+                    style = MaterialTheme.typography.titleLarge
+                )
+                Text(
+                    text = "鍵、転送、プロファイル、配色、ヘルプを作業単位で管理します。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatusChip(label = "SSH")
+                    StatusChip(label = "AI CLI")
+                    StatusChip(label = "JSON")
+                }
+            }
+        }
+        item {
+            ToolHubCard(
+                icon = Icons.Default.Key,
+                title = "公開鍵",
+                summary = "生成、インポート、読み込み状態を管理します。",
+                onClick = onNavigateToPubkeys
+            )
+        }
+        item {
+            ToolHubCard(
+                icon = Icons.Default.Link,
+                title = "ポート転送",
+                summary = "対象ホストのカードにある転送ボタンから設定します。",
+                onClick = onNavigateToHosts
+            )
+        }
+        item {
+            ToolHubCard(
+                icon = Icons.Default.Terminal,
+                title = "プロファイル",
+                summary = "フォント、文字サイズ、端末エミュレーションを調整します。",
+                onClick = onNavigateToProfiles
+            )
+        }
+        item {
+            ToolHubCard(
+                icon = Icons.Default.Palette,
+                title = "カラースキーム",
+                summary = "ANSIパレットと端末プレビューを確認します。",
+                onClick = onNavigateToColors
+            )
+        }
+        item {
+            ToolHubCard(
+                icon = Icons.Default.MoreVert,
+                title = "ヘルプとログ",
+                summary = "ヒント、キーボードショートカット、ログ表示を開きます。",
+                onClick = onNavigateToHelp
+            )
+        }
+    }
+}
+
+@Composable
+private fun ToolHubCard(
+    icon: ImageVector,
+    title: String,
+    summary: String,
+    onClick: () -> Unit
+) {
+    CommandSurfaceCard(onClick = onClick) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    summary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
 /**
- * 3タブのナビゲーションバー。
+ * 5タブのナビゲーションバー。
  *
- * 変更理由: Material3 NavigationBar を使用し、
- * ホスト一覧・ショートカット管理・設定の3タブを提供する。
+ * 変更理由: ImageGenの全画面モックに合わせ、ホスト・セッション・
+ * ショートカット・ツール・設定を常時行き来できる構成にする。
  */
 @Composable
 private fun MainNavigationBar(
@@ -142,6 +381,7 @@ private fun MainNavigationBar(
     onTabSelected: (Int) -> Unit
 ) {
     NavigationBar(
+        modifier = Modifier.height(58.dp),
         containerColor = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface
     ) {
@@ -153,25 +393,58 @@ private fun MainNavigationBar(
             unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
         )
         NavigationBarItem(
-            icon = { Icon(Icons.Default.Computer, contentDescription = null) },
-            label = { Text("ホスト") },
+            icon = { MainNavIcon(Icons.Default.Computer) },
+            label = { MainNavLabel("ホスト") },
             selected = selectedTab == 0,
             onClick = { onTabSelected(0) },
             colors = itemColors
         )
         NavigationBarItem(
-            icon = { Icon(Icons.Default.Terminal, contentDescription = null) },
-            label = { Text("ショートカット") },
+            icon = { MainNavIcon(Icons.Default.Terminal) },
+            label = { MainNavLabel("セッション") },
             selected = selectedTab == 1,
             onClick = { onTabSelected(1) },
             colors = itemColors
         )
         NavigationBarItem(
-            icon = { Icon(Icons.Default.Settings, contentDescription = null) },
-            label = { Text("設定") },
+            icon = { MainNavIcon(Icons.Default.Terminal) },
+            label = { MainNavLabel("ショートカット") },
             selected = selectedTab == 2,
             onClick = { onTabSelected(2) },
             colors = itemColors
         )
+        NavigationBarItem(
+            icon = { MainNavIcon(Icons.Default.MoreVert) },
+            label = { MainNavLabel("ツール") },
+            selected = selectedTab == 3,
+            onClick = { onTabSelected(3) },
+            colors = itemColors
+        )
+        NavigationBarItem(
+            icon = { MainNavIcon(Icons.Default.Settings) },
+            label = { MainNavLabel("設定") },
+            selected = selectedTab == 4,
+            onClick = { onTabSelected(4) },
+            colors = itemColors
+        )
     }
+}
+
+@Composable
+private fun MainNavIcon(icon: ImageVector) {
+    Icon(
+        imageVector = icon,
+        contentDescription = null,
+        modifier = Modifier.size(18.dp)
+    )
+}
+
+@Composable
+private fun MainNavLabel(label: String) {
+    Text(
+        text = label,
+        fontSize = 9.sp,
+        maxLines = 1,
+        overflow = TextOverflow.Clip
+    )
 }

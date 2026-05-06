@@ -17,12 +17,10 @@
 
 package io.shellpilot.app.ui.screens.portforwardlist
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
@@ -30,7 +28,6 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -38,12 +35,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import io.shellpilot.app.R
+import io.shellpilot.app.ui.components.ShellPilotActionDialog
 import io.shellpilot.app.util.HostConstants
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,8 +54,6 @@ fun PortForwardEditorDialog(
     initialDestination: String = "",
     isEditing: Boolean = false
 ) {
-    val context = LocalContext.current
-
     var nickname by remember { mutableStateOf(initialNickname) }
     var sourcePort by remember { mutableStateOf(initialSourcePort) }
     var destination by remember { mutableStateOf(initialDestination) }
@@ -101,21 +96,35 @@ fun PortForwardEditorDialog(
 
     val canSave = isSourcePortValid && isDestinationValid
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.portforward_edit)) },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = nickname,
-                    onValueChange = { nickname = it },
-                    label = { Text(stringResource(R.string.prompt_nickname)) },
-                    placeholder = { Text(stringResource(R.string.portforward_nickname_placeholder)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
+    ShellPilotActionDialog(
+        modifier = Modifier.fillMaxWidth(0.96f),
+        title = stringResource(R.string.portforward_edit),
+        subtitle = portForwardTypes[typeIndex],
+        onDismiss = onDismiss,
+        confirmLabel = stringResource(if (isEditing) R.string.portforward_save else R.string.portforward_pos),
+        confirmEnabled = canSave,
+        onConfirm = {
+            val finalSourcePort = sourcePort.ifEmpty { "8080" }
+            val finalDestination = if (needsDestination) {
+                destination.ifEmpty { "localhost:80" }
+            } else {
+                destination
+            }
+            onSave(nickname, typeString, finalSourcePort, finalDestination)
+        },
+        dismissLabel = stringResource(R.string.delete_neg)
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedTextField(
+                value = nickname,
+                onValueChange = { nickname = it },
+                label = { Text(stringResource(R.string.prompt_nickname)) },
+                placeholder = { Text(stringResource(R.string.portforward_nickname_placeholder)) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
 
                 ExposedDropdownMenuBox(
                     expanded = typeMenuExpanded,
@@ -147,8 +156,6 @@ fun PortForwardEditorDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
                 OutlinedTextField(
                     value = sourcePort,
                     onValueChange = { sourcePort = it },
@@ -163,43 +170,19 @@ fun PortForwardEditorDialog(
                     } else null
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                OutlinedTextField(
-                    value = destination,
-                    onValueChange = { destination = it },
-                    label = { Text(stringResource(R.string.prompt_destination)) },
-                    placeholder = { Text(stringResource(R.string.portforward_destination_placeholder)) },
-                    enabled = needsDestination,
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    isError = needsDestination && destination.isNotEmpty() && !isDestinationValid,
-                    supportingText = if (needsDestination && destination.isNotEmpty() && !isDestinationValid) {
-                        { Text(stringResource(R.string.portforward_destination_format_error)) }
-                    } else null
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    val finalSourcePort = sourcePort.ifEmpty { "8080" }
-                    val finalDestination = if (needsDestination) {
-                        destination.ifEmpty { "localhost:80" }
-                    } else {
-                        destination
-                    }
-                    onSave(nickname, typeString, finalSourcePort, finalDestination)
-                },
-                enabled = canSave
-            ) {
-                Text(stringResource(if (isEditing) R.string.portforward_save else R.string.portforward_pos))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.delete_neg))
-            }
+            OutlinedTextField(
+                value = destination,
+                onValueChange = { destination = it },
+                label = { Text(stringResource(R.string.prompt_destination)) },
+                placeholder = { Text(stringResource(R.string.portforward_destination_placeholder)) },
+                enabled = needsDestination,
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                isError = needsDestination && destination.isNotEmpty() && !isDestinationValid,
+                supportingText = if (needsDestination && destination.isNotEmpty() && !isDestinationValid) {
+                    { Text(stringResource(R.string.portforward_destination_format_error)) }
+                } else null
+            )
         }
-    )
+    }
 }

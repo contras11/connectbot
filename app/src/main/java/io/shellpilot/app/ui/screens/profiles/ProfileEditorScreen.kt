@@ -19,6 +19,7 @@ package io.shellpilot.app.ui.screens.profiles
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -44,13 +45,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -61,6 +60,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -69,8 +70,12 @@ import io.shellpilot.app.R
 import io.shellpilot.app.data.entity.ColorScheme
 import io.shellpilot.app.ui.common.getIconColors
 import io.shellpilot.app.ui.common.getLocalizedColorSchemeDescription
+import io.shellpilot.app.ui.common.getLocalizedColorSchemeName
 import io.shellpilot.app.ui.common.getLocalizedFontDisplayName
+import io.shellpilot.app.ui.components.CommandSurfaceCard
 import io.shellpilot.app.ui.components.FontDownloadProgressDialog
+import io.shellpilot.app.ui.components.ShellPilotScaffold
+import io.shellpilot.app.ui.components.StatusChip
 import io.shellpilot.app.util.LocalFontProvider
 import io.shellpilot.app.util.TerminalFont
 
@@ -95,46 +100,39 @@ fun ProfileEditorScreen(
         FontDownloadProgressDialog()
     }
 
-    Scaffold(
+    ShellPilotScaffold(
         modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        if (uiState.profileId == -1L) {
-                            stringResource(R.string.profile_editor_title_new)
-                        } else {
-                            stringResource(R.string.profile_editor_title_edit)
-                        }
+        title = if (uiState.profileId == -1L) {
+            stringResource(R.string.profile_editor_title_new)
+        } else {
+            stringResource(R.string.profile_editor_title_edit)
+        },
+        subtitle = "フォント・配色・端末表示",
+        navigationIcon = {
+            IconButton(onClick = onNavigateBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.button_navigate_up)
+                )
+            }
+        },
+        actions = {
+            IconButton(
+                onClick = { viewModel.save(onNavigateBack) },
+                enabled = !uiState.isSaving
+            ) {
+                if (uiState.isSaving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.padding(8.dp),
+                        color = MaterialTheme.colorScheme.onSurface
                     )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.button_navigate_up)
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(
-                        onClick = { viewModel.save(onNavigateBack) },
-                        enabled = !uiState.isSaving
-                    ) {
-                        if (uiState.isSaving) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.padding(8.dp),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = stringResource(R.string.profile_editor_save)
-                            )
-                        }
-                    }
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = stringResource(R.string.profile_editor_save)
+                    )
                 }
-            )
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
@@ -152,9 +150,20 @@ fun ProfileEditorScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .padding(16.dp)
-                    .verticalScroll(rememberScrollState())
+                    .padding(12.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                ProfileTerminalPreview(
+                    name = uiState.name,
+                    fontSize = uiState.fontSize,
+                    emulation = uiState.emulation,
+                    colorScheme = uiState.availableColorSchemes
+                        .find { it.id == uiState.colorSchemeId }
+                        ?.let { getLocalizedColorSchemeName(it) }
+                        ?: stringResource(R.string.font_system_default)
+                )
+
                 // Profile Name
                 OutlinedTextField(
                     value = uiState.name,
@@ -165,7 +174,7 @@ fun ProfileEditorScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(2.dp))
 
                 // Icon Color Section
                 Text(
@@ -180,7 +189,7 @@ fun ProfileEditorScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(2.dp))
 
                 // Color Scheme Section
                 Row(
@@ -207,7 +216,7 @@ fun ProfileEditorScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(2.dp))
 
                 // Font Section
                 Text(
@@ -224,7 +233,7 @@ fun ProfileEditorScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(2.dp))
 
                 FontSizeSelector(
                     fontSize = uiState.fontSize,
@@ -232,7 +241,7 @@ fun ProfileEditorScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(2.dp))
 
                 // Terminal Section
                 Text(
@@ -248,7 +257,7 @@ fun ProfileEditorScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(2.dp))
 
                 DelKeySelector(
                     delKey = uiState.delKey,
@@ -256,7 +265,7 @@ fun ProfileEditorScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(2.dp))
 
                 EncodingSelector(
                     encoding = uiState.encoding,
@@ -264,7 +273,7 @@ fun ProfileEditorScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(2.dp))
 
                 ForceSizeSelector(
                     enabled = uiState.forceSizeEnabled,
@@ -276,9 +285,46 @@ fun ProfileEditorScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(12.dp))
             }
         }
+    }
+}
+
+@Composable
+private fun ProfileTerminalPreview(
+    name: String,
+    fontSize: Int,
+    emulation: String,
+    colorScheme: String,
+    modifier: Modifier = Modifier
+) {
+    CommandSurfaceCard(modifier = modifier) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = name.ifBlank { stringResource(R.string.profile_editor_title_new) },
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f)
+            )
+            StatusChip(label = "${fontSize}sp")
+            StatusChip(label = emulation.ifBlank { "xterm" })
+        }
+        Text(
+            text = "contras11@100.80.83.120:~$ claude",
+            style = MaterialTheme.typography.bodySmall,
+            fontFamily = FontFamily.Monospace,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+            text = "配色: $colorScheme",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -608,7 +654,7 @@ private fun ColorSchemeSelector(
                     DropdownMenuItem(
                         text = {
                             Column {
-                                Text(scheme.name)
+                                Text(getLocalizedColorSchemeName(scheme))
                                 val localizedDescription = getLocalizedColorSchemeDescription(scheme)
                                 if (localizedDescription.isNotBlank()) {
                                     Text(

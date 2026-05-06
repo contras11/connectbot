@@ -111,9 +111,9 @@ fun ShortcutBar(
             }
         }
     }
-    val profileRowHeight = if (compact) 42.dp else PROFILE_ROW_HEIGHT_DP.dp
-    val shortcutRowHeight = if (compact) 48.dp else SHORTCUT_ROW_HEIGHT_DP.dp
-    val headerRowHeight = if (compact) 34.dp else COMMAND_PANEL_HEADER_HEIGHT_DP.dp
+    val profileRowHeight = if (compact) 38.dp else PROFILE_ROW_HEIGHT_DP.dp
+    val shortcutRowHeight = if (compact) 42.dp else SHORTCUT_ROW_HEIGHT_DP.dp
+    val headerRowHeight = if (compact) 30.dp else COMMAND_PANEL_HEADER_HEIGHT_DP.dp
     val rowHorizontalPadding = if (compact) 6.dp else 8.dp
     val rowSpacing = if (compact) 4.dp else 6.dp
     var commandsExpanded by rememberSaveable { mutableStateOf(true) }
@@ -289,21 +289,21 @@ private fun sessionProfileLabel(id: String, displayName: String): String = when 
  * 変更理由: 制御キー列と同時表示しても画面を圧迫しないよう、
  * ターミナル専用UIでは44dpへ圧縮する。
  */
-private const val PROFILE_ROW_HEIGHT_DP = 44
+private const val PROFILE_ROW_HEIGHT_DP = 40
 
 /**
  * ショートカットチップ行の高さ (dp)。
  * 変更理由: ソフトキーボード表示時でもClaude/Codexチップを残すため、
  * 参照モックに合わせた低めの行高へ調整する。
  */
-private const val SHORTCUT_ROW_HEIGHT_DP = 50
+private const val SHORTCUT_ROW_HEIGHT_DP = 44
 
-private const val COMMAND_PANEL_HEADER_HEIGHT_DP = 38
+private const val COMMAND_PANEL_HEADER_HEIGHT_DP = 32
 
 /**
  * ShortcutBarのコンテンツ領域の高さ (dp)。
  * navigationBarsのinsets分は含まない（ScaffoldまたはColumn内で別途処理）。
  * SessionScreenのInlinePromptボトムパディング計算に使用する。
- * 変更理由: 38 + 44 + 50 + 2(divider) = 134dp
+ * 変更理由: 32 + 40 + 44 + 2(divider) = 118dp
  */
 const val SHORTCUT_BAR_HEIGHT_DP = COMMAND_PANEL_HEADER_HEIGHT_DP + PROFILE_ROW_HEIGHT_DP + SHORTCUT_ROW_HEIGHT_DP + 2

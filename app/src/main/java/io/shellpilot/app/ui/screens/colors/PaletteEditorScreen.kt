@@ -36,7 +36,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -44,12 +43,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -75,7 +72,10 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import io.shellpilot.app.R
 import io.shellpilot.app.ui.ScreenPreviews
 import io.shellpilot.app.ui.components.ColorPickerDialog
+import io.shellpilot.app.ui.components.CommandSurfaceCard
 import io.shellpilot.app.ui.components.RgbColorPickerDialog
+import io.shellpilot.app.ui.components.ShellPilotActionDialog
+import io.shellpilot.app.ui.components.ShellPilotScaffold
 
 /**
  * Screen for editing the full 256-color palette of a color scheme.
@@ -160,28 +160,25 @@ fun PaletteEditorScreenContent(
         }
     }
 
-    Scaffold(
+    ShellPilotScaffold(
         modifier = modifier,
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.title_palette_editor)) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.button_navigate_up)
-                        )
-                    }
-                },
-                actions = {
-                    if (!uiState.isBuiltIn) {
-                        TextButton(onClick = { onShowResetAllDialog() }) {
-                            Text(stringResource(R.string.button_reset_all_colors))
-                        }
-                    }
+        title = stringResource(R.string.title_palette_editor),
+        subtitle = "ANSIパレット・前景・背景",
+        navigationIcon = {
+            IconButton(onClick = onNavigateBack) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.button_navigate_up)
+                )
+            }
+        },
+        actions = {
+            if (!uiState.isBuiltIn) {
+                TextButton(onClick = { onShowResetAllDialog() }) {
+                    Text(stringResource(R.string.button_reset_all_colors))
                 }
-            )
+            }
         }
     ) { padding ->
         Box(
@@ -215,6 +212,14 @@ fun PaletteEditorScreenContent(
                         }
 
                         item {
+                            TerminalPreview(
+                                foregroundColorIndex = uiState.foregroundColorIndex,
+                                backgroundColorIndex = uiState.backgroundColorIndex,
+                                palette = uiState.palette
+                            )
+                        }
+
+                        item {
                             ForegroundBackgroundSection(
                                 foregroundColorIndex = uiState.foregroundColorIndex,
                                 backgroundColorIndex = uiState.backgroundColorIndex,
@@ -234,13 +239,6 @@ fun PaletteEditorScreenContent(
                             )
                         }
 
-                        item {
-                            TerminalPreview(
-                                foregroundColorIndex = uiState.foregroundColorIndex,
-                                backgroundColorIndex = uiState.backgroundColorIndex,
-                                palette = uiState.palette
-                            )
-                        }
                     }
                 }
             }
@@ -286,24 +284,16 @@ fun PaletteEditorScreenContent(
     }
 
     if (uiState.showResetAllDialog) {
-        AlertDialog(
-            onDismissRequest = { onHideResetAllDialog() },
-            title = { Text(stringResource(R.string.dialog_title_reset_all)) },
-            text = { Text(stringResource(R.string.dialog_message_reset_all)) },
-            confirmButton = {
-                TextButton(onClick = { onResetAllColors() }) {
-                    Text(
-                        stringResource(R.string.button_reset_all_colors),
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { onHideResetAllDialog() }) {
-                    Text(stringResource(R.string.button_cancel))
-                }
-            }
-        )
+        ShellPilotActionDialog(
+            title = stringResource(R.string.dialog_title_reset_all),
+            onDismiss = onHideResetAllDialog,
+            confirmLabel = stringResource(R.string.button_reset_all_colors),
+            onConfirm = onResetAllColors,
+            dismissLabel = stringResource(R.string.button_cancel),
+            destructiveConfirm = true
+        ) {
+            Text(stringResource(R.string.dialog_message_reset_all))
+        }
     }
 
     if (uiState.showDuplicateDialog) {
@@ -326,14 +316,12 @@ private fun SchemeInfoSection(
     onDuplicateClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
+    CommandSurfaceCard(modifier = modifier) {
         if (isBuiltIn) {
             Text(
                 text = schemeName,
-                style = MaterialTheme.typography.titleLarge
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
             )
             if (schemeDescription.isNotEmpty()) {
                 Text(
@@ -342,7 +330,10 @@ private fun SchemeInfoSection(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Button(onClick = onDuplicateClick) {
+            Button(
+                onClick = onDuplicateClick,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text(stringResource(R.string.button_duplicate_scheme))
             }
         } else {
@@ -378,10 +369,7 @@ private fun ForegroundBackgroundSection(
     onBackgroundClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
+    CommandSurfaceCard(modifier = modifier) {
         Text(
             text = stringResource(R.string.section_fg_bg_colors),
             style = MaterialTheme.typography.titleMedium,
@@ -518,10 +506,7 @@ private fun TerminalPreview(
         }
     )
 
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
+    CommandSurfaceCard(modifier = modifier) {
         Text(
             text = stringResource(R.string.section_color_preview),
             style = MaterialTheme.typography.titleMedium,
@@ -568,10 +553,7 @@ private fun ColorSection(
     modifier: Modifier = Modifier,
     columns: Int = 8
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
+    CommandSurfaceCard(modifier = modifier) {
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
@@ -654,32 +636,22 @@ private fun DuplicateSchemeDialog(
 ) {
     var name by remember { mutableStateOf("Copy of $baseName") }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.dialog_title_new_scheme)) },
-        text = {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text(stringResource(R.string.label_scheme_name)) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onConfirm(name) },
-                enabled = name.isNotBlank()
-            ) {
-                Text(stringResource(R.string.button_confirm))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.button_cancel))
-            }
-        }
-    )
+    ShellPilotActionDialog(
+        title = stringResource(R.string.dialog_title_new_scheme),
+        onDismiss = onDismiss,
+        confirmLabel = stringResource(R.string.button_confirm),
+        confirmEnabled = name.isNotBlank(),
+        onConfirm = { onConfirm(name) },
+        dismissLabel = stringResource(R.string.button_cancel)
+    ) {
+        OutlinedTextField(
+            value = name,
+            onValueChange = { name = it },
+            label = { Text(stringResource(R.string.label_scheme_name)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
 }
 
 @ScreenPreviews

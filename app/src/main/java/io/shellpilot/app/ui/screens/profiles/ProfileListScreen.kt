@@ -37,7 +37,6 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -47,7 +46,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -63,6 +61,7 @@ import io.shellpilot.app.R
 import io.shellpilot.app.data.entity.Profile
 import io.shellpilot.app.ui.common.getLocalizedFontDisplayName
 import io.shellpilot.app.ui.components.CommandSurfaceCard
+import io.shellpilot.app.ui.components.ShellPilotActionDialog
 import io.shellpilot.app.ui.components.ShellPilotScaffold
 import io.shellpilot.app.ui.components.StatusChip
 
@@ -166,23 +165,16 @@ fun ProfileListScreen(
 
     // Delete dialog
     uiState.showDeleteDialog?.let { profile ->
-        AlertDialog(
-            onDismissRequest = { viewModel.hideDeleteDialog() },
-            title = { Text(stringResource(R.string.profile_delete_dialog_title)) },
-            text = { Text(stringResource(R.string.profile_delete_dialog_message, profile.name)) },
-            confirmButton = {
-                TextButton(
-                    onClick = { viewModel.deleteProfile(profile) }
-                ) {
-                    Text(stringResource(R.string.profile_delete_button))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { viewModel.hideDeleteDialog() }) {
-                    Text(stringResource(R.string.profile_delete_cancel))
-                }
-            }
-        )
+        ShellPilotActionDialog(
+            title = stringResource(R.string.profile_delete_dialog_title),
+            onDismiss = { viewModel.hideDeleteDialog() },
+            confirmLabel = stringResource(R.string.profile_delete_button),
+            onConfirm = { viewModel.deleteProfile(profile) },
+            dismissLabel = stringResource(R.string.profile_delete_cancel),
+            destructiveConfirm = true
+        ) {
+            Text(stringResource(R.string.profile_delete_dialog_message, profile.name))
+        }
     }
 }
 
@@ -207,7 +199,11 @@ private fun ProfileListItem(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = profile.name,
+                    text = if (profile.name == "Default") {
+                        stringResource(R.string.colorscheme_default)
+                    } else {
+                        profile.name
+                    },
                     style = MaterialTheme.typography.titleMedium
                 )
                 Spacer(modifier = Modifier.height(4.dp))
@@ -264,43 +260,33 @@ private fun CreateProfileDialog(
 ) {
     var name by remember { mutableStateOf("") }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.profile_create_dialog_title)) },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text(stringResource(R.string.profile_create_name_label)) },
-                    singleLine = true,
-                    isError = error != null,
-                    modifier = Modifier.fillMaxWidth()
+    ShellPilotActionDialog(
+        title = stringResource(R.string.profile_create_dialog_title),
+        onDismiss = onDismiss,
+        confirmLabel = stringResource(R.string.profile_create_button),
+        onConfirm = { onConfirm(name) },
+        confirmEnabled = name.isNotBlank(),
+        dismissLabel = stringResource(R.string.profile_create_cancel)
+    ) {
+        Column {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(stringResource(R.string.profile_create_name_label)) },
+                singleLine = true,
+                isError = error != null,
+                modifier = Modifier.fillMaxWidth()
+            )
+            if (error != null) {
+                Text(
+                    text = error,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 4.dp)
                 )
-                if (error != null) {
-                    Text(
-                        text = error,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onConfirm(name) },
-                enabled = name.isNotBlank()
-            ) {
-                Text(stringResource(R.string.profile_create_button))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.profile_create_cancel))
             }
         }
-    )
+    }
 }
 
 @Composable
