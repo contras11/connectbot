@@ -25,7 +25,9 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -45,12 +47,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -59,6 +59,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -68,7 +69,9 @@ import io.shellpilot.app.R
 import io.shellpilot.app.ui.ObservePermissionOnResume
 import io.shellpilot.app.ui.ScreenPreviews
 import io.shellpilot.app.ui.common.getLocalizedFontDisplayName
+import io.shellpilot.app.ui.components.CommandSurfaceCard
 import io.shellpilot.app.ui.components.FontDownloadProgressDialog
+import io.shellpilot.app.ui.components.ShellPilotScaffold
 import io.shellpilot.app.ui.theme.ShellPilotTheme
 import io.shellpilot.app.util.LocalFontProvider
 import io.shellpilot.app.util.NotificationPermissionHelper
@@ -237,23 +240,42 @@ fun SettingsScreenContent(
     onBellNotificationChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.title_settings)) },
-                navigationIcon = {
-                    // 変更理由: タブ表示時はArrowBackを非表示にする
-                    if (showNavigationIcon) {
-                        IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                        }
-                    }
+    ShellPilotScaffold(
+        title = stringResource(R.string.title_settings),
+        subtitle = "接続・ターミナル・AIショートカット",
+        navigationIcon = {
+            // 変更理由: タブ表示時はArrowBackを非表示にする
+            if (showNavigationIcon) {
+                IconButton(onClick = onNavigateBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
                 }
-            )
+            }
         },
         modifier = modifier
     ) { padding ->
-        LazyColumn(modifier = Modifier.padding(padding)) {
+        LazyColumn(
+            modifier = Modifier.padding(padding),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = 16.dp,
+                bottom = 24.dp
+            )
+        ) {
+            item {
+                CommandSurfaceCard(accent = MaterialTheme.colorScheme.secondary) {
+                    Text(
+                        text = "ShellPilot設定",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    Text(
+                        text = "接続維持、ターミナル表示、AI CLIショートカット、通知とバックアップを作業単位で調整します。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
             if (uiState.canAuthenticate) {
                 item {
                     PreferenceCategory(title = stringResource(R.string.pref_security_category))
@@ -713,18 +735,30 @@ private fun SwitchPreference(
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    ListItem(
-        headlineContent = { Text(title) },
-        supportingContent = { Text(summary) },
-        trailingContent = {
+    CommandSurfaceCard(
+        modifier = modifier,
+        onClick = { onCheckedChange(!checked) },
+        accent = if (checked) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outline
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    summary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             Switch(
                 checked = checked,
                 onCheckedChange = onCheckedChange
             )
-        },
-        modifier = modifier.clickable { onCheckedChange(!checked) }
-    )
-    HorizontalDivider()
+        }
+    }
 }
 
 @Composable
@@ -737,12 +771,23 @@ private fun TextPreference(
 ) {
     var showDialog by remember { mutableStateOf(false) }
 
-    ListItem(
-        headlineContent = { Text(title) },
-        supportingContent = { Text(summary) },
-        modifier = modifier.clickable { showDialog = true }
-    )
-    HorizontalDivider()
+    CommandSurfaceCard(
+        modifier = modifier,
+        onClick = { showDialog = true },
+        accent = MaterialTheme.colorScheme.primary
+    ) {
+        Text(title, style = MaterialTheme.typography.titleMedium)
+        Text(
+            summary,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            value,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary
+        )
+    }
 
     if (showDialog) {
         TextPreferenceDialog(
@@ -801,12 +846,18 @@ private fun ListPreference(
 ) {
     var showDialog by remember { mutableStateOf(false) }
 
-    ListItem(
-        headlineContent = { Text(title) },
-        supportingContent = { Text(summary) },
-        modifier = modifier.clickable { showDialog = true }
-    )
-    HorizontalDivider()
+    CommandSurfaceCard(
+        modifier = modifier,
+        onClick = { showDialog = true },
+        accent = MaterialTheme.colorScheme.primary
+    ) {
+        Text(title, style = MaterialTheme.typography.titleMedium)
+        Text(
+            summary,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
 
     if (showDialog) {
         ListPreferenceDialog(
@@ -863,12 +914,18 @@ private fun ListPreferenceWithCustom(
 ) {
     var showDialog by remember { mutableStateOf(false) }
 
-    ListItem(
-        headlineContent = { Text(title) },
-        supportingContent = { Text(summary) },
-        modifier = modifier.clickable { showDialog = true }
-    )
-    HorizontalDivider()
+    CommandSurfaceCard(
+        modifier = modifier,
+        onClick = { showDialog = true },
+        accent = MaterialTheme.colorScheme.primary
+    ) {
+        Text(title, style = MaterialTheme.typography.titleMedium)
+        Text(
+            summary,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
 
     if (showDialog) {
         ListPreferenceWithCustomDialog(
@@ -977,12 +1034,10 @@ private fun SliderPreference(
     onValueChange: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-    ) {
+    CommandSurfaceCard(modifier = modifier, accent = MaterialTheme.colorScheme.tertiary) {
         Text(
             text = title,
-            style = MaterialTheme.typography.bodyLarge
+            style = MaterialTheme.typography.titleMedium
         )
         Slider(
             value = value,
@@ -998,7 +1053,6 @@ private fun SliderPreference(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
-    HorizontalDivider()
 }
 
 @Composable

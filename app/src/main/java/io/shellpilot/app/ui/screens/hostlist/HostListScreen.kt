@@ -27,9 +27,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -46,6 +51,8 @@ import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -54,14 +61,11 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -85,8 +89,11 @@ import io.shellpilot.app.R
 import io.shellpilot.app.data.entity.Host
 import io.shellpilot.app.ui.LocalTerminalManager
 import io.shellpilot.app.ui.ScreenPreviews
+import io.shellpilot.app.ui.components.CommandSurfaceCard
 import io.shellpilot.app.ui.components.DisconnectAllDialog
+import io.shellpilot.app.ui.components.ShellPilotScaffold
 import io.shellpilot.app.ui.components.ShortcutCustomizationDialog
+import io.shellpilot.app.ui.components.StatusChip
 import io.shellpilot.app.ui.theme.ShellPilotTheme
 import io.shellpilot.app.util.IconStyle
 
@@ -281,85 +288,84 @@ fun HostListScreenContent(
         }
     }
 
-    Scaffold(
+    val connectedCount = uiState.connectionStates.values.count { it == ConnectionState.CONNECTED }
+
+    ShellPilotScaffold(
+        title = "ShellPilot",
+        subtitle = "SSH + AI CLI workspace",
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.app_name)) },
-                actions = {
-                    if (!makingShortcut) {
-                        IconButton(onClick = { showMenu = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.button_more_options))
-                        }
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        stringResource(
-                                            if (uiState.sortedByColor) {
-                                                R.string.list_menu_sortname
-                                            } else {
-                                                R.string.list_menu_sortcolor
-                                            }
-                                        )
-                                    )
-                                },
-                                onClick = {
-                                    showMenu = false
-                                    onToggleSortOrder()
-                                }
-                            )
-                            // 変更理由: 「設定」はBottomNavigationBarで遷移可能なため
-                            // 三点メニューから削除。補助的機能のみ残す。
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.profile_list_title)) },
-                                onClick = {
-                                    showMenu = false
-                                    onNavigateToProfiles()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.list_menu_pubkeys)) },
-                                onClick = {
-                                    showMenu = false
-                                    onNavigateToPubkeys()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.list_menu_export_hosts)) },
-                                onClick = {
-                                    showMenu = false
-                                    onExportHosts()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.list_menu_import_hosts)) },
-                                onClick = {
-                                    showMenu = false
-                                    onImportHosts()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.list_menu_disconnect)) },
-                                onClick = {
-                                    showMenu = false
-                                    showDisconnectAllDialog = true
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.title_help)) },
-                                onClick = {
-                                    showMenu = false
-                                    onNavigateToHelp()
-                                }
-                            )
-                        }
-                    }
+        actions = {
+            if (!makingShortcut) {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.button_more_options))
                 }
-            )
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false }
+                ) {
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                stringResource(
+                                    if (uiState.sortedByColor) {
+                                        R.string.list_menu_sortname
+                                    } else {
+                                        R.string.list_menu_sortcolor
+                                    }
+                                )
+                            )
+                        },
+                        onClick = {
+                            showMenu = false
+                            onToggleSortOrder()
+                        }
+                    )
+                    // 変更理由: 「設定」はBottomNavigationBarで遷移可能なため
+                    // 三点メニューから削除。補助的機能のみ残す。
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.profile_list_title)) },
+                        onClick = {
+                            showMenu = false
+                            onNavigateToProfiles()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.list_menu_pubkeys)) },
+                        onClick = {
+                            showMenu = false
+                            onNavigateToPubkeys()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.list_menu_export_hosts)) },
+                        onClick = {
+                            showMenu = false
+                            onExportHosts()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.list_menu_import_hosts)) },
+                        onClick = {
+                            showMenu = false
+                            onImportHosts()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.list_menu_disconnect)) },
+                        onClick = {
+                            showMenu = false
+                            showDisconnectAllDialog = true
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.title_help)) },
+                        onClick = {
+                            showMenu = false
+                            onNavigateToHelp()
+                        }
+                    )
+                }
+            }
         },
         floatingActionButton = {
             if (!makingShortcut) {
@@ -387,20 +393,13 @@ fun HostListScreenContent(
                 }
 
                 uiState.hosts.isEmpty() -> {
-                    Column(
-                        modifier = Modifier.align(Alignment.Center),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = stringResource(R.string.empty_hosts_message),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                        TextButton(onClick = { onNavigateToEditHost(null) }) {
-                            Text(stringResource(R.string.hostpref_add_host))
-                        }
-                    }
+                    EmptyCommandCenterCard(
+                        onAddHost = { onNavigateToEditHost(null) },
+                        onImportHosts = onImportHosts,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(24.dp)
+                    )
                 }
 
                 else -> {
@@ -414,6 +413,15 @@ fun HostListScreenContent(
                         ),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        item {
+                            CommandCenterHeader(
+                                hostCount = uiState.hosts.size,
+                                connectedCount = connectedCount,
+                                keyReadyCount = uiState.hosts.count { it.protocol == "ssh" && it.useKeys },
+                                onImportHosts = onImportHosts,
+                                onNavigateToPubkeys = onNavigateToPubkeys
+                            )
+                        }
                         items(
                             items = uiState.hosts,
                             key = { it.id }
@@ -473,7 +481,7 @@ private fun HostListItem(
     var showDisconnectDialog by remember { mutableStateOf(false) }
     var showForgetHostKeysDialog by remember { mutableStateOf(false) }
 
-    // Determine border color based on connection state
+    // 変更理由: 接続状態をカード枠とchipへ反映し、一覧で状態を素早く読めるようにする。
     val borderColor = when (connectionState) {
         ConnectionState.CONNECTED -> colorResource(R.color.host_green)
 
@@ -484,24 +492,20 @@ private fun HostListItem(
         ConnectionState.UNKNOWN -> Color.Transparent
     }
 
-    ListItem(
-        headlineContent = {
-            Text(
-                text = host.nickname,
-                fontWeight = FontWeight.Bold
-            )
-        },
-        supportingContent = {
-            Text("${host.protocol}://${host.hostname}:${host.port}")
-        },
-        leadingContent = {
-            Box(
-                modifier = Modifier.size(40.dp)
-            ) {
-                // Main host icon with colored background and border
+    CommandSurfaceCard(
+        modifier = modifier,
+        onClick = onClick,
+        accent = if (connectionState == ConnectionState.UNKNOWN) parseColor(host.color) else borderColor
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(modifier = Modifier.size(44.dp)) {
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(44.dp)
                         .background(
                             color = parseColor(host.color),
                             shape = CircleShape
@@ -529,7 +533,6 @@ private fun HostListItem(
                     )
                 }
 
-                // Status badge icon in lower right corner
                 if (connectionState != ConnectionState.UNKNOWN) {
                     Box(
                         modifier = Modifier
@@ -557,8 +560,25 @@ private fun HostListItem(
                     }
                 }
             }
-        },
-        trailingContent = {
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = host.nickname.ifBlank { host.hostname.ifBlank { host.protocol } },
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
+                )
+                Text(
+                    text = host.displayEndpoint(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
+            }
+
             if (!makingShortcut) {
                 Box {
                     IconButton(onClick = { showMenu = true }) {
@@ -634,10 +654,56 @@ private fun HostListItem(
                     }
                 }
             }
-        },
-        modifier = modifier.clickable(onClick = onClick)
-    )
-    HorizontalDivider()
+        }
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            StatusChip(label = host.protocol.uppercase())
+            StatusChip(
+                label = when (connectionState) {
+                    ConnectionState.CONNECTED -> "接続中"
+                    ConnectionState.DISCONNECTED -> "オフライン"
+                    ConnectionState.UNKNOWN -> "待機"
+                },
+                accent = when (connectionState) {
+                    ConnectionState.CONNECTED -> colorResource(R.color.host_green)
+                    ConnectionState.DISCONNECTED -> colorResource(R.color.host_red)
+                    ConnectionState.UNKNOWN -> MaterialTheme.colorScheme.onSurfaceVariant
+                }
+            )
+            if (host.protocol == "ssh" && host.useKeys) {
+                StatusChip(label = "鍵")
+            }
+            if (host.profileId != null) {
+                StatusChip(label = "プロファイル ${host.profileId}")
+            }
+            if (host.jumpHostId != null) {
+                StatusChip(label = "踏み台")
+            }
+        }
+
+        if (!makingShortcut) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = onClick,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                ) {
+                    Text("接続")
+                }
+                TextButton(onClick = onEdit) {
+                    Text("編集")
+                }
+                TextButton(onClick = onPortForwards) {
+                    Text("転送")
+                }
+            }
+        }
+    }
 
     if (showDeleteDialog) {
         HostDeleteDialog(
@@ -670,6 +736,81 @@ private fun HostListItem(
                 onForgetHostKeys()
             }
         )
+    }
+}
+
+@Composable
+private fun CommandCenterHeader(
+    hostCount: Int,
+    connectedCount: Int,
+    keyReadyCount: Int,
+    onImportHosts: () -> Unit,
+    onNavigateToPubkeys: () -> Unit
+) {
+    CommandSurfaceCard(accent = MaterialTheme.colorScheme.primary) {
+        Text(
+            text = "コマンドセンター",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.ExtraBold
+        )
+        Text(
+            text = "SSHホストとAI CLIの作業導線をここから開始します。",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            StatusChip(label = "ホスト $hostCount")
+            StatusChip(label = "接続中 $connectedCount")
+            StatusChip(label = "鍵 $keyReadyCount")
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(onClick = onImportHosts) {
+                Text("JSONからインポート")
+            }
+            TextButton(onClick = onNavigateToPubkeys) {
+                Text("公開鍵")
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyCommandCenterCard(
+    onAddHost: () -> Unit,
+    onImportHosts: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    CommandSurfaceCard(modifier = modifier, accent = MaterialTheme.colorScheme.secondary) {
+        Text(
+            text = "ShellPilotワークスペースを準備",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = "最初のSSHホストを追加するか、既存のJSONバックアップから接続先を取り込みます。",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Button(onClick = onAddHost) {
+            Icon(Icons.Default.Add, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(stringResource(R.string.hostpref_add_host))
+        }
+        TextButton(onClick = onImportHosts) {
+            Text("JSONからインポート")
+        }
+    }
+}
+
+private fun Host.displayEndpoint(): String {
+    return when (protocol) {
+        "local" -> "local://${nickname.ifBlank { "device" }}"
+        "ssh" -> {
+            val userPart = if (username.isNotBlank()) "$username@" else ""
+            "$userPart$hostname:$port"
+        }
+        else -> "$protocol://$hostname:$port"
     }
 }
 

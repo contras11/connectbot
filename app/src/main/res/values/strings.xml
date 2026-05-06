@@ -958,10 +958,10 @@
 	<string name="terminal_keyboard_text_input_button">Text input</string>
 
 	<!-- Title for the floating text input dialog where users can type longer text with full keyboard/IME support -->
-	<string name="terminal_text_input_dialog_title">Text Input</string>
+	<string name="terminal_text_input_dialog_title">Terminal Command</string>
 
 	<!-- Label for the text field in the floating text input dialog where users compose their text -->
-	<string name="terminal_text_input_dialog_label">Enter text to send to terminal</string>
+	<string name="terminal_text_input_dialog_label">Enter a command to send to the terminal</string>
 
 	<!-- Menu item in console toolbar to open floating text input dialog -->
 	<string name="console_menu_text_input">Text input</string>

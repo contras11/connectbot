@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -119,6 +120,10 @@ fun TerminalKeyboard(
 
     TerminalKeyboardContent(
         modifierState = modifierState,
+        onControlSequence = { sequence ->
+            bridge.injectString(sequence)
+            onInteraction()
+        },
         onCtrlPress = {
             keyHandler.metaPress(TerminalKeyListener.OUR_CTRL_ON, true)
             onInteraction()
@@ -153,6 +158,7 @@ fun TerminalKeyboard(
 @Composable
 private fun TerminalKeyboardContent(
     modifierState: ModifierState,
+    onControlSequence: (String) -> Unit,
     onCtrlPress: () -> Unit,
     onEscPress: () -> Unit,
     onTabPress: () -> Unit,
@@ -224,6 +230,26 @@ private fun TerminalKeyboardContent(
                         .padding(horizontal = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
+                    // 変更理由: Claude Code / Codexの停止に頻用する制御キーを
+                    // sticky Ctrl操作とは別に常時ワンタップ送信できるようにする。
+                    ControlSequenceButton(
+                        text = "Ctrl+C",
+                        contentDescription = "Ctrl+Cを送信",
+                        onClick = { onControlSequence("\u0003") }
+                    )
+
+                    ControlSequenceButton(
+                        text = "Ctrl+D",
+                        contentDescription = "Ctrl+Dを送信",
+                        onClick = { onControlSequence("\u0004") }
+                    )
+
+                    ControlSequenceButton(
+                        text = "Ctrl+Z",
+                        contentDescription = "Ctrl+Zを送信",
+                        onClick = { onControlSequence("\u001A") }
+                    )
+
                     // Ctrl key (sticky modifier)
                     ModifierKeyButton(
                         text = stringResource(R.string.button_key_ctrl),
@@ -505,6 +531,36 @@ private fun KeyButton(
     }
 }
 
+@Composable
+private fun ControlSequenceButton(
+    text: String,
+    contentDescription: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier
+            .width(68.dp)
+            .height(TERMINAL_KEYBOARD_HEIGHT_DP.dp),
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
+        color = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onPrimary
+            )
+        }
+    }
+}
+
 /**
  * A button for repeatable keys (arrow keys)
  */
@@ -614,6 +670,7 @@ private fun TerminalKeyboardPreview() {
                 altState = ModifierLevel.OFF,
                 shiftState = ModifierLevel.OFF
             ),
+            onControlSequence = {},
             onCtrlPress = {},
             onEscPress = {},
             onTabPress = {},
@@ -639,6 +696,7 @@ private fun TerminalKeyboardCtrlPressedPreview() {
                 altState = ModifierLevel.OFF,
                 shiftState = ModifierLevel.OFF
             ),
+            onControlSequence = {},
             onCtrlPress = {},
             onEscPress = {},
             onTabPress = {},
@@ -664,6 +722,7 @@ private fun TerminalKeyboardCtrlLockedPreview() {
                 altState = ModifierLevel.OFF,
                 shiftState = ModifierLevel.OFF
             ),
+            onControlSequence = {},
             onCtrlPress = {},
             onEscPress = {},
             onTabPress = {},
@@ -689,6 +748,7 @@ private fun TerminalKeyboardImeVisiblePreview() {
                 altState = ModifierLevel.OFF,
                 shiftState = ModifierLevel.OFF
             ),
+            onControlSequence = {},
             onCtrlPress = {},
             onEscPress = {},
             onTabPress = {},

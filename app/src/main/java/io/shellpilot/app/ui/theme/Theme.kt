@@ -91,8 +91,8 @@ private val darkScheme = darkColorScheme(
 @Composable
 fun ShellPilotTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
+    // 変更理由: ShellPilot固有のAI/CLI向け配色を優先し、端末依存の色ブレを避ける。
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {

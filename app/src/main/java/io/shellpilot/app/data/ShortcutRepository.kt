@@ -27,6 +27,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import io.shellpilot.app.data.entity.Shortcut
 import io.shellpilot.app.di.CoroutineDispatchers
+import io.shellpilot.app.session.CliCommandRegistry
 import org.json.JSONArray
 import org.json.JSONObject
 import timber.log.Timber
@@ -117,6 +118,87 @@ class ShortcutRepository @Inject constructor(
         _shortcuts.value = shortcuts
     }
 
+    /**
+     * 公式テンプレートを現在のショートカット一覧へ同期する。
+     *
+     * 変更理由: Claude Code / Codex の既定コマンドを最新化しても、
+     * ユーザが手動追加したショートカットは保持し、ShellPilotが管理する
+     * テンプレートだけを安全に更新できるようにする。
+     */
+    suspend fun syncOfficialTemplates(): TemplateSyncResult = mutex.withLock {
+        val current = withContext(dispatchers.io) {
+            if (!file.exists()) {
+                val defaults = Shortcut.createDefaults()
+                writeToFileInternal(defaults)
+                defaults
+            } else {
+                readFromFileInternal()
+            }
+        }
+        val templates = officialTemplates()
+        val templateByKey = templates.mapNotNull { template ->
+            template.templateKey?.let { it to template }
+        }.toMap()
+        val fallbackBySignature = templates.mapNotNull { template ->
+            template.templateKey?.let {
+                TemplateSignature(template.label, template.command, template.category) to template
+            }
+        }.toMap() + legacyTemplateKeyBySignature().mapValues { (_, key) ->
+            templateByKey.getValue(key)
+        }
+
+        var updated = 0
+        var tagged = 0
+        val merged = current.map { shortcut ->
+            val template = shortcut.templateKey?.let { templateByKey[it] }
+            when {
+                template != null -> {
+                    val next = shortcut.copy(
+                        label = template.label,
+                        command = template.command,
+                        category = template.category
+                    )
+                    if (next != shortcut) updated++
+                    next
+                }
+
+                else -> {
+                    val fallback = fallbackBySignature[
+                        TemplateSignature(shortcut.label, shortcut.command, shortcut.category)
+                    ]
+                    if (fallback?.templateKey != null) {
+                        tagged++
+                        shortcut.copy(
+                            label = fallback.label,
+                            command = fallback.command,
+                            category = fallback.category,
+                            templateKey = fallback.templateKey
+                        )
+                    } else {
+                        shortcut
+                    }
+                }
+            }
+        }.let { dedupeOfficialTemplates(it) }.toMutableList()
+
+        val existingTemplateKeys = merged.mapNotNull { it.templateKey }.toMutableSet()
+        var nextOrder = (merged.maxOfOrNull { it.order } ?: 0) + 1
+        var added = 0
+        templates.forEach { template ->
+            val key = template.templateKey
+            if (key != null && key !in existingTemplateKeys) {
+                merged.add(template.copy(order = nextOrder++))
+                existingTemplateKeys.add(key)
+                added++
+            }
+        }
+
+        withContext(dispatchers.io) { writeToFileInternal(merged) }
+        _shortcuts.value = merged
+        loaded = true
+        TemplateSyncResult(added = added, updated = updated, tagged = tagged)
+    }
+
     // --- 内部I/O (mutex保持下で呼び出すこと) ---
 
     private fun readFromFileInternal(): List<Shortcut> {
@@ -144,6 +226,66 @@ class ShortcutRepository @Inject constructor(
             Timber.e(e, "ShortcutRepository: JSONの書込に失敗")
         }
     }
+
+    private fun officialTemplates(): List<Shortcut> {
+        return CliCommandRegistry.categories.flatMap { category ->
+            category.commands.map { shortcut -> shortcut.copy(category = category.id) }
+        }
+    }
+
+    private fun dedupeOfficialTemplates(shortcuts: List<Shortcut>): List<Shortcut> {
+        val seenTemplateKeys = mutableSetOf<String>()
+        return shortcuts.filter { shortcut ->
+            val key = shortcut.templateKey ?: return@filter true
+            if (key in seenTemplateKeys) {
+                false
+            } else {
+                seenTemplateKeys.add(key)
+                true
+            }
+        }
+    }
+
+    private fun legacyTemplateKeyBySignature(): Map<TemplateSignature, String> = mapOf(
+        TemplateSignature("Ctrl+C", "\u0003", "general") to "control:ctrl-c",
+        TemplateSignature("Ctrl+D", "\u0004", "general") to "control:ctrl-d",
+        TemplateSignature("Ctrl+Z", "\u001A", "general") to "control:ctrl-z",
+        TemplateSignature("git st", "git status\n", "git") to "git:status",
+        TemplateSignature("git status", "git status\n", "git") to "git:status",
+        TemplateSignature("git diff", "git diff\n", "git") to "git:diff",
+        TemplateSignature("git log", "git log --oneline -10\n", "git") to "git:log",
+        TemplateSignature("git pull", "git pull\n", "git") to "git:pull",
+        TemplateSignature("claude", "claude\n", "claude_code") to "claude_code:launch",
+        TemplateSignature("claude --resume", "claude --resume\n", "claude_code") to "claude_code:resume",
+        TemplateSignature("claude --continue", "claude --continue\n", "claude_code") to "claude_code:continue",
+        TemplateSignature("claude -p", "claude -p \"", "claude_code") to "claude_code:print",
+        TemplateSignature("/help", "/help\n", "claude_code") to "claude_code:slash-help",
+        TemplateSignature("/compact", "/compact\n", "claude_code") to "claude_code:slash-compact",
+        TemplateSignature("/cost", "/cost\n", "claude_code") to "claude_code:slash-cost",
+        TemplateSignature("/status", "/status\n", "claude_code") to "claude_code:slash-status",
+        TemplateSignature("codex", "codex\n", "codex") to "codex:launch",
+        TemplateSignature("codex" + " -q", "codex" + " -q \"", "codex") to "codex:exec",
+        TemplateSignature(
+            "codex --" + "full" + "-auto",
+            "codex --approval-mode " + "full" + "-auto \"",
+            "codex"
+        ) to "codex:exec",
+        TemplateSignature("/help", "/help\n", "codex") to "codex:slash-help",
+        TemplateSignature("/diff", "/diff\n", "codex") to "codex:slash-diff",
+        TemplateSignature("/undo", "/undo\n", "codex") to "codex:slash-undo"
+    )
+
+    data class TemplateSyncResult(
+        val added: Int,
+        val updated: Int,
+        val tagged: Int
+    )
+
+    private data class TemplateSignature(
+        val label: String,
+        val command: String,
+        val category: String?
+    )
 
     companion object {
         internal const val FILE_NAME = "shortcuts.json"

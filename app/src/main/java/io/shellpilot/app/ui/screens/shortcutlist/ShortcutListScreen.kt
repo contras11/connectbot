@@ -33,6 +33,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -47,11 +48,14 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -102,6 +106,8 @@ fun ShortcutListScreen(
 ) {
     val shortcuts by viewModel.shortcuts.collectAsState()
     val profileOrder by viewModel.profileOrder.collectAsState()
+    val templateSyncMessage by viewModel.templateSyncMessage.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
     var editingShortcut by remember { mutableStateOf<Shortcut?>(null) }
     var showAddDialog by remember { mutableStateOf(false) }
     var showImportDialog by remember { mutableStateOf(false) }
@@ -123,6 +129,12 @@ fun ShortcutListScreen(
     // グローバルグループをリストの先頭に固定し、ホスト別グループを後ろに並べる
     val sortedHostKeys = remember(grouped) {
         grouped.keys.sortedWith(compareBy { if (it == "GLOBAL") "" else it })
+    }
+
+    LaunchedEffect(templateSyncMessage) {
+        val message = templateSyncMessage ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(message)
+        viewModel.consumeTemplateSyncMessage()
     }
 
     Scaffold(
@@ -148,9 +160,16 @@ fun ShortcutListScreen(
                             contentDescription = "テンプレートからインポート"
                         )
                     }
+                    IconButton(onClick = { viewModel.syncOfficialTemplates() }) {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = "公式テンプレートを更新"
+                        )
+                    }
                 }
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(onClick = { showAddDialog = true }) {
                 Icon(Icons.Default.Add, contentDescription = "追加")

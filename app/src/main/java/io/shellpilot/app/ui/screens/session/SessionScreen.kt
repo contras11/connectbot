@@ -47,7 +47,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -61,7 +60,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -76,6 +74,7 @@ import io.shellpilot.app.ui.LocalTerminalManager
 import io.shellpilot.app.ui.components.FloatingTextInputDialog
 import io.shellpilot.app.ui.components.InlinePrompt
 import io.shellpilot.app.ui.components.SHORTCUT_BAR_HEIGHT_DP
+import io.shellpilot.app.ui.components.ShellPilotTopBar
 import io.shellpilot.app.ui.components.ShortcutBar
 import io.shellpilot.app.ui.components.TERMINAL_KEYBOARD_HEIGHT_DP
 import io.shellpilot.app.ui.components.TerminalKeyboard
@@ -256,13 +255,14 @@ private fun SessionTopBar(
         else -> "セッション"
     }
 
-    TopAppBar(
-        title = {
-            Text(
-                text = title,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+    ShellPilotTopBar(
+        title = title,
+        subtitle = when (sessionState) {
+            is SessionController.SessionState.Active -> "SSH端末とAI CLIの作業画面"
+            is SessionController.SessionState.Loading -> "セッションを初期化中"
+            is SessionController.SessionState.Error -> "接続を確認してください"
+            is SessionController.SessionState.Disconnected -> "再接続または終了を選択"
+            else -> "SSH端末"
         },
         navigationIcon = {
             IconButton(onClick = onNavigateBack) {

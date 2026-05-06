@@ -206,6 +206,7 @@ class SessionViewModel @Inject constructor(
     /** ホストIDに対応するショートカットを読込む */
     private fun loadShortcuts() {
         viewModelScope.launch {
+            shortcutRepository.syncOfficialTemplates()
             val list = if (hostId > 0L) {
                 shortcutRepository.getForHost(hostId)
             } else {
@@ -252,14 +253,18 @@ class SessionViewModel @Inject constructor(
         val category = CliCommandRegistry.findCategory(toolId) ?: return
         viewModelScope.launch {
             val existing = shortcutRepository.loadAll()
-            val existingLabels = existing.map { it.label }.toSet()
-            // 重複ラベルを除外して追加
+            val existingTemplateKeys = existing.mapNotNull { it.templateKey }.toSet()
+            val existingPairs = existing.map { it.label to it.category }.toSet()
             val maxOrder = existing.maxOfOrNull { it.order } ?: 0
             category.commands
-                .filter { it.label !in existingLabels }
+                .filter {
+                    val key = it.templateKey
+                    (key == null || key !in existingTemplateKeys) &&
+                        (it.label to category.id) !in existingPairs
+                }
                 .forEachIndexed { index, cmd ->
                     shortcutRepository.save(
-                        cmd.copy(order = maxOrder + index + 1)
+                        cmd.copy(order = maxOrder + index + 1, category = category.id)
                     )
                 }
             loadShortcuts()

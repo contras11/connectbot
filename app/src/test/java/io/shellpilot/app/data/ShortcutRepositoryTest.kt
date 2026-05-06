@@ -25,6 +25,7 @@ import io.shellpilot.app.data.entity.Shortcut
 import io.shellpilot.app.di.CoroutineDispatchers
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -75,7 +76,8 @@ class ShortcutRepositoryTest {
         val shortcuts = repository.loadAll()
 
         assertTrue("Should return default shortcuts", shortcuts.isNotEmpty())
-        assertEquals("Default 'ls -la' should exist", "ls -la", shortcuts[0].label)
+        assertTrue("Default 'ls -la' should exist", shortcuts.any { it.label == "ls -la" })
+        assertEquals("Control shortcuts should be first", "Ctrl+C", shortcuts[0].label)
     }
 
     @Test
@@ -233,7 +235,23 @@ class ShortcutRepositoryTest {
         assertEquals(original.label, restored.label)
         assertEquals(original.command, restored.command)
         assertEquals(original.hostId, restored.hostId)
+        assertEquals(original.templateKey, restored.templateKey)
         assertEquals(original.order, restored.order)
+    }
+
+    @Test
+    fun shortcutJsonRoundTrip_templateKey_preserved() {
+        val original = Shortcut(
+            label = "Ctrl+C",
+            command = "\u0003",
+            category = "control",
+            templateKey = "control:ctrl-c"
+        )
+
+        val restored = Shortcut.fromJson(original.toJson())
+
+        assertEquals("control:ctrl-c", restored.templateKey)
+        assertEquals("control", restored.category)
     }
 
     @Test
@@ -248,5 +266,82 @@ class ShortcutRepositoryTest {
         val restored = Shortcut.fromJson(json)
 
         assertEquals("hostId should remain null", null, restored.hostId)
+    }
+
+    @Test
+    fun shortcutJsonFromLegacyWithoutTemplateKey_keepsTemplateKeyNull() {
+        val json = Shortcut(
+            label = "legacy",
+            command = "echo legacy\n",
+            category = "general"
+        ).toJson().apply {
+            remove("templateKey")
+        }
+
+        val restored = Shortcut.fromJson(json)
+
+        assertNull(restored.templateKey)
+    }
+
+    @Test
+    fun syncOfficialTemplates_addsMissingTemplatesAndKeepsCustom() = runTest(testDispatcher) {
+        val custom = Shortcut(label = "custom deploy", command = "make deploy\n")
+        repository.replaceAll(listOf(custom))
+
+        val result = repository.syncOfficialTemplates()
+
+        val all = repository.shortcuts.value
+        assertTrue("Official templates should be added", result.added > 0)
+        assertTrue("Custom shortcut should be preserved", all.any { it.id == custom.id })
+        assertTrue("Ctrl+C template should exist", all.any { it.templateKey == "control:ctrl-c" })
+        assertTrue("Codex exec template should exist", all.any { it.templateKey == "codex:exec" })
+    }
+
+    @Test
+    fun syncOfficialTemplates_updatesKnownTemplateWithoutChangingId() = runTest(testDispatcher) {
+        val stale = Shortcut(
+            id = "fixed-id",
+            label = "codex" + " -q",
+            command = "codex" + " -q \"",
+            category = "codex",
+            templateKey = "codex:exec",
+            order = 7
+        )
+        repository.replaceAll(listOf(stale))
+
+        val result = repository.syncOfficialTemplates()
+
+        val updated = repository.shortcuts.value.first { it.id == "fixed-id" }
+        assertTrue("Known template should be updated", result.updated > 0)
+        assertEquals("codex exec", updated.label)
+        assertEquals("codex exec \"", updated.command)
+        assertEquals(7, updated.order)
+    }
+
+    @Test
+    fun syncOfficialTemplates_mapsLegacyTemplateAndRemovesDuplicateOfficialTemplate() = runTest(testDispatcher) {
+        val legacy = Shortcut(
+            id = "legacy-id",
+            label = "codex" + " -q",
+            command = "codex" + " -q \"",
+            category = "codex",
+            order = 1
+        )
+        val duplicate = Shortcut(
+            id = "duplicate-id",
+            label = "codex exec",
+            command = "codex exec \"",
+            category = "codex",
+            templateKey = "codex:exec",
+            order = 2
+        )
+        repository.replaceAll(listOf(legacy, duplicate))
+
+        repository.syncOfficialTemplates()
+
+        val codexExec = repository.shortcuts.value.filter { it.templateKey == "codex:exec" }
+        assertEquals("Duplicate official template should be removed", 1, codexExec.size)
+        assertEquals("legacy-id", codexExec.single().id)
+        assertEquals("codex exec", codexExec.single().label)
     }
 }

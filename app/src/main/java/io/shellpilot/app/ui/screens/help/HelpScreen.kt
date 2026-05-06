@@ -22,6 +22,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -35,15 +36,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -58,10 +56,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import io.shellpilot.app.BuildConfig
 import io.shellpilot.app.R
 import io.shellpilot.app.ui.ScreenPreviews
+import io.shellpilot.app.ui.components.CommandSurfaceCard
+import io.shellpilot.app.ui.components.ShellPilotScaffold
+import io.shellpilot.app.ui.components.StatusChip
 import io.shellpilot.app.ui.theme.ShellPilotTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -76,130 +78,110 @@ fun HelpScreen(
     var showKeyboardShortcuts by remember { mutableStateOf(false) }
     var showLogViewer by remember { mutableStateOf(false) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.title_help)) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                    }
-                }
-            )
+    ShellPilotScaffold(
+        title = stringResource(R.string.title_help),
+        subtitle = "サポート・ログ・フォーク元情報",
+        navigationIcon = {
+            IconButton(onClick = onNavigateBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+            }
         },
         modifier = modifier
     ) { padding ->
         LazyColumn(
             modifier = Modifier
                 .padding(padding)
-                .padding(16.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             item {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
+                CommandSurfaceCard(accent = MaterialTheme.colorScheme.primary) {
                     // 変更理由: フォーク元を明示するためアプリ名とフォーク表記を変更
                     Text(
                         text = "ShellPilot",
-                        style = MaterialTheme.typography.headlineMedium,
-                        modifier = Modifier.padding(bottom = 4.dp)
+                        style = MaterialTheme.typography.headlineMedium
                     )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        StatusChip(label = "AI CLI対応")
+                        StatusChip(label = "SSHクライアント")
+                    }
                     Text(
-                        text = "Based on ConnectBot",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    Text(
-                        text = "Version ${BuildConfig.VERSION_NAME}",
+                        text = "ConnectBotをベースに、Claude Code / Codex などのCLI作業を扱いやすくしたSSHワークスペースです。",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 24.dp)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Version ${BuildConfig.VERSION_NAME} / ConnectBotベース",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
 
             item {
-                Button(
-                    onClick = onNavigateToHints,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                ) {
-                    Text(stringResource(R.string.hints))
-                }
-            }
-
-            item {
-                Button(
-                    onClick = { showKeyboardShortcuts = true },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                ) {
-                    Text(stringResource(R.string.keyboard_shortcuts))
-                }
-            }
-
-            item {
-                Button(
-                    onClick = onNavigateToEula,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                ) {
-                    Text(stringResource(R.string.terms_and_conditions))
-                }
-            }
-
-            item {
-                Button(
-                    onClick = { showLogViewer = true },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                ) {
-                    Text(stringResource(R.string.view_logs))
-                }
-            }
-
-            item {
-                Button(
-                    onClick = onNavigateToContact,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                ) {
-                    Text(stringResource(R.string.title_contact))
-                }
-            }
-
-            item {
-                Text(
-                    text = stringResource(R.string.help_section_about),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                HelpActionCard(
+                    title = stringResource(R.string.hints),
+                    summary = "接続・認証・ターミナル操作のヒント",
+                    onClick = onNavigateToHints
                 )
-                Text(
-                    text = stringResource(R.string.app_desc),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(bottom = 8.dp)
+            }
+
+            item {
+                HelpActionCard(
+                    title = stringResource(R.string.keyboard_shortcuts),
+                    summary = "ターミナル操作に使う主要キーを確認",
+                    onClick = { showKeyboardShortcuts = true }
                 )
-                // 変更理由: フォーク元の情報を明示
-                Text(
-                    text = "ShellPilot is a fork of ConnectBot with Kotlin/Compose " +
-                        "modernization and AI CLI tool integration " +
-                        "(Claude Code, Codex, etc.).",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 8.dp)
+            }
+
+            item {
+                HelpActionCard(
+                    title = stringResource(R.string.view_logs),
+                    summary = "接続調査やバグ報告に使うログを表示・コピー",
+                    onClick = { showLogViewer = true }
                 )
-                Text(
-                    text = "Original: ${stringResource(R.string.app_copyright)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            }
+
+            item {
+                HelpActionCard(
+                    title = stringResource(R.string.title_contact),
+                    summary = "不具合報告やサポート導線",
+                    onClick = onNavigateToContact
                 )
+            }
+
+            item {
+                HelpActionCard(
+                    title = stringResource(R.string.terms_and_conditions),
+                    summary = "ライセンスと利用条件",
+                    onClick = onNavigateToEula
+                )
+            }
+
+            item {
+                CommandSurfaceCard(accent = MaterialTheme.colorScheme.secondary) {
+                    Text(
+                        text = stringResource(R.string.help_section_about),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        text = stringResource(R.string.app_desc),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    // 変更理由: フォーク元の情報を明示
+                    Text(
+                        text = "ShellPilotはConnectBotをベースに、Kotlin/Compose化と" +
+                            "Claude Code / Codex向けのCLI操作導線を追加したSSHクライアントです。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "フォーク元: ${stringResource(R.string.app_copyright)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }
@@ -213,6 +195,22 @@ fun HelpScreen(
     if (showLogViewer) {
         LogViewerDialog(
             onDismiss = { showLogViewer = false }
+        )
+    }
+}
+
+@Composable
+private fun HelpActionCard(
+    title: String,
+    summary: String,
+    onClick: () -> Unit
+) {
+    CommandSurfaceCard(onClick = onClick, accent = MaterialTheme.colorScheme.primary) {
+        Text(title, style = MaterialTheme.typography.titleMedium)
+        Text(
+            summary,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -285,11 +283,15 @@ private fun LogViewerDialog(
     }
 
     AlertDialog(
+        modifier = Modifier
+            .fillMaxWidth(0.96f)
+            .fillMaxHeight(0.86f),
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.logs_title)) },
+        properties = DialogProperties(usePlatformDefaultWidth = false),
         text = {
             Column(
-                modifier = Modifier.fillMaxHeight(0.7f)
+                modifier = Modifier.fillMaxHeight()
             ) {
                 Text(
                     text = stringResource(R.string.logs_bug_report_info),

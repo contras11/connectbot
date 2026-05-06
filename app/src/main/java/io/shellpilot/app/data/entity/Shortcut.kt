@@ -38,6 +38,10 @@ import java.util.UUID
  *                 変更理由: ShortcutListScreenでカテゴリ別グルーピング表示を
  *                 実現するためフィールドを追加。既存JSONにcategoryキーがない場合は
  *                 optString でnullとして扱うため後方互換を維持する。
+ * @param templateKey 公式テンプレートの安定識別子。
+ *                    変更理由: Claude Code / Codex などの既定コマンドを
+ *                    後から最新化しても、ユーザ作成ショートカットを上書きせず
+ *                    既知テンプレートだけを同期できるようにするため追加。
  * @param order 表示順序 (昇順)
  */
 data class Shortcut(
@@ -46,6 +50,7 @@ data class Shortcut(
     val command: String,
     val hostId: Long? = null,
     val category: String? = null,
+    val templateKey: String? = null,
     val order: Int = 0
 ) {
     /** JSONObjectへの変換 */
@@ -57,6 +62,7 @@ data class Shortcut(
         put(KEY_HOST_ID, hostId ?: JSONObject.NULL)
         // category が null の場合は JSONObject.NULL を設定
         put(KEY_CATEGORY, category ?: JSONObject.NULL)
+        put(KEY_TEMPLATE_KEY, templateKey ?: JSONObject.NULL)
         put(KEY_ORDER, order)
     }
 
@@ -66,6 +72,7 @@ data class Shortcut(
         private const val KEY_COMMAND = "command"
         private const val KEY_HOST_ID = "hostId"
         private const val KEY_CATEGORY = "category"
+        private const val KEY_TEMPLATE_KEY = "templateKey"
         private const val KEY_ORDER = "order"
 
         /**
@@ -79,6 +86,7 @@ data class Shortcut(
             command = json.getString(KEY_COMMAND),
             hostId = if (json.isNull(KEY_HOST_ID)) null else json.getLong(KEY_HOST_ID),
             category = if (json.isNull(KEY_CATEGORY)) null else json.optString(KEY_CATEGORY),
+            templateKey = if (json.isNull(KEY_TEMPLATE_KEY)) null else json.optString(KEY_TEMPLATE_KEY),
             order = json.optInt(KEY_ORDER, 0)
         )
 
@@ -91,30 +99,47 @@ data class Shortcut(
          * グルーピング表示に対応。
          */
         fun createDefaults(): List<Shortcut> = listOf(
-            // 汎用コマンド
-            Shortcut(label = "ls -la", command = "ls -la\n", category = "general", order = 0),
-            Shortcut(label = "pwd", command = "pwd\n", category = "general", order = 1),
-            Shortcut(label = "clear", command = "clear\n", category = "general", order = 2),
-            Shortcut(label = "Ctrl+C", command = "\u0003", category = "general", order = 3),
-            Shortcut(label = "Ctrl+D", command = "\u0004", category = "general", order = 4),
-            // Git基本操作
-            Shortcut(label = "git st", command = "git status\n", category = "git", order = 10),
-            Shortcut(label = "git diff", command = "git diff\n", category = "git", order = 11),
-            Shortcut(label = "git log", command = "git log --oneline -10\n", category = "git", order = 12),
-            Shortcut(label = "git pull", command = "git pull\n", category = "git", order = 13),
-            // Claude Code
-            Shortcut(label = "claude", command = "claude\n", category = "claude_code", order = 20),
-            Shortcut(label = "/help", command = "/help\n", category = "claude_code", order = 21),
-            Shortcut(label = "/compact", command = "/compact\n", category = "claude_code", order = 22),
-            Shortcut(label = "/cost", command = "/cost\n", category = "claude_code", order = 23),
-            Shortcut(label = "/status", command = "/status\n", category = "claude_code", order = 24),
-            // 変更理由: Codexカテゴリのデフォルトプリセットを追加。
-            // 設定画面とSSH接続後のプロファイルタブの両方でCodexが
-            // 表示されるよう、初回起動時からCodexコマンドを含める。
-            Shortcut(label = "codex", command = "codex\n", category = "codex", order = 30),
-            Shortcut(label = "codex -q", command = "codex -q \"", category = "codex", order = 31),
-            Shortcut(label = "/diff", command = "/diff\n", category = "codex", order = 32),
-            Shortcut(label = "/undo", command = "/undo\n", category = "codex", order = 33)
+            shortcut("control", "ctrl-c", "Ctrl+C", "\u0003", 0),
+            shortcut("control", "ctrl-d", "Ctrl+D", "\u0004", 1),
+            shortcut("control", "ctrl-z", "Ctrl+Z", "\u001A", 2),
+            shortcut("control", "esc", "Esc", "\u001B", 3),
+            shortcut("general", "ls-la", "ls -la", "ls -la\n", 10),
+            shortcut("general", "pwd", "pwd", "pwd\n", 11),
+            shortcut("general", "clear", "clear", "clear\n", 12),
+            shortcut("git", "status", "git status", "git status\n", 20),
+            shortcut("git", "diff", "git diff", "git diff\n", 21),
+            shortcut("git", "log", "git log", "git log --oneline -10\n", 22),
+            shortcut("git", "pull", "git pull", "git pull\n", 23),
+            shortcut("claude_code", "launch", "claude", "claude\n", 30),
+            shortcut("claude_code", "continue", "claude -c", "claude -c\n", 31),
+            shortcut("claude_code", "resume", "claude -r", "claude -r ", 32),
+            shortcut("claude_code", "print", "claude -p", "claude -p \"", 33),
+            shortcut("claude_code", "slash-help", "/help", "/help\n", 40),
+            shortcut("claude_code", "slash-compact", "/compact", "/compact\n", 41),
+            shortcut("claude_code", "slash-status", "/status", "/status\n", 42),
+            shortcut("claude_code", "slash-model", "/model", "/model\n", 43),
+            shortcut("codex", "launch", "codex", "codex\n", 50),
+            shortcut("codex", "exec", "codex exec", "codex exec \"", 51),
+            shortcut("codex", "review", "codex review", "codex review\n", 52),
+            shortcut("codex", "resume-last", "codex resume --last", "codex resume --last\n", 53),
+            shortcut("codex", "slash-diff", "/diff", "/diff\n", 60),
+            shortcut("codex", "slash-review", "/review", "/review\n", 61),
+            shortcut("codex", "slash-model", "/model", "/model\n", 62),
+            shortcut("codex", "slash-permissions", "/permissions", "/permissions\n", 63)
+        )
+
+        private fun shortcut(
+            category: String,
+            key: String,
+            label: String,
+            command: String,
+            order: Int
+        ) = Shortcut(
+            label = label,
+            command = command,
+            category = category,
+            templateKey = "$category:$key",
+            order = order
         )
     }
 }

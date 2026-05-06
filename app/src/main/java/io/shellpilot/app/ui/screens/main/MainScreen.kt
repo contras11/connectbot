@@ -24,8 +24,10 @@ import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -139,24 +141,37 @@ private fun MainNavigationBar(
     selectedTab: Int,
     onTabSelected: (Int) -> Unit
 ) {
-    NavigationBar {
+    NavigationBar(
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface
+    ) {
+        val itemColors = NavigationBarItemDefaults.colors(
+            selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            selectedTextColor = MaterialTheme.colorScheme.primary,
+            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         NavigationBarItem(
             icon = { Icon(Icons.Default.Computer, contentDescription = null) },
             label = { Text("ホスト") },
             selected = selectedTab == 0,
-            onClick = { onTabSelected(0) }
+            onClick = { onTabSelected(0) },
+            colors = itemColors
         )
         NavigationBarItem(
             icon = { Icon(Icons.Default.Terminal, contentDescription = null) },
             label = { Text("ショートカット") },
             selected = selectedTab == 1,
-            onClick = { onTabSelected(1) }
+            onClick = { onTabSelected(1) },
+            colors = itemColors
         )
         NavigationBarItem(
             icon = { Icon(Icons.Default.Settings, contentDescription = null) },
             label = { Text("設定") },
             selected = selectedTab == 2,
-            onClick = { onTabSelected(2) }
+            onClick = { onTabSelected(2) },
+            colors = itemColors
         )
     }
 }

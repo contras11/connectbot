@@ -18,6 +18,7 @@
 package io.shellpilot.app.ui.screens.hosteditor
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -43,12 +44,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -73,6 +72,8 @@ import io.shellpilot.app.ui.ScreenPreviews
 import io.shellpilot.app.ui.common.getIconColors
 import io.shellpilot.app.ui.common.getLocalizedColorSchemeDescription
 import io.shellpilot.app.ui.common.getLocalizedFontDisplayName
+import io.shellpilot.app.ui.components.CommandSurfaceCard
+import io.shellpilot.app.ui.components.ShellPilotScaffold
 import io.shellpilot.app.ui.theme.ShellPilotTheme
 import io.shellpilot.app.util.HostConstants
 import io.shellpilot.app.util.LocalFontProvider
@@ -147,44 +148,37 @@ fun HostEditorScreenContent(
     var expandedMode by remember { mutableStateOf(hostId != -1L) }
     val protocols = listOf("ssh", "telnet", "local")
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        if (hostId == -1L) {
-                            stringResource(R.string.hostpref_add_host)
-                        } else {
-                            stringResource(R.string.hostpref_setting_title)
-                        }
-                    )
+    ShellPilotScaffold(
+        title = if (hostId == -1L) {
+            stringResource(R.string.hostpref_add_host)
+        } else {
+            stringResource(R.string.hostpref_setting_title)
+        },
+        subtitle = if (expandedMode) "接続先・認証・ターミナル表示" else "Quick Connect",
+        navigationIcon = {
+            IconButton(onClick = onNavigateBack) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.button_navigate_up)
+                )
+            }
+        },
+        actions = {
+            TextButton(
+                onClick = {
+                    onSaveHost(expandedMode)
+                    onNavigateBack()
                 },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.button_navigate_up)
-                        )
-                    }
-                },
-                actions = {
-                    TextButton(
-                        onClick = {
-                            onSaveHost(expandedMode)
-                            onNavigateBack()
-                        },
-                        modifier = Modifier.testTag("add_host_button"),
-                        enabled = if (expandedMode) {
-                            // For local protocol, hostname can be blank
-                            uiState.protocol == "local" || uiState.hostname.isNotBlank()
-                        } else {
-                            uiState.quickConnect.isNotBlank()
-                        }
-                    ) {
-                        Text(stringResource(if (hostId == -1L) R.string.hostpref_add_host else R.string.hostpref_save_host))
-                    }
+                modifier = Modifier.testTag("add_host_button"),
+                enabled = if (expandedMode) {
+                    // For local protocol, hostname can be blank
+                    uiState.protocol == "local" || uiState.hostname.isNotBlank()
+                } else {
+                    uiState.quickConnect.isNotBlank()
                 }
-            )
+            ) {
+                Text(stringResource(if (hostId == -1L) R.string.hostpref_add_host else R.string.hostpref_save_host))
+            }
         },
         modifier = modifier
     ) { padding ->
@@ -194,66 +188,50 @@ fun HostEditorScreenContent(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
-                .imePadding()
+                .imePadding(),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             if (!expandedMode) {
-                // Quick connect mode
-                OutlinedTextField(
-                    value = uiState.quickConnect,
-                    onValueChange = onQuickConnectChange,
-                    label = { Text(stringResource(R.string.host_editor_quick_connect_label)) },
-                    placeholder = { Text(stringResource(R.string.host_editor_quick_connect_placeholder)) },
-                    supportingText = { Text(stringResource(R.string.host_editor_quick_connect_example)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { expandedMode = true }
-                        .padding(vertical = 8.dp)
-                ) {
+                // 変更理由: 初回入力の意図を明確にするためQuick Connectをカード化する。
+                CommandSurfaceCard(accent = MaterialTheme.colorScheme.secondary) {
+                    Text(
+                        text = "Quick Connect",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    OutlinedTextField(
+                        value = uiState.quickConnect,
+                        onValueChange = onQuickConnectChange,
+                        label = { Text(stringResource(R.string.host_editor_quick_connect_label)) },
+                        placeholder = { Text(stringResource(R.string.host_editor_quick_connect_placeholder)) },
+                        supportingText = { Text(stringResource(R.string.host_editor_quick_connect_example)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
                     Text(
                         text = stringResource(R.string.host_editor_show_advanced),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Icon(
-                        Icons.Default.ExpandMore,
-                        contentDescription = stringResource(R.string.expand),
-                        tint = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.clickable { expandedMode = true }
                     )
                 }
             } else {
-                // Expanded mode
-                OutlinedTextField(
-                    value = uiState.nickname,
-                    onValueChange = onNicknameChange,
-                    label = { Text(stringResource(R.string.hostpref_nickname_title)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
+                CommandSurfaceCard(accent = MaterialTheme.colorScheme.primary) {
+                    Text("接続先", style = MaterialTheme.typography.titleLarge)
+                    OutlinedTextField(
+                        value = uiState.nickname,
+                        onValueChange = onNicknameChange,
+                        label = { Text(stringResource(R.string.hostpref_nickname_title)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
 
-                // Show collapse button only if this is a new host (not editing existing)
-                if (hostId == -1L) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { expandedMode = false }
-                            .padding(vertical = 8.dp)
-                    ) {
+                    // Show collapse button only if this is a new host (not editing existing)
+                    if (hostId == -1L) {
                         Text(
                             text = stringResource(R.string.host_editor_hide_advanced),
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Icon(
-                            Icons.Default.ExpandLess,
-                            contentDescription = stringResource(R.string.button_collapse),
-                            tint = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clickable { expandedMode = false }
                         )
                     }
                 }

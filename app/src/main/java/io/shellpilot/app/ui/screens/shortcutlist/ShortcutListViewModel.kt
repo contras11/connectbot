@@ -56,6 +56,11 @@ class ShortcutListViewModel @Inject constructor(
     /** プロファイルタブの表示順序 */
     val profileOrder: StateFlow<List<String?>> = _profileOrder.asStateFlow()
 
+    private val _templateSyncMessage = MutableStateFlow<String?>(null)
+
+    /** 公式テンプレート同期結果の表示用メッセージ */
+    val templateSyncMessage: StateFlow<String?> = _templateSyncMessage.asStateFlow()
+
     init {
         loadShortcuts()
         loadProfileOrder()
@@ -68,7 +73,12 @@ class ShortcutListViewModel @Inject constructor(
 
     private fun loadShortcuts() {
         viewModelScope.launch {
+            val result = shortcutRepository.syncOfficialTemplates()
             _shortcuts.value = shortcutRepository.loadAll()
+            if (result.added > 0 || result.updated > 0 || result.tagged > 0) {
+                _templateSyncMessage.value =
+                    "公式テンプレートを更新しました（追加${result.added}件・更新${result.updated}件）"
+            }
         }
         // StateFlowの更新を監視
         viewModelScope.launch {
@@ -183,13 +193,19 @@ class ShortcutListViewModel @Inject constructor(
         val category = CliCommandRegistry.findCategory(categoryId) ?: return
         viewModelScope.launch {
             val existing = shortcutRepository.loadAll()
-            // (label, category)ペアで重複チェック
+            // 変更理由: templateKeyを優先した重複判定により、同名スラッシュ
+            // コマンドが複数ツールに存在しても正しく同期できるようにする。
+            val existingTemplateKeys = existing.mapNotNull { it.templateKey }.toSet()
             val existingPairs = existing.map { it.label to it.category }.toSet()
             val maxOrder = existing.maxOfOrNull { it.order } ?: 0
             // 変更理由: インポート時にcategoryIdを設定し、
             // ShortcutListScreenでカテゴリ別グルーピング表示に対応する
             category.commands
-                .filter { (it.label to categoryId) !in existingPairs }
+                .filter {
+                    val key = it.templateKey
+                    (key == null || key !in existingTemplateKeys) &&
+                        (it.label to categoryId) !in existingPairs
+                }
                 .forEachIndexed { index, cmd ->
                     shortcutRepository.save(
                         cmd.copy(
@@ -199,5 +215,18 @@ class ShortcutListViewModel @Inject constructor(
                     )
                 }
         }
+    }
+
+    fun syncOfficialTemplates() {
+        viewModelScope.launch {
+            val result = shortcutRepository.syncOfficialTemplates()
+            _shortcuts.value = shortcutRepository.loadAll()
+            _templateSyncMessage.value =
+                "公式テンプレートを更新しました（追加${result.added}件・更新${result.updated}件）"
+        }
+    }
+
+    fun consumeTemplateSyncMessage() {
+        _templateSyncMessage.value = null
     }
 }

@@ -79,6 +79,9 @@ import io.shellpilot.app.R
 import io.shellpilot.app.data.entity.ColorScheme
 import io.shellpilot.app.ui.ScreenPreviews
 import io.shellpilot.app.ui.common.getLocalizedColorSchemeDescription
+import io.shellpilot.app.ui.components.CommandSurfaceCard
+import io.shellpilot.app.ui.components.ShellPilotScaffold
+import io.shellpilot.app.ui.components.StatusChip
 import io.shellpilot.app.ui.theme.ShellPilotTheme
 
 /**
@@ -246,28 +249,25 @@ fun ColorsScreenContent(
         }
     }
 
-    Scaffold(
+    ShellPilotScaffold(
+        title = stringResource(R.string.title_scheme_manager),
+        subtitle = "ターミナル配色とパレット",
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.title_scheme_manager)) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.button_navigate_up)
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(onClick = onImportScheme) {
-                        Icon(
-                            Icons.Default.FileUpload,
-                            contentDescription = stringResource(R.string.button_import_scheme)
-                        )
-                    }
-                }
-            )
+        navigationIcon = {
+            IconButton(onClick = onNavigateBack) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.button_navigate_up)
+                )
+            }
+        },
+        actions = {
+            IconButton(onClick = onImportScheme) {
+                Icon(
+                    Icons.Default.FileUpload,
+                    contentDescription = stringResource(R.string.button_import_scheme)
+                )
+            }
         },
         floatingActionButton = {
             FloatingActionButton(
@@ -473,16 +473,14 @@ private fun SchemeItem(
     onDuplicate: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+    CommandSurfaceCard(
+        modifier = modifier.fillMaxWidth(),
+        onClick = onClick,
+        accent = if (scheme.isBuiltIn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
     ) {
         Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+                .fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -501,14 +499,13 @@ private fun SchemeItem(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Text(
-                    text = if (scheme.isBuiltIn) {
+                StatusChip(
+                    label = if (scheme.isBuiltIn) {
                         stringResource(R.string.label_built_in_scheme)
                     } else {
                         stringResource(R.string.label_custom_scheme)
                     },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (scheme.isBuiltIn) {
+                    accent = if (scheme.isBuiltIn) {
                         MaterialTheme.colorScheme.primary
                     } else {
                         MaterialTheme.colorScheme.secondary

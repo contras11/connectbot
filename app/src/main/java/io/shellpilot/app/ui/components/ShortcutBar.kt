@@ -29,14 +29,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.shellpilot.app.data.entity.Shortcut
@@ -78,7 +80,7 @@ fun ShortcutBar(
     // 変更理由: profileOrderが指定されていればその順序でタブを構築。
     // 空の場合はデフォルト順序（カスタム + CliCommandRegistry全カテゴリ）。
     val profiles = if (profileOrder.isNotEmpty()) {
-        profileOrder.mapNotNull { id ->
+        val ordered = profileOrder.mapNotNull { id ->
             if (id == null) {
                 ProfileTab(id = null, label = "カスタム")
             } else {
@@ -87,6 +89,12 @@ fun ShortcutBar(
                 }
             }
         }
+        // 変更理由: アプリ更新で制御キーなど新カテゴリが増えた場合も、
+        // 既存ユーザの保存済みタブ順序を壊さず末尾へ補完する。
+        val knownIds = ordered.map { it.id }.toSet()
+        ordered + CliCommandRegistry.categories
+            .filter { it.id !in knownIds }
+            .map { ProfileTab(id = it.id, label = it.displayName) }
     } else {
         buildList {
             add(ProfileTab(id = null, label = "カスタム"))
@@ -109,7 +117,7 @@ fun ShortcutBar(
     // ScaffoldがconsumeWindowInsetsしている場合はColumnのpaddingが実質0になり
     // 二重パディングは発生しない。
     Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        color = MaterialTheme.colorScheme.surface,
         modifier = modifier.fillMaxWidth()
     ) {
         // 変更理由: navigationBars insetsをColumn内に適用することで
@@ -131,18 +139,31 @@ fun ShortcutBar(
                     FilterChip(
                         selected = selectedProfileId == profile.id,
                         onClick = { onProfileChange(profile.id) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = selectedProfileId == profile.id,
+                            borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
+                            selectedBorderColor = MaterialTheme.colorScheme.primary
+                        ),
                         label = {
                             Text(
                                 text = profile.label,
                                 maxLines = 1,
-                                style = MaterialTheme.typography.labelSmall
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     )
                 }
             }
 
-            HorizontalDivider(thickness = 0.5.dp)
+            HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
 
             // 段2: ショートカットチップ一覧 - 横スクロール可能
             if (displayedShortcuts.isNotEmpty()) {
@@ -155,16 +176,10 @@ fun ShortcutBar(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     displayedShortcuts.forEach { shortcut ->
-                        SuggestionChip(
+                        CommandChipButton(
+                            label = shortcut.label,
                             onClick = { onShortcutClick(shortcut) },
-                            label = {
-                                Text(
-                                    text = shortcut.label,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    style = MaterialTheme.typography.labelMedium
-                                )
-                            }
+                            emphasized = selectedProfileId == "control"
                         )
                     }
                 }

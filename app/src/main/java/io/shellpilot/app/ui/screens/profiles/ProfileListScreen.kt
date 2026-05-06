@@ -17,7 +17,6 @@
 
 package io.shellpilot.app.ui.screens.profiles
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -36,7 +36,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -46,10 +45,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -64,6 +61,9 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import io.shellpilot.app.R
 import io.shellpilot.app.data.entity.Profile
 import io.shellpilot.app.ui.common.getLocalizedFontDisplayName
+import io.shellpilot.app.ui.components.CommandSurfaceCard
+import io.shellpilot.app.ui.components.ShellPilotScaffold
+import io.shellpilot.app.ui.components.StatusChip
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,28 +76,25 @@ fun ProfileListScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    Scaffold(
+    ShellPilotScaffold(
         modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.profile_list_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.button_navigate_up)
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(onClick = onNavigateToColors) {
-                        Icon(
-                            Icons.Default.Palette,
-                            contentDescription = stringResource(R.string.menu_manage_colors)
-                        )
-                    }
-                }
-            )
+        title = stringResource(R.string.profile_list_title),
+        subtitle = "フォント・エミュレーション・配色",
+        navigationIcon = {
+            IconButton(onClick = onNavigateBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.button_navigate_up)
+                )
+            }
+        },
+        actions = {
+            IconButton(onClick = onNavigateToColors) {
+                Icon(
+                    Icons.Default.Palette,
+                    contentDescription = stringResource(R.string.menu_manage_colors)
+                )
+            }
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { viewModel.showCreateDialog() }) {
@@ -180,16 +177,16 @@ private fun ProfileListItem(
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
-    Card(
+    CommandSurfaceCard(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
-            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        onClick = onClick,
+        accent = MaterialTheme.colorScheme.primary
     ) {
         Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+                .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
@@ -199,6 +196,11 @@ private fun ProfileListItem(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 ProfileSummaryText(profile = profile)
+                Row(modifier = Modifier.padding(top = 8.dp)) {
+                    StatusChip(label = "${profile.fontSize}SP")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    StatusChip(label = profile.emulation.uppercase())
+                }
             }
 
             Box {

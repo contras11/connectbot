@@ -96,6 +96,8 @@ import io.shellpilot.app.R
 import io.shellpilot.app.data.entity.Pubkey
 import io.shellpilot.app.ui.LocalTerminalManager
 import io.shellpilot.app.ui.ScreenPreviews
+import io.shellpilot.app.ui.components.ShellPilotScaffold
+import io.shellpilot.app.ui.components.StatusChip
 import io.shellpilot.app.ui.components.rememberBiometricPromptState
 import io.shellpilot.app.ui.theme.ShellPilotTheme
 
@@ -281,16 +283,13 @@ fun PubkeyListScreenContent(
 
     BackHandler(fabMenuExpanded) { fabMenuExpanded = false }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.title_pubkey_list)) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                    }
-                }
-            )
+    ShellPilotScaffold(
+        title = stringResource(R.string.title_pubkey_list),
+        subtitle = "認証キー・暗号化・ロード状態",
+        navigationIcon = {
+            IconButton(onClick = onNavigateBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+            }
         },
         floatingActionButton = {
             FloatingActionButtonMenu(
@@ -442,12 +441,27 @@ private fun PubkeyListItem(
             )
         },
         supportingContent = {
-            Text(
-                stringResource(
-                    R.string.pubkey_type_label,
-                    pubkey.type
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    stringResource(
+                        R.string.pubkey_type_label,
+                        pubkey.type
+                    )
                 )
-            )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatusChip(
+                        label = if (isLoaded) "LOADED" else "STORED",
+                        accent = if (isLoaded) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
+                    )
+                    StatusChip(
+                        label = if (pubkey.encrypted) "ENCRYPTED" else "OPEN",
+                        accent = if (pubkey.encrypted) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (pubkey.isBiometric) {
+                        StatusChip(label = "BIOMETRIC", accent = MaterialTheme.colorScheme.secondary)
+                    }
+                }
+            }
         },
         leadingContent = {
             val icon = when {
