@@ -20,6 +20,8 @@ package io.shellpilot.app.ui.screens.colors
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,9 +30,12 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -68,6 +73,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -331,6 +337,7 @@ fun ColorsScreenContent(
                         items(uiState.schemes) { scheme ->
                             SchemeItem(
                                 scheme = scheme,
+                                palette = uiState.schemePalettes[scheme.id],
                                 onClick = { onNavigateToPaletteEditor(scheme.id) },
                                 onExport = { onExportScheme(scheme.id) },
                                 onDelete = {
@@ -358,7 +365,9 @@ fun ColorsScreenContent(
         NewSchemeDialog(
             availableSchemes = uiState.schemes,
             preselectedSchemeId = uiState.selectedSchemeId,
-            suggestedName = selectedScheme?.let { "Copy of ${it.name}" },
+            suggestedName = selectedScheme?.let {
+                stringResource(R.string.scheme_copy_name, getLocalizedColorSchemeName(it))
+            },
             error = uiState.dialogError,
             onConfirm = { name, description, baseSchemeId ->
                 onCreateNewScheme(name, description, baseSchemeId)
@@ -439,19 +448,19 @@ private fun ColorsScreenPopulatedPreview() {
                     ColorScheme(
                         id = 1,
                         name = "Solarized Dark",
-                        description = "Popular dark theme",
+                        description = "暗い背景向けの定番配色",
                         isBuiltIn = true
                     ),
                     ColorScheme(
                         id = 2,
                         name = "Monokai",
-                        description = "Vibrant color scheme",
+                        description = "鮮やかなターミナル配色",
                         isBuiltIn = true
                     ),
                     ColorScheme(
                         id = 3,
-                        name = "My Custom Theme",
-                        description = "Personal customization",
+                        name = "自分用テーマ",
+                        description = "作業環境向けの調整",
                         isBuiltIn = false
                     )
                 ),
@@ -479,6 +488,7 @@ private fun ColorsScreenPopulatedPreview() {
 @Composable
 private fun SchemeItem(
     scheme: ColorScheme,
+    palette: IntArray?,
     onClick: () -> Unit,
     onExport: () -> Unit,
     onDelete: () -> Unit,
@@ -509,6 +519,12 @@ private fun SchemeItem(
                         text = localizedDescription,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                palette?.let {
+                    AnsiSwatchRow(
+                        palette = it,
+                        modifier = Modifier.padding(top = 4.dp)
                     )
                 }
                 StatusChip(
@@ -585,6 +601,31 @@ private fun SchemeItem(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun AnsiSwatchRow(
+    palette: IntArray,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        palette.take(16).forEach { color ->
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(12.dp)
+                    .background(Color(color), RoundedCornerShape(2.dp))
+                    .border(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                        shape = RoundedCornerShape(2.dp)
+                    )
+            )
         }
     }
 }

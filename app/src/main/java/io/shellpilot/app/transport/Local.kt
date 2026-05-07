@@ -128,16 +128,13 @@ class Local @VisibleForTesting constructor(private val killer: Killer) : AbsTran
     }
 
     override fun createHost(uri: Uri): Host {
-        var nickname = uri.fragment
-        if (nickname.isNullOrEmpty()) {
-            nickname = getDefaultNickname("", "", 0)
-        }
+        val nickname = localNicknameFromUri(uri).ifBlank { getDefaultNickname("", "", 0) }
         return Host.createLocalHost(nickname)
     }
 
     override fun getSelectionArgs(uri: Uri, selection: MutableMap<String, String>) {
         selection["protocol"] = PROTOCOL
-        selection["nickname"] = uri.fragment ?: ""
+        selection["nickname"] = localNicknameFromUri(uri)
     }
 
     override fun usesNetwork(): Boolean = false
@@ -174,5 +171,30 @@ class Local @VisibleForTesting constructor(private val killer: Killer) : AbsTran
         @JvmStatic
         fun getFormatHint(context: Context): String =
             context.getString(R.string.hostpref_nickname_title)
+
+        /**
+         * 変更理由: レビュー用導線と一般的な共有URIの両方で
+         * local://Name / local:#Name / local://#Name を同じLocalホストとして扱う。
+         */
+        @JvmStatic
+        fun localNicknameFromUri(uri: Uri): String {
+            val fragment = uri.fragment.orEmpty().trim()
+            if (fragment.isNotBlank()) {
+                return fragment
+            }
+
+            val host = uri.host.orEmpty().trim()
+            if (host.isNotBlank()) {
+                return host
+            }
+
+            val schemeSpecificPart = uri.schemeSpecificPart.orEmpty()
+                .removePrefix("//")
+                .substringBefore("?")
+                .substringBefore("/")
+                .removePrefix("#")
+                .trim()
+            return schemeSpecificPart
+        }
     }
 }

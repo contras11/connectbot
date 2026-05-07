@@ -164,126 +164,104 @@ fun ProfileEditorScreen(
                         ?: stringResource(R.string.font_system_default)
                 )
 
-                // Profile Name
-                OutlinedTextField(
-                    value = uiState.name,
-                    onValueChange = { viewModel.updateName(it) },
-                    label = { Text(stringResource(R.string.profile_editor_name_label)) },
-                    singleLine = true,
-                    isError = uiState.saveError != null,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                // Icon Color Section
-                Text(
-                    text = stringResource(R.string.profile_editor_section_icon_color),
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-
-                IconColorSelector(
-                    selectedColor = uiState.iconColor,
-                    onSelectColor = { viewModel.updateIconColor(it) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                // Color Scheme Section
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.profile_editor_section_color_scheme),
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.weight(1f)
+                CommandSurfaceCard {
+                    OutlinedTextField(
+                        value = uiState.name,
+                        onValueChange = { viewModel.updateName(it) },
+                        label = { Text(stringResource(R.string.profile_editor_name_label)) },
+                        singleLine = true,
+                        isError = uiState.saveError != null,
+                        modifier = Modifier.fillMaxWidth()
                     )
-                    IconButton(onClick = onNavigateToColors) {
-                        Icon(
-                            Icons.Default.Palette,
-                            contentDescription = stringResource(R.string.menu_manage_colors)
-                        )
-                    }
+                    StatusChip(label = stringResource(R.string.profile_editor_status_profile))
                 }
 
-                ColorSchemeSelector(
-                    colorSchemeId = uiState.colorSchemeId,
-                    availableSchemes = uiState.availableColorSchemes,
-                    onSelectColorScheme = { viewModel.updateColorSchemeId(it) },
-                    modifier = Modifier.fillMaxWidth()
-                )
+                CommandSurfaceCard {
+                    Text(
+                        text = stringResource(R.string.profile_editor_section_icon_color),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    IconColorSelector(
+                        selectedColor = uiState.iconColor,
+                        onSelectColor = { viewModel.updateIconColor(it) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
 
-                Spacer(modifier = Modifier.height(2.dp))
+                CommandSurfaceCard {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.profile_editor_section_color_scheme),
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(onClick = onNavigateToColors) {
+                            Icon(
+                                Icons.Default.Palette,
+                                contentDescription = stringResource(R.string.menu_manage_colors)
+                            )
+                        }
+                    }
+                    ColorSchemeSelector(
+                        colorSchemeId = uiState.colorSchemeId,
+                        availableSchemes = uiState.availableColorSchemes,
+                        onSelectColorScheme = { viewModel.updateColorSchemeId(it) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
 
-                // Font Section
-                Text(
-                    text = stringResource(R.string.profile_editor_section_font),
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
+                CommandSurfaceCard {
+                    Text(
+                        text = stringResource(R.string.profile_editor_section_font),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    FontFamilySelector(
+                        fontFamily = uiState.fontFamily,
+                        customFonts = uiState.customFonts,
+                        localFonts = uiState.localFonts,
+                        onSelectFontFamily = { viewModel.updateFontFamily(it) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    FontSizeSelector(
+                        fontSize = uiState.fontSize,
+                        onFontSizeChange = { viewModel.updateFontSize(it) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
 
-                FontFamilySelector(
-                    fontFamily = uiState.fontFamily,
-                    customFonts = uiState.customFonts,
-                    localFonts = uiState.localFonts,
-                    onSelectFontFamily = { viewModel.updateFontFamily(it) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                FontSizeSelector(
-                    fontSize = uiState.fontSize,
-                    onFontSizeChange = { viewModel.updateFontSize(it) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                // Terminal Section
-                Text(
-                    text = stringResource(R.string.profile_editor_section_terminal),
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-
-                EmulationSelector(
-                    emulation = uiState.emulation,
-                    customTerminalTypes = uiState.customTerminalTypes,
-                    onSelectEmulation = { viewModel.updateEmulation(it) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                DelKeySelector(
-                    delKey = uiState.delKey,
-                    onSelectDelKey = { viewModel.updateDelKey(it) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                EncodingSelector(
-                    encoding = uiState.encoding,
-                    onSelectEncoding = { viewModel.updateEncoding(it) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                ForceSizeSelector(
-                    enabled = uiState.forceSizeEnabled,
-                    rows = uiState.forceSizeRows,
-                    columns = uiState.forceSizeColumns,
-                    onEnabledChange = { viewModel.updateForceSizeEnabled(it) },
-                    onRowsChange = { viewModel.updateForceSizeRows(it) },
-                    onColumnsChange = { viewModel.updateForceSizeColumns(it) },
-                    modifier = Modifier.fillMaxWidth()
-                )
+                CommandSurfaceCard {
+                    Text(
+                        text = stringResource(R.string.profile_editor_section_terminal),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    EmulationSelector(
+                        emulation = uiState.emulation,
+                        customTerminalTypes = uiState.customTerminalTypes,
+                        onSelectEmulation = { viewModel.updateEmulation(it) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    DelKeySelector(
+                        delKey = uiState.delKey,
+                        onSelectDelKey = { viewModel.updateDelKey(it) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    EncodingSelector(
+                        encoding = uiState.encoding,
+                        onSelectEncoding = { viewModel.updateEncoding(it) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    ForceSizeSelector(
+                        enabled = uiState.forceSizeEnabled,
+                        rows = uiState.forceSizeRows,
+                        columns = uiState.forceSizeColumns,
+                        onEnabledChange = { viewModel.updateForceSizeEnabled(it) },
+                        onRowsChange = { viewModel.updateForceSizeRows(it) },
+                        onColumnsChange = { viewModel.updateForceSizeColumns(it) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(12.dp))
             }
@@ -321,7 +299,7 @@ private fun ProfileTerminalPreview(
             color = MaterialTheme.colorScheme.onSurface
         )
         Text(
-            text = "配色: $colorScheme",
+            text = stringResource(R.string.profile_editor_preview_color_scheme, colorScheme),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -633,7 +611,9 @@ private fun ColorSchemeSelector(
             onExpandedChange = { expanded = it }
         ) {
             OutlinedTextField(
-                value = availableSchemes.find { it.id == colorSchemeId }?.name ?: stringResource(R.string.colorscheme_default),
+                value = availableSchemes.find { it.id == colorSchemeId }
+                    ?.let { getLocalizedColorSchemeName(it) }
+                    ?: stringResource(R.string.colorscheme_default),
                 onValueChange = {},
                 readOnly = true,
                 singleLine = true,

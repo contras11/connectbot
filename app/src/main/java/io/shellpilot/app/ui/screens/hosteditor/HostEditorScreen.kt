@@ -258,7 +258,7 @@ fun HostEditorScreenContent(
                         .padding(top = 4.dp)
                 ) {
                     OutlinedTextField(
-                        value = uiState.protocol,
+                        value = protocolDisplayName(uiState.protocol),
                         onValueChange = {},
                         label = { Text(stringResource(R.string.protocol_spinner_label)) },
                         readOnly = true,
@@ -278,7 +278,7 @@ fun HostEditorScreenContent(
                     ) {
                         protocols.forEach { protocol ->
                             DropdownMenuItem(
-                                text = { Text(protocol) },
+                                text = { Text(protocolDisplayName(protocol)) },
                                 onClick = {
                                     onProtocolChange(protocol)
                                     showProtocolMenu = false
@@ -374,12 +374,26 @@ fun HostEditorScreenContent(
             )
 
             // Pubkey selector
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            PubkeySelector(
-                pubkeyId = uiState.pubkeyId,
-                availablePubkeys = uiState.availablePubkeys,
-                onPubkeySelect = onPubkeyChange
-            )
+            if (uiState.protocol == "ssh") {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                PubkeySelector(
+                    pubkeyId = uiState.pubkeyId,
+                    availablePubkeys = uiState.availablePubkeys,
+                    onPubkeySelect = onPubkeyChange
+                )
+            } else if (uiState.protocol == "local") {
+                CommandSurfaceCard(accent = MaterialTheme.colorScheme.outlineVariant) {
+                    Text(
+                        text = "Local セッション",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        text = "端末内のローカルシェルを起動します。SSH認証、公開鍵、ポート転送は使用しません。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
 
             // Profile selector
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -399,34 +413,36 @@ fun HostEditorScreenContent(
                 )
             }
 
-            // SSH Auth agent
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            SwitchPreference(
-                title = stringResource(R.string.hostpref_authagent_title),
-                checked = uiState.useAuthAgent != "no",
-                onCheckedChange = { checked ->
-                    onUseAuthAgentChange(if (checked) "yes" else "no")
-                }
-            )
-
-            if (uiState.useAuthAgent != "no") {
+            if (uiState.protocol == "ssh") {
+                // SSH Auth agent
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 SwitchPreference(
-                    title = stringResource(R.string.hostpref_authagent_with_confirmation),
-                    checked = uiState.useAuthAgent == "confirm",
+                    title = stringResource(R.string.hostpref_authagent_title),
+                    checked = uiState.useAuthAgent != "no",
                     onCheckedChange = { checked ->
-                        onUseAuthAgentChange(if (checked) "confirm" else "yes")
+                        onUseAuthAgentChange(if (checked) "yes" else "no")
                     }
                 )
-            }
 
-            // Compression
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            SwitchPreference(
-                title = stringResource(R.string.hostpref_compression_title),
-                summary = stringResource(R.string.hostpref_compression_summary),
-                checked = uiState.compression,
-                onCheckedChange = onCompressionChange
-            )
+                if (uiState.useAuthAgent != "no") {
+                    SwitchPreference(
+                        title = stringResource(R.string.hostpref_authagent_with_confirmation),
+                        checked = uiState.useAuthAgent == "confirm",
+                        onCheckedChange = { checked ->
+                            onUseAuthAgentChange(if (checked) "confirm" else "yes")
+                        }
+                    )
+                }
+
+                // Compression
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                SwitchPreference(
+                    title = stringResource(R.string.hostpref_compression_title),
+                    summary = stringResource(R.string.hostpref_compression_summary),
+                    checked = uiState.compression,
+                    onCheckedChange = onCompressionChange
+                )
+            }
 
             // Want session
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -470,6 +486,13 @@ fun HostEditorScreenContent(
             )
         }
     }
+}
+
+private fun protocolDisplayName(protocol: String): String = when (protocol) {
+    "ssh" -> "SSH"
+    "telnet" -> "Telnet"
+    "local" -> "Local"
+    else -> protocol
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

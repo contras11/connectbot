@@ -129,6 +129,10 @@ fun GeneratePubkeyScreenContent(
                 .imePadding()
         ) {
             CommandSurfaceCard {
+                Text(
+                    text = stringResource(R.string.pubkey_generate_preview_title),
+                    style = MaterialTheme.typography.titleMedium
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     StatusChip(label = uiState.keyType.name)
                     StatusChip(label = "${uiState.bits} bit")
@@ -205,38 +209,47 @@ fun GeneratePubkeyScreenContent(
 
             // Biometric Protection Option
             if (uiState.biometricAvailable && uiState.keyTypeSupportsBiometric) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onUseBiometricChange(!uiState.useBiometric) }
-                        .padding(vertical = 8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Fingerprint,
-                        contentDescription = null,
-                        tint = if (uiState.useBiometric) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.pubkey_biometric_protection),
-                            style = MaterialTheme.typography.bodyLarge
+                CommandSurfaceCard {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onUseBiometricChange(!uiState.useBiometric) }
+                            .padding(vertical = 2.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Fingerprint,
+                            contentDescription = null,
+                            tint = if (uiState.useBiometric) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            }
                         )
-                        Text(
-                            text = stringResource(R.string.pubkey_biometric_description),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.pubkey_biometric_protection),
+                                style = MaterialTheme.typography.titleSmall
+                            )
+                            Text(
+                                text = stringResource(R.string.pubkey_biometric_description),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        StatusChip(
+                            label = if (uiState.useBiometric) {
+                                stringResource(R.string.status_enabled)
+                            } else {
+                                stringResource(R.string.status_disabled)
+                            }
+                        )
+                        Switch(
+                            checked = uiState.useBiometric,
+                            onCheckedChange = onUseBiometricChange
                         )
                     }
-                    Switch(
-                        checked = uiState.useBiometric,
-                        onCheckedChange = onUseBiometricChange
-                    )
                 }
                 Spacer(modifier = Modifier.height(8.dp))
             }
@@ -263,7 +276,7 @@ fun GeneratePubkeyScreenContent(
 
             CommandSurfaceCard {
                 Text(
-                    text = "保護設定",
+                    text = stringResource(R.string.pubkey_protection_settings),
                     style = MaterialTheme.typography.titleMedium
                 )
                 if (!uiState.useBiometric) {

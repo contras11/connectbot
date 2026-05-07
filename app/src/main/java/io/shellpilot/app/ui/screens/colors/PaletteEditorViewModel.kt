@@ -118,7 +118,7 @@ class PaletteEditorViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         palette = palette,
-                        schemeName = scheme?.name ?: "Unknown",
+                        schemeName = scheme?.name ?: "不明",
                         schemeDescription = scheme?.description ?: "",
                         foregroundColorIndex = defaults.first,
                         backgroundColorIndex = defaults.second,
@@ -131,7 +131,7 @@ class PaletteEditorViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        error = e.message ?: "Failed to load palette"
+                        error = e.message ?: "パレットを読み込めませんでした"
                     )
                 }
             }
@@ -164,7 +164,7 @@ class PaletteEditorViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 _uiState.update {
-                    it.copy(error = e.message ?: "Failed to update color")
+                    it.copy(error = e.message ?: "色を更新できませんでした")
                 }
             }
         }
@@ -186,7 +186,7 @@ class PaletteEditorViewModel @Inject constructor(
                 _uiState.update { it.copy(palette = newPalette) }
             } catch (e: Exception) {
                 _uiState.update {
-                    it.copy(error = e.message ?: "Failed to reset color")
+                    it.copy(error = e.message ?: "色をリセットできませんでした")
                 }
             }
         }
@@ -213,7 +213,7 @@ class PaletteEditorViewModel @Inject constructor(
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
-                        error = e.message ?: "Failed to reset palette",
+                        error = e.message ?: "パレットをリセットできませんでした",
                         showResetAllDialog = false
                     )
                 }
@@ -248,7 +248,7 @@ class PaletteEditorViewModel @Inject constructor(
                     _uiState.value.backgroundColorIndex
                 )
             } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message ?: "Failed to save colors") }
+                _uiState.update { it.copy(error = e.message ?: "色設定を保存できませんでした") }
             }
         }
     }
@@ -271,7 +271,7 @@ class PaletteEditorViewModel @Inject constructor(
                     _uiState.value.schemeDescription
                 )
             } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message ?: "Failed to save name") }
+                _uiState.update { it.copy(error = e.message ?: "スキーム名を保存できませんでした") }
             }
         }
     }
@@ -291,7 +291,7 @@ class PaletteEditorViewModel @Inject constructor(
                 _uiState.update { it.copy(showDuplicateDialog = false) }
                 _navigateToDuplicate.emit(newId)
             } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message ?: "Failed to duplicate scheme") }
+                _uiState.update { it.copy(error = e.message ?: "スキームを複製できませんでした") }
             }
         }
     }

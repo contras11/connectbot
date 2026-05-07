@@ -302,12 +302,27 @@ fun PubkeyListScreenContent(
                 }
 
                 uiState.pubkeys.isEmpty() -> {
-                    Text(
-                        text = stringResource(R.string.empty_pubkeys_message),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
+                    CommandSurfaceCard(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(16.dp),
+                        accent = MaterialTheme.colorScheme.primary
+                    ) {
+                        Text(
+                            text = stringResource(R.string.empty_pubkeys_title),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = stringResource(R.string.empty_pubkeys_message),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            StatusChip(label = stringResource(R.string.pubkey_generate))
+                            StatusChip(label = stringResource(R.string.pubkey_import_existing_short))
+                        }
+                    }
                 }
 
                 else -> {
@@ -425,7 +440,7 @@ private fun PubkeyListItem(
                 else -> Icons.Outlined.LockOpen
             }
             Surface(
-                modifier = Modifier.size(40.dp),
+                modifier = Modifier.size(36.dp),
                 shape = RoundedCornerShape(8.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant,
                 border = androidx.compose.foundation.BorderStroke(
@@ -446,25 +461,30 @@ private fun PubkeyListItem(
                             else -> stringResource(R.string.pubkey_not_encrypted_description)
                         },
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
 
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
                     text = pubkey.nickname,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
                 )
-                Text(
-                    stringResource(R.string.pubkey_type_label, pubkey.type),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    StatusChip(label = stringResource(R.string.pubkey_type_label, pubkey.type))
+                    StatusChip(
+                        label = if (isLoaded) {
+                            stringResource(R.string.pubkey_loaded)
+                        } else {
+                            stringResource(R.string.pubkey_not_loaded)
+                        }
+                    )
+                }
             }
 
             Box {

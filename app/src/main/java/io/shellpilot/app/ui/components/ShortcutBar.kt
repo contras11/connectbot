@@ -45,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.shellpilot.app.data.entity.Shortcut
 import io.shellpilot.app.session.CliCommandRegistry
@@ -70,6 +71,7 @@ import io.shellpilot.app.session.CliCommandRegistry
  * @param onProfileChange プロファイルタブ切替時のコールバック
  * @param onShortcutClick ショートカットがタップされた時のコールバック
  * @param compact ソフトキーボード表示中など、縦方向の圧迫を避けるために行高を抑える
+ * @param singleLine IME表示中に端末領域を守るため、候補行だけの1行表示へ切り替える
  * @param modifier Modifier
  */
 @Composable
@@ -80,6 +82,7 @@ fun ShortcutBar(
     onShortcutClick: (Shortcut) -> Unit,
     modifier: Modifier = Modifier,
     compact: Boolean = false,
+    singleLine: Boolean = false,
     // 変更理由: プロファイルタブの表示順序をユーザ設定から受け取る。
     // nullの場合はデフォルト順序(カスタム + CliCommandRegistryカテゴリ順)を使用。
     profileOrder: List<String?> = emptyList(),
@@ -155,6 +158,18 @@ fun ShortcutBar(
         Column(
             modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars)
         ) {
+            if (singleLine) {
+                ShortcutCommandRow(
+                    shortcuts = displayedShortcuts,
+                    effectiveSelectedProfileId = effectiveSelectedProfileId,
+                    onShortcutClick = onShortcutClick,
+                    rowHeight = SHORTCUT_BAR_COMPACT_HEIGHT_DP.dp,
+                    horizontalPadding = rowHorizontalPadding,
+                    rowSpacing = rowSpacing
+                )
+                return@Column
+            }
+
             // 変更理由: ImageGen参照モックに合わせ、Claude/Codexコマンド群は
             // 端末操作を邪魔しない折りたたみ可能なパネルとして扱う。
             Surface(
@@ -232,39 +247,57 @@ fun ShortcutBar(
 
             HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f))
 
-            // 段2: ショートカットチップ一覧 - 横スクロール可能
-            if (displayedShortcuts.isNotEmpty()) {
-                Row(
-                    modifier = Modifier
-                        .horizontalScroll(rememberScrollState())
-                        .height(shortcutRowHeight)
-                        .padding(horizontal = rowHorizontalPadding),
-                    horizontalArrangement = Arrangement.spacedBy(rowSpacing),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    displayedShortcuts.forEach { shortcut ->
-                        CommandChipButton(
-                            label = shortcut.label,
-                            onClick = { onShortcutClick(shortcut) },
-                            emphasized = effectiveSelectedProfileId == "control"
-                        )
-                    }
-                }
-            } else {
-                // 変更理由: ショートカット未登録時の案内表示
-                Row(
-                    modifier = Modifier
-                        .height(shortcutRowHeight)
-                        .padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "ショートカットなし",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+            ShortcutCommandRow(
+                shortcuts = displayedShortcuts,
+                effectiveSelectedProfileId = effectiveSelectedProfileId,
+                onShortcutClick = onShortcutClick,
+                rowHeight = shortcutRowHeight,
+                horizontalPadding = rowHorizontalPadding,
+                rowSpacing = rowSpacing
+            )
+        }
+    }
+}
+
+@Composable
+private fun ShortcutCommandRow(
+    shortcuts: List<Shortcut>,
+    effectiveSelectedProfileId: String?,
+    onShortcutClick: (Shortcut) -> Unit,
+    rowHeight: Dp,
+    horizontalPadding: Dp,
+    rowSpacing: Dp
+) {
+    if (shortcuts.isNotEmpty()) {
+        Row(
+            modifier = Modifier
+                .horizontalScroll(rememberScrollState())
+                .height(rowHeight)
+                .padding(horizontal = horizontalPadding),
+            horizontalArrangement = Arrangement.spacedBy(rowSpacing),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            shortcuts.forEach { shortcut ->
+                CommandChipButton(
+                    label = shortcut.label,
+                    onClick = { onShortcutClick(shortcut) },
+                    emphasized = effectiveSelectedProfileId == "control"
+                )
             }
+        }
+    } else {
+        // 変更理由: 1行化時にも高さを固定し、IME表示中のレイアウト揺れを避ける。
+        Row(
+            modifier = Modifier
+                .height(rowHeight)
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "ショートカットなし",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -307,3 +340,6 @@ private const val COMMAND_PANEL_HEADER_HEIGHT_DP = 28
  * 変更理由: 32 + 40 + 44 + 2(divider) = 118dp
  */
 const val SHORTCUT_BAR_HEIGHT_DP = COMMAND_PANEL_HEADER_HEIGHT_DP + PROFILE_ROW_HEIGHT_DP + SHORTCUT_ROW_HEIGHT_DP + 2
+
+/** IME表示中に端末を圧迫しない1行Command Panelの高さ。 */
+const val SHORTCUT_BAR_COMPACT_HEIGHT_DP = 34

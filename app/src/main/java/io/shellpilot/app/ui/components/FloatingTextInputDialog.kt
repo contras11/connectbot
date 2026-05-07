@@ -18,6 +18,7 @@
 package io.shellpilot.app.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +31,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
@@ -66,6 +68,9 @@ import io.shellpilot.app.service.TerminalBridge
 fun FloatingTextInputDialog(
     bridge: TerminalBridge,
     initialText: String = "",
+    templateCommands: List<String> = emptyList(),
+    historyCommands: List<String> = emptyList(),
+    onSubmitCommand: ((String) -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     val text = remember { mutableStateOf(initialText) }
@@ -78,7 +83,11 @@ fun FloatingTextInputDialog(
     fun sendText() {
         val command = text.value
         if (command.isNotBlank()) {
-            bridge.injectString(command + "\n")
+            if (onSubmitCommand != null) {
+                onSubmitCommand(command)
+            } else {
+                bridge.injectString(command + "\n")
+            }
             onDismiss()
         }
     }
@@ -136,6 +145,18 @@ fun FloatingTextInputDialog(
                         }
                     }
 
+                    CommandSuggestionRow(
+                        title = "テンプレート",
+                        commands = templateCommands,
+                        onSelect = { text.value = it }
+                    )
+
+                    CommandSuggestionRow(
+                        title = "履歴",
+                        commands = historyCommands,
+                        onSelect = { text.value = it }
+                    )
+
                     OutlinedTextField(
                         value = text.value,
                         onValueChange = { text.value = it },
@@ -171,3 +192,35 @@ fun FloatingTextInputDialog(
         }
     }
 }
+
+@Composable
+private fun CommandSuggestionRow(
+    title: String,
+    commands: List<String>,
+    onSelect: (String) -> Unit
+) {
+    if (commands.isEmpty()) return
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            commands.take(COMMAND_SUGGESTION_LIMIT).forEach { command ->
+                CommandChipButton(
+                    label = command,
+                    onClick = { onSelect(command) }
+                )
+            }
+        }
+    }
+}
+
+private const val COMMAND_SUGGESTION_LIMIT = 6

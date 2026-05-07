@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imeAnimationTarget
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.union
@@ -57,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -67,11 +69,13 @@ import io.shellpilot.app.data.entity.Shortcut
 import io.shellpilot.app.service.TerminalBridge
 import io.shellpilot.app.session.CliCommandRegistry
 import io.shellpilot.app.session.SessionController
+import io.shellpilot.app.session.ShortcutExpander
 import org.connectbot.terminal.Terminal
 import io.shellpilot.app.ui.LocalTerminalManager
 import io.shellpilot.app.ui.components.CommandChipButton
 import io.shellpilot.app.ui.components.FloatingTextInputDialog
 import io.shellpilot.app.ui.components.InlinePrompt
+import io.shellpilot.app.ui.components.SHORTCUT_BAR_COMPACT_HEIGHT_DP
 import io.shellpilot.app.ui.components.SHORTCUT_BAR_HEIGHT_DP
 import io.shellpilot.app.ui.components.ShellPilotTopBar
 import io.shellpilot.app.ui.components.ShellPilotStatePanel
@@ -121,6 +125,7 @@ fun SessionScreen(
     val profileOrder by viewModel.profileOrder.collectAsState()
     val hiddenProfileIds by viewModel.hiddenProfileIds.collectAsState()
     val isIntentionalDisconnect by viewModel.isIntentionalDisconnect.collectAsState()
+    val commandHistory by viewModel.commandHistory.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
     // TerminalManagerが利用可能になったらViewModelを初期化
@@ -197,9 +202,13 @@ fun SessionScreen(
                             selectedProfileId = selectedProfileId,
                             profileOrder = profileOrder,
                             hiddenProfileIds = hiddenProfileIds,
+                            commandHistory = commandHistory,
                             onProfileChange = { viewModel.setProfile(it) },
                             onShortcutClick = { shortcut ->
                                 viewModel.executeShortcut(shortcut)
+                            },
+                            onComposerSubmit = { command ->
+                                viewModel.sendComposerCommand(command)
                             },
                             modifier = Modifier.fillMaxSize()
                         )
@@ -385,8 +394,10 @@ private fun TerminalContent(
     // 変更理由: プロファイルタブの表示順序をShortcutBarに渡す
     profileOrder: List<String?> = emptyList(),
     hiddenProfileIds: Set<String> = emptySet(),
+    commandHistory: List<String> = emptyList(),
     onProfileChange: (String?) -> Unit,
     onShortcutClick: (Shortcut) -> Unit,
+    onComposerSubmit: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val termFocusRequester = remember { FocusRequester() }
@@ -398,6 +409,27 @@ private fun TerminalContent(
 
     val fontResult = rememberTerminalTypefaceResultFromStoredValue(bridge.fontFamily)
     val fontSize by bridge.fontSizeFlow.collectAsState()
+    val density = LocalDensity.current
+    val imeBottom = WindowInsets.ime.getBottom(density)
+    val imeVisibleByInsets = imeBottom > 0
+    val shortcutBarHeightDp = if (imeVisibleByInsets) {
+        SHORTCUT_BAR_COMPACT_HEIGHT_DP
+    } else {
+        SHORTCUT_BAR_HEIGHT_DP
+    }
+    val composerTemplates = remember(customShortcuts, selectedProfileId, bridge.host) {
+        if (selectedProfileId == null) {
+            customShortcuts.map { shortcut ->
+                ShortcutExpander.expand(shortcut.command, bridge.host)
+                    .trim()
+            }
+        } else {
+            CliCommandRegistry.findCategory(selectedProfileId)
+                ?.commands
+                ?.map { it.command.trim() }
+                ?: emptyList()
+        }
+    }
 
     LaunchedEffect(Unit) {
         termFocusRequester.requestFocus()
@@ -430,7 +462,7 @@ private fun TerminalContent(
             // ConsoleScreenではオーバーレイとして配置されているが、
             // SessionScreenではColumnに固定配置することでターミナル領域が
             // 正しくリサイズされ、ナビゲーションバーとの干渉を防ぐ。
-            // TERMINAL_KEYBOARD_HEIGHT_DP = 48dp
+            // TERMINAL_KEYBOARD_HEIGHT_DPで固定し、制御キー列を常時優先する。
             TerminalKeyboard(
                 bridge = bridge,
                 onInteraction = {},  // SessionScreenでは自動非表示タイマーなし
@@ -438,12 +470,12 @@ private fun TerminalContent(
                 onShowIme = { showSoftwareKeyboard = true },
                 // 変更理由: 日本語入力のためFloatingTextInputDialogを接続。
                 onOpenTextInput = { showTextInputDialog = true },
-                imeVisible = showSoftwareKeyboard,
+                imeVisible = showSoftwareKeyboard || imeVisibleByInsets,
                 modifier = Modifier.fillMaxWidth()
             )
 
             // 変更理由: 下段バー - プロファイルタブ + ショートカット (2段構成)。
-            // SHORTCUT_BAR_HEIGHT_DP = PROFILE_ROW_HEIGHT_DP(48) + SHORTCUT_ROW_HEIGHT_DP(56) + 1 = 105dp
+            // IME表示中は1行化し、端末表示領域の圧迫を抑える。
             ShortcutBar(
                 customShortcuts = customShortcuts,
                 selectedProfileId = selectedProfileId,
@@ -452,7 +484,8 @@ private fun TerminalContent(
                 profileOrder = profileOrder,
                 hiddenProfileIds = hiddenProfileIds,
                 // 変更理由: ソフトキーボード表示中はコマンドタブとチップの圧迫を抑える。
-                compact = showSoftwareKeyboard
+                compact = imeVisibleByInsets,
+                singleLine = imeVisibleByInsets
             )
         }
 
@@ -462,6 +495,9 @@ private fun TerminalContent(
             FloatingTextInputDialog(
                 bridge = bridge,
                 initialText = "",
+                templateCommands = composerTemplates,
+                historyCommands = commandHistory,
+                onSubmitCommand = onComposerSubmit,
                 onDismiss = {
                     showTextInputDialog = false
                     termFocusRequester.requestFocus()
@@ -470,8 +506,8 @@ private fun TerminalContent(
         }
 
         // 認証プロンプト（パスワード入力、ホスト鍵確認等）のオーバーレイ。
-        // 変更理由: TerminalKeyboard(48dp) + ShortcutBar(105dp) の合計高さ分だけ
-        // 下から浮かせることで、両バーに隠れずプロンプトが表示される。
+        // 変更理由: TerminalKeyboard + ShortcutBarの現在高ぶん下から浮かせ、
+        // IME表示中の1行化後もプロンプトがバーに隠れないようにする。
         val promptState by bridge.promptManager.promptState.collectAsState()
 
         InlinePrompt(
@@ -488,7 +524,7 @@ private fun TerminalContent(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(bottom = (SHORTCUT_BAR_HEIGHT_DP + TERMINAL_KEYBOARD_HEIGHT_DP).dp)
+                .padding(bottom = (shortcutBarHeightDp + TERMINAL_KEYBOARD_HEIGHT_DP).dp)
         )
     }
 }

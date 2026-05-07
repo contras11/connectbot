@@ -378,7 +378,7 @@ class SettingsViewModel @Inject constructor(
         if (fontName.isBlank()) return
         val currentFonts = _uiState.value.customFonts
         if (currentFonts.contains(fontName)) {
-            _uiState.update { it.copy(fontValidationError = "Font already added") }
+            _uiState.update { it.copy(fontValidationError = "このフォントは追加済みです") }
             return
         }
 
@@ -404,7 +404,7 @@ class SettingsViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             fontValidationInProgress = false,
-                            fontValidationError = "Font not found in Google Fonts"
+                            fontValidationError = "Google Fontsでフォントが見つかりません"
                         )
                     }
                 }
@@ -455,7 +455,7 @@ class SettingsViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         fontImportInProgress = false,
-                        fontImportError = "Failed to import font"
+                        fontImportError = "フォントをインポートできませんでした"
                     )
                 }
             }

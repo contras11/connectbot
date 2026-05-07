@@ -230,12 +230,38 @@ private fun TerminalKeyboardContent(
                         .padding(horizontal = 5.dp),
                     horizontalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
-                    // 変更理由: ^C と矢印を先頭に固定し、Claude Code / Codexの
-                    // 中断操作を追加してもカーソル移動キーが初期表示から隠れないようにする。
+                    // 変更理由: 端末復旧・中断で使う制御キーを先頭に固定し、
+                    // IME表示中でも横スクロールなしで優先操作へ届くようにする。
                     ControlSequenceButton(
                         text = "^C",
                         contentDescription = "Ctrl+Cを送信",
                         onClick = { onControlSequence("\u0003") }
+                    )
+
+                    ControlSequenceButton(
+                        text = "^D",
+                        contentDescription = "Ctrl+Dを送信",
+                        onClick = { onControlSequence("\u0004") }
+                    )
+
+                    ControlSequenceButton(
+                        text = "^Z",
+                        contentDescription = "Ctrl+Zを送信",
+                        onClick = { onControlSequence("\u001A") }
+                    )
+
+                    // Esc key
+                    KeyButton(
+                        text = stringResource(R.string.button_key_esc),
+                        contentDescription = stringResource(R.string.image_description_send_escape_character),
+                        onClick = onEscPress
+                    )
+
+                    // Tab key
+                    KeyButton(
+                        text = "⇥",
+                        contentDescription = stringResource(R.string.image_description_send_tab_character),
+                        onClick = onTabPress
                     )
 
                     // Arrow keys (repeatable)
@@ -269,32 +295,6 @@ private fun TerminalKeyboardContent(
                         contentDescription = stringResource(R.string.image_description_toggle_control_character),
                         modifierLevel = modifierState.ctrlState,
                         onClick = onCtrlPress
-                    )
-
-                    // Esc key
-                    KeyButton(
-                        text = stringResource(R.string.button_key_esc),
-                        contentDescription = stringResource(R.string.image_description_send_escape_character),
-                        onClick = onEscPress
-                    )
-
-                    // Tab key
-                    KeyButton(
-                        text = "⇥",
-                        contentDescription = stringResource(R.string.image_description_send_tab_character),
-                        onClick = onTabPress
-                    )
-
-                    ControlSequenceButton(
-                        text = "^D",
-                        contentDescription = "Ctrl+Dを送信",
-                        onClick = { onControlSequence("\u0004") }
-                    )
-
-                    ControlSequenceButton(
-                        text = "^Z",
-                        contentDescription = "Ctrl+Zを送信",
-                        onClick = { onControlSequence("\u001A") }
                     )
 
                     // Home/End

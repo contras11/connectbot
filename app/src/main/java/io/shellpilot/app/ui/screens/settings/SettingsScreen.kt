@@ -1000,7 +1000,7 @@ private fun ListPreferenceWithCustom(
     entries: List<Pair<String, String>>,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
-    customLabel: String = "Custom..."
+    customLabel: String = "カスタム..."
 ) {
     var showDialog by remember { mutableStateOf(false) }
 

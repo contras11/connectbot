@@ -197,22 +197,63 @@ class HostEditorViewModel @Inject constructor(
     }
 
     fun updateQuickConnect(value: String) {
-        _uiState.update { it.copy(quickConnect = value) }
+        val trimmed = value.trim()
+        val localNickname = parseLocalQuickConnect(trimmed)
+        if (localNickname != null) {
+            // 変更理由: local://ReviewLocal をSSHホストとして保存しないよう、
+            // クイック接続段階でLocalプロトコルへ明示的に正規化する。
+            _uiState.update {
+                it.copy(
+                    quickConnect = value,
+                    nickname = localNickname,
+                    protocol = "local",
+                    username = "",
+                    hostname = "",
+                    port = "0",
+                    pubkeyId = -2L,
+                    useAuthAgent = "no",
+                    compression = false,
+                    jumpHostId = null
+                )
+            }
+            return
+        }
+
+        _uiState.update { it.copy(quickConnect = value, protocol = "ssh") }
 
         // Parse quick connect string: [user@]hostname[:port]
         val regex = Regex("^(?:([^@]+)@)?([^:]+)(?::(\\d+))?$")
-        val match = regex.find(value)
+        val match = regex.find(trimmed)
 
         if (match != null) {
             val (username, hostname, port) = match.destructured
             _uiState.update {
                 it.copy(
+                    nickname = trimmed,
                     username = username.ifBlank { "" },
                     hostname = hostname,
                     port = port.ifBlank { "22" }
                 )
             }
         }
+    }
+
+    private fun parseLocalQuickConnect(value: String): String? {
+        if (!value.startsWith("local:", ignoreCase = true)) {
+            return null
+        }
+
+        val payload = value
+            .substringAfter(':', "")
+            .removePrefix("//")
+        val nickname = when {
+            payload.startsWith("#") -> payload.removePrefix("#")
+            payload.contains("#") -> payload.substringAfter("#")
+            payload.isNotBlank() -> payload.substringBefore("?").substringBefore("/")
+            else -> ""
+        }.trim()
+
+        return nickname.ifBlank { "Local" }
     }
 
     fun updateColor(value: String) {
@@ -278,27 +319,33 @@ class HostEditorViewModel @Inject constructor(
                 }
 
                 // In quick connect mode, use the quickConnect string as the nickname
-                val nickname = if (!useExpandedMode && state.quickConnect.isNotBlank()) {
-                    state.quickConnect
+                val rawNickname = if (!useExpandedMode && state.quickConnect.isNotBlank()) {
+                    if (state.protocol == "local") state.nickname.ifBlank { "Local" } else state.quickConnect
                 } else {
                     state.nickname
                 }
 
                 // Only SSH hosts can have a jump host
                 val jumpHostId = if (state.protocol == "ssh") state.jumpHostId else null
+                val isLocal = state.protocol == "local"
+                val nickname = if (isLocal) {
+                    parseLocalQuickConnect(rawNickname) ?: rawNickname.ifBlank { "Local" }
+                } else {
+                    rawNickname
+                }
 
                 val host = Host(
                     id = existingHost?.id ?: 0L,
                     nickname = nickname,
                     protocol = state.protocol,
-                    username = state.username,
-                    hostname = state.hostname,
-                    port = state.port.toIntOrNull() ?: 22,
+                    username = if (isLocal) "" else state.username,
+                    hostname = if (isLocal) "" else state.hostname,
+                    port = if (isLocal) 0 else state.port.toIntOrNull() ?: 22,
                     color = state.color.takeIf { it != "gray" },
-                    pubkeyId = state.pubkeyId,
+                    pubkeyId = if (isLocal) -2L else state.pubkeyId,
                     profileId = state.profileId,
-                    useAuthAgent = state.useAuthAgent.takeIf { it != "no" },
-                    compression = state.compression,
+                    useAuthAgent = if (isLocal) null else state.useAuthAgent.takeIf { it != "no" },
+                    compression = if (isLocal) false else state.compression,
                     wantSession = state.wantSession,
                     stayConnected = state.stayConnected,
                     quickDisconnect = state.quickDisconnect,

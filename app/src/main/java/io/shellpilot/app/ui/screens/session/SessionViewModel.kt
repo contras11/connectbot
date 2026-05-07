@@ -119,6 +119,11 @@ class SessionViewModel @Inject constructor(
     /** UIが観測する意図的切断フラグ */
     val isIntentionalDisconnect: StateFlow<Boolean> = _isIntentionalDisconnect.asStateFlow()
 
+    private val _commandHistory = MutableStateFlow<List<String>>(emptyList())
+
+    /** Command Composerで再利用する直近送信コマンド */
+    val commandHistory: StateFlow<List<String>> = _commandHistory.asStateFlow()
+
     /**
      * TerminalManagerが利用可能になった時点で呼び出す。
      * SessionControllerを生成し、状態の転送を開始する。
@@ -198,6 +203,26 @@ class SessionViewModel @Inject constructor(
         val host: Host = state.bridge.host
         val expandedCommand = ShortcutExpander.expand(shortcut.command, host)
         sessionController?.sendCommand(expandedCommand)
+    }
+
+    /**
+     * Command Composerから任意コマンドを送信する。
+     *
+     * 変更理由: UIコンポーネントからTerminalBridgeへ直接raw送信する責務を減らし、
+     * SessionController経由の送信経路へ揃える。
+     */
+    fun sendComposerCommand(command: String) {
+        val trimmedCommand = command.trim()
+        if (trimmedCommand.isEmpty()) return
+
+        sessionController?.sendCommand("$trimmedCommand\n")
+        _commandHistory.value = buildList {
+            add(trimmedCommand)
+            _commandHistory.value
+                .filterNot { it == trimmedCommand }
+                .take(COMMAND_HISTORY_LIMIT - 1)
+                .forEach(::add)
+        }
     }
 
     /**
@@ -283,5 +308,9 @@ class SessionViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         sessionController?.release()
+    }
+
+    private companion object {
+        const val COMMAND_HISTORY_LIMIT = 8
     }
 }

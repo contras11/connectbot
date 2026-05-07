@@ -76,6 +76,7 @@ import io.shellpilot.app.ui.components.CommandSurfaceCard
 import io.shellpilot.app.ui.components.RgbColorPickerDialog
 import io.shellpilot.app.ui.components.ShellPilotActionDialog
 import io.shellpilot.app.ui.components.ShellPilotScaffold
+import io.shellpilot.app.ui.components.StatusChip
 
 /**
  * Screen for editing the full 256-color palette of a color scheme.
@@ -200,6 +201,14 @@ fun PaletteEditorScreenContent(
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         item {
+                            TerminalPreview(
+                                foregroundColorIndex = uiState.foregroundColorIndex,
+                                backgroundColorIndex = uiState.backgroundColorIndex,
+                                palette = uiState.palette
+                            )
+                        }
+
+                        item {
                             SchemeInfoSection(
                                 schemeName = uiState.schemeName,
                                 schemeDescription = uiState.schemeDescription,
@@ -208,14 +217,6 @@ fun PaletteEditorScreenContent(
                                 onUpdateDescription = onUpdateDescription,
                                 onSave = onSaveNameAndDescription,
                                 onDuplicateClick = onShowDuplicateDialog
-                            )
-                        }
-
-                        item {
-                            TerminalPreview(
-                                foregroundColorIndex = uiState.foregroundColorIndex,
-                                backgroundColorIndex = uiState.backgroundColorIndex,
-                                palette = uiState.palette
                             )
                         }
 
@@ -235,7 +236,8 @@ fun PaletteEditorScreenContent(
                                 title = stringResource(R.string.section_ansi_colors),
                                 colorIndices = 0..15,
                                 palette = uiState.palette,
-                                onColorClick = { if (!uiState.isBuiltIn) onEditColor(it) }
+                                enabled = !uiState.isBuiltIn,
+                                onColorClick = onEditColor
                             )
                         }
 
@@ -298,7 +300,11 @@ fun PaletteEditorScreenContent(
 
     if (uiState.showDuplicateDialog) {
         DuplicateSchemeDialog(
-            baseName = uiState.schemeName,
+            baseName = if (uiState.schemeName == "Default") {
+                stringResource(R.string.colorscheme_default)
+            } else {
+                uiState.schemeName
+            },
             onConfirm = onDuplicateScheme,
             onDismiss = onHideDuplicateDialog
         )
@@ -316,10 +322,20 @@ private fun SchemeInfoSection(
     onDuplicateClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val displaySchemeName = if (isBuiltIn && schemeName == "Default") {
+        stringResource(R.string.colorscheme_default)
+    } else {
+        schemeName
+    }
+
     CommandSurfaceCard(modifier = modifier) {
         if (isBuiltIn) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                StatusChip(label = stringResource(R.string.label_built_in_scheme))
+                StatusChip(label = stringResource(R.string.status_read_only))
+            }
             Text(
-                text = schemeName,
+                text = displaySchemeName,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -337,6 +353,10 @@ private fun SchemeInfoSection(
                 Text(stringResource(R.string.button_duplicate_scheme))
             }
         } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                StatusChip(label = stringResource(R.string.label_custom_scheme))
+                StatusChip(label = stringResource(R.string.status_editable))
+            }
             OutlinedTextField(
                 value = schemeName,
                 onValueChange = onUpdateName,
@@ -374,6 +394,15 @@ private fun ForegroundBackgroundSection(
             text = stringResource(R.string.section_fg_bg_colors),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = if (isBuiltIn) {
+                stringResource(R.string.palette_editor_builtin_note)
+            } else {
+                stringResource(R.string.palette_editor_fg_bg_hint)
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Row(
@@ -549,6 +578,7 @@ private fun ColorSection(
     title: String,
     colorIndices: IntRange,
     palette: IntArray,
+    enabled: Boolean,
     onColorClick: (Int) -> Unit,
     modifier: Modifier = Modifier,
     columns: Int = 8
@@ -558,6 +588,15 @@ private fun ColorSection(
             text = title,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = if (enabled) {
+                stringResource(R.string.palette_editor_color_cell_hint)
+            } else {
+                stringResource(R.string.palette_editor_builtin_note)
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         val colorList = colorIndices.toList()
@@ -576,6 +615,7 @@ private fun ColorSection(
                         ColorCell(
                             colorIndex = colorIndex,
                             color = palette[colorIndex],
+                            enabled = enabled,
                             onClick = { onColorClick(colorIndex) },
                             modifier = Modifier.weight(1f)
                         )
@@ -596,6 +636,7 @@ private fun ColorSection(
 private fun ColorCell(
     colorIndex: Int,
     color: Int,
+    enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -611,7 +652,7 @@ private fun ColorCell(
                 color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
                 shape = RoundedCornerShape(4.dp)
             )
-            .clickable(onClick = onClick),
+            .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         if (colorIndex < 16) {
@@ -634,7 +675,8 @@ private fun DuplicateSchemeDialog(
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var name by remember { mutableStateOf("Copy of $baseName") }
+    val suggestedName = stringResource(R.string.scheme_copy_name, baseName)
+    var name by remember(suggestedName) { mutableStateOf(suggestedName) }
 
     ShellPilotActionDialog(
         title = stringResource(R.string.dialog_title_new_scheme),

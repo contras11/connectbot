@@ -32,8 +32,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -59,6 +57,8 @@ import kotlinx.coroutines.launch
 import io.shellpilot.app.R
 import io.shellpilot.app.data.migration.MigrationState
 import io.shellpilot.app.data.migration.MigrationStatus
+import io.shellpilot.app.ui.components.CommandSurfaceCard
+import io.shellpilot.app.ui.components.StatusChip
 import io.shellpilot.app.ui.theme.ShellPilotTheme
 
 /**
@@ -198,59 +198,51 @@ private fun MigrationInProgressContent(state: MigrationState) {
             if (state.warnings.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(16.dp))
 
-                Card(
+                CommandSurfaceCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    )
+                    accent = MaterialTheme.colorScheme.error
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(bottom = 4.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Warning,
-                                contentDescription = stringResource(R.string.migration_warnings_title),
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.size(8.dp))
-                            Text(
-                                text = stringResource(R.string.migration_warnings_title),
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = stringResource(R.string.migration_warnings_title),
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.size(8.dp))
+                        Text(
+                            text = stringResource(R.string.migration_warnings_title),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
 
-                        state.warnings.forEach { warning ->
-                            Text(
-                                text = "• $warning",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                modifier = Modifier.padding(vertical = 4.dp)
-                            )
-                        }
+                    state.warnings.forEach { warning ->
+                        Text(
+                            text = "• $warning",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 2.dp)
+                        )
+                    }
 
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Button(
-                            onClick = {
-                                val warningsText = state.warnings.joinToString("\n") { "• $it" }
-                                scope.launch {
-                                    clipboard.setClipEntry(
-                                        ClipData.newPlainText("warnings", warningsText).toClipEntry()
-                                    )
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(stringResource(R.string.migration_copy_warnings))
-                        }
+                    Button(
+                        onClick = {
+                            val warningsText = state.warnings.joinToString("\n") { "• $it" }
+                            scope.launch {
+                                clipboard.setClipEntry(
+                                    ClipData.newPlainText("warnings", warningsText).toClipEntry()
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(stringResource(R.string.migration_copy_warnings))
                     }
                 }
             }
@@ -300,49 +292,39 @@ private fun MigrationFailedContent(
         if (debugLog.isNotEmpty()) {
             Spacer(modifier = Modifier.height(24.dp))
 
-            Card(
+            CommandSurfaceCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
+                accent = MaterialTheme.colorScheme.outlineVariant
             ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    StatusChip(label = stringResource(R.string.migration_debug_log_title))
+                    StatusChip(label = "${debugLog.size} 行")
+                }
+
+                debugLog.forEach { logEntry ->
                     Text(
-                        text = stringResource(R.string.migration_debug_log_title),
-                        style = MaterialTheme.typography.titleSmall,
+                        text = logEntry,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 8.dp)
+                        modifier = Modifier.padding(vertical = 1.dp)
                     )
+                }
 
-                    debugLog.forEach { logEntry ->
-                        Text(
-                            text = logEntry,
-                            style = MaterialTheme.typography.bodySmall,
-                            fontFamily = FontFamily.Monospace,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(vertical = 2.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Button(
-                        onClick = {
-                            val logText = debugLog.joinToString("\n")
-                            scope.launch {
-                                clipboard.setClipEntry(
-                                    ClipData.newPlainText("debug_log", logText).toClipEntry()
-                                )
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(stringResource(R.string.migration_copy_debug_log))
-                    }
+                Button(
+                    onClick = {
+                        val logText = debugLog.joinToString("\n")
+                        scope.launch {
+                            clipboard.setClipEntry(
+                                ClipData.newPlainText("debug_log", logText).toClipEntry()
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(stringResource(R.string.migration_copy_debug_log))
                 }
             }
         }

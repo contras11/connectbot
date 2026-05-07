@@ -70,12 +70,12 @@ class ProfileListViewModel @Inject constructor(
     fun createProfile(name: String) {
         viewModelScope.launch {
             if (name.isBlank()) {
-                _uiState.update { it.copy(createError = "Name cannot be empty") }
+                _uiState.update { it.copy(createError = "プロファイル名を入力してください") }
                 return@launch
             }
 
             if (profileRepository.nameExists(name)) {
-                _uiState.update { it.copy(createError = "A profile with this name already exists") }
+                _uiState.update { it.copy(createError = "同じ名前のプロファイルがすでにあります") }
                 return@launch
             }
 

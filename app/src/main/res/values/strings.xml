@@ -502,7 +502,7 @@
 	<!-- Fallback text shown when referencing a pubkey that no longer exists in the database -->
 	<string name="pubkey_unknown">不明な鍵</string>
 	<!-- Default name shown for the default color scheme when no specific scheme is selected -->
-	<string name="colorscheme_default">デフォルト</string>
+	<string name="colorscheme_default">標準</string>
 
 	<!-- Profile editor screen strings -->
 	<!-- Window title shown when creating a new profile -->
@@ -535,6 +535,8 @@
 	<string name="profile_editor_force_size_columns">列数</string>
 	<!-- Label for the force size rows input field -->
 	<string name="profile_editor_force_size_rows">行数</string>
+	<string name="profile_editor_status_profile">プロファイル</string>
+	<string name="profile_editor_preview_color_scheme">配色: %1$s</string>
 	<!-- Dropdown option to not override host color with profile color -->
 	<string name="profile_icon_color_none">なし（ホスト色を使う）</string>
 
@@ -802,6 +804,7 @@
 
 	<!-- Button text to import a color scheme from JSON file -->
 	<string name="button_import_scheme">"スキームをインポート"</string>
+	<string name="scheme_copy_name">%1$s のコピー</string>
 
 	<!-- Success message after exporting a scheme -->
 	<string name="message_export_success">%1$sをエクスポートしました</string>
@@ -871,6 +874,10 @@
 	<string name="menu_manage_colors">カラースキーム管理</string>
 	<!-- Note shown in palette editor for built-in schemes that cannot be edited -->
 	<string name="palette_editor_builtin_note">内蔵スキームは読み取り専用です。複製して編集してください。</string>
+	<string name="palette_editor_fg_bg_hint">前景または背景のスウォッチをタップして、色選択を開きます。</string>
+	<string name="palette_editor_color_cell_hint">色のマスをタップして、RGB色選択を開きます。</string>
+	<string name="status_read_only">読み取り専用</string>
+	<string name="status_editable">編集可</string>
 	<!-- Section header for the terminal color preview shown below the ANSI color grid -->
 	<string name="section_color_preview">プレビュー</string>
 
@@ -1007,6 +1014,10 @@
 	<string name="empty_hosts_message">ホストが設定されていません</string>
 	<!-- Message shown when no public keys have been generated or imported yet -->
 	<string name="empty_pubkeys_message">公開鍵がありません。</string>
+	<string name="empty_pubkeys_title">公開鍵を追加</string>
+	<string name="pubkey_import_existing_short">インポート</string>
+	<string name="pubkey_loaded">ロード中</string>
+	<string name="pubkey_not_loaded">未ロード</string>
 	<!-- Message shown when no port forwards have been configured for a host -->
 	<string name="empty_port_forwards_message">ポート転送はまだ設定されていません。</string>
 	<!-- Message shown when no URLs are found in the terminal buffer during URL scan -->
@@ -1069,6 +1080,10 @@
 	<string name="pubkey_biometric_description_icon">指紋認証で保護されています</string>
 	<!-- Error message when biometric authentication is not available in current context -->
 	<string name="pubkey_biometric_not_available">指紋認証は利用できません</string>
+	<string name="pubkey_generate_preview_title">生成内容のプレビュー</string>
+	<string name="pubkey_protection_settings">保護設定</string>
+	<string name="status_enabled">有効</string>
+	<string name="status_disabled">無効</string>
 
 	<!-- Port forward editor labels -->
 	<!-- Placeholder for port forward nickname field. Should show an example nickname for a port forward. -->

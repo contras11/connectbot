@@ -41,6 +41,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
@@ -54,15 +55,14 @@ import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -90,6 +90,7 @@ import io.shellpilot.app.R
 import io.shellpilot.app.data.entity.Host
 import io.shellpilot.app.ui.LocalTerminalManager
 import io.shellpilot.app.ui.ScreenPreviews
+import io.shellpilot.app.ui.components.CommandChipButton
 import io.shellpilot.app.ui.components.CommandSurfaceCard
 import io.shellpilot.app.ui.components.DisconnectAllDialog
 import io.shellpilot.app.ui.components.ShellPilotActionDialog
@@ -201,24 +202,8 @@ fun HostListScreen(
     }
 
     // Handle import result
-    LaunchedEffect(uiState.importResult) {
-        uiState.importResult?.let { result ->
-            Toast.makeText(
-                context,
-                context.getString(
-                    R.string.import_hosts_success,
-                    result.hostsImported,
-                    result.hostsSkipped,
-                    result.profilesImported,
-                    result.profilesSkipped
-                ),
-                Toast.LENGTH_SHORT
-            ).show()
-            viewModel.clearImportResult()
-        }
-    }
-
     var shortcutHost by remember { mutableStateOf<Host?>(null) }
+    var showImportDialog by remember { mutableStateOf(false) }
 
     if (shortcutHost != null) {
         ShortcutCustomizationDialog(
@@ -227,6 +212,19 @@ fun HostListScreen(
             onConfirm = { color, iconStyle ->
                 onSelectShortcut(shortcutHost!!, color, iconStyle)
                 shortcutHost = null
+            }
+        )
+    }
+
+    if (showImportDialog) {
+        HostImportDialog(
+            importResult = uiState.importResult,
+            onChooseFile = {
+                importLauncher.launch(arrayOf("application/json"))
+            },
+            onDismiss = {
+                showImportDialog = false
+                viewModel.clearImportResult()
             }
         )
     }
@@ -249,7 +247,15 @@ fun HostListScreen(
         onDisconnectHost = viewModel::disconnectHost,
         onDisconnectAll = viewModel::disconnectAll,
         onExportHosts = viewModel::exportHosts,
-        onImportHosts = { importLauncher.launch(arrayOf("application/json")) },
+        onImportHosts = { showImportDialog = true },
+        onEnterSearch = viewModel::enterSearchMode,
+        onExitSearch = viewModel::exitSearchMode,
+        onSearchQueryChange = viewModel::updateSearchQuery,
+        onProtocolFilterChange = viewModel::setProtocolFilter,
+        onToggleConnectedOnly = viewModel::toggleConnectedOnly,
+        onToggleKeysOnly = viewModel::toggleKeysOnly,
+        onToggleProfileOnly = viewModel::toggleProfileOnly,
+        onClearFilters = viewModel::clearFilters,
         modifier = modifier
     )
 }
@@ -275,9 +281,18 @@ fun HostListScreenContent(
     onDisconnectAll: () -> Unit,
     onExportHosts: () -> Unit = {},
     onImportHosts: () -> Unit = {},
+    onEnterSearch: () -> Unit = {},
+    onExitSearch: () -> Unit = {},
+    onSearchQueryChange: (String) -> Unit = {},
+    onProtocolFilterChange: (String?) -> Unit = {},
+    onToggleConnectedOnly: () -> Unit = {},
+    onToggleKeysOnly: () -> Unit = {},
+    onToggleProfileOnly: () -> Unit = {},
+    onClearFilters: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    var showFilterDialog by remember { mutableStateOf(false) }
     var showDisconnectAllDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -299,11 +314,17 @@ fun HostListScreenContent(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         actions = {
             if (!makingShortcut) {
-                IconButton(onClick = { /* 表示フィルタは後続実装用。モックに合わせて入口を先に揃える。 */ }) {
-                    Icon(Icons.Default.Search, contentDescription = "ホストを検索")
+                if (uiState.isSearchActive) {
+                    IconButton(onClick = onExitSearch) {
+                        Icon(Icons.Default.Close, contentDescription = "検索を閉じる")
+                    }
+                } else {
+                    IconButton(onClick = onEnterSearch) {
+                        Icon(Icons.Default.Search, contentDescription = "ホストを検索")
+                    }
                 }
-                IconButton(onClick = onToggleSortOrder) {
-                    Icon(Icons.Default.FilterList, contentDescription = "ホストを並び替え")
+                IconButton(onClick = { showFilterDialog = true }) {
+                    Icon(Icons.Default.FilterList, contentDescription = "ホストを絞り込む")
                 }
                 IconButton(onClick = { onNavigateToEditHost(null) }) {
                     Icon(Icons.Default.Add, contentDescription = stringResource(R.string.hostpref_add_host))
@@ -416,35 +437,69 @@ fun HostListScreenContent(
                         ),
                         verticalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
-                        item {
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                StatusChip(label = "すべて ${uiState.hosts.size}")
-                                StatusChip(label = "グループ")
-                                StatusChip(label = "タグ")
+                        if (uiState.isSearchActive) {
+                            item {
+                                HostSearchPanel(
+                                    query = uiState.searchQuery,
+                                    resultCount = uiState.visibleHosts.size,
+                                    totalCount = uiState.hosts.size,
+                                    onQueryChange = onSearchQueryChange,
+                                    onClear = { onSearchQueryChange("") }
+                                )
                             }
                         }
-                        items(
-                            items = uiState.hosts,
-                            key = { it.id }
-                        ) { host ->
-                            HostListItem(
-                                host = host,
-                                connectionState = uiState.connectionStates[host.id] ?: ConnectionState.UNKNOWN,
-                                onClick = {
-                                    if (makingShortcut) {
-                                        onSelectShortcut(host)
-                                    } else {
-                                        onNavigateToConsole(host)
+                        item {
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                CommandChipButton(
+                                    label = "すべて ${uiState.hosts.size}",
+                                    onClick = onClearFilters,
+                                    emphasized = !uiState.filterState.hasActiveFilters
+                                )
+                                CommandChipButton(
+                                    label = "グループ",
+                                    onClick = onToggleProfileOnly,
+                                    emphasized = uiState.filterState.profileOnly
+                                )
+                                CommandChipButton(
+                                    label = "タグ",
+                                    onClick = onToggleKeysOnly,
+                                    emphasized = uiState.filterState.keysOnly
+                                )
+                            }
+                        }
+                        if (uiState.visibleHosts.isEmpty()) {
+                            item {
+                                HostNoResultsCard(
+                                    onClearSearch = {
+                                        onSearchQueryChange("")
+                                        onClearFilters()
                                     }
-                                },
-                                onEdit = { onNavigateToEditHost(host) },
-                                onPortForwards = { onNavigateToPortForwards(host) },
-                                onDuplicate = { onDuplicateHost(host) },
-                                onForgetHostKeys = { onForgetHostKeys(host) },
-                                onDisconnect = { onDisconnectHost(host) },
-                                onDelete = { onDeleteHost(host) },
-                                makingShortcut = makingShortcut
-                            )
+                                )
+                            }
+                        } else {
+                            items(
+                                items = uiState.visibleHosts,
+                                key = { it.id }
+                            ) { host ->
+                                HostListItem(
+                                    host = host,
+                                    connectionState = uiState.connectionStates[host.id] ?: ConnectionState.UNKNOWN,
+                                    onClick = {
+                                        if (makingShortcut) {
+                                            onSelectShortcut(host)
+                                        } else {
+                                            onNavigateToConsole(host)
+                                        }
+                                    },
+                                    onEdit = { onNavigateToEditHost(host) },
+                                    onPortForwards = { onNavigateToPortForwards(host) },
+                                    onDuplicate = { onDuplicateHost(host) },
+                                    onForgetHostKeys = { onForgetHostKeys(host) },
+                                    onDisconnect = { onDisconnectHost(host) },
+                                    onDelete = { onDeleteHost(host) },
+                                    makingShortcut = makingShortcut
+                                )
+                            }
                         }
                     }
                 }
@@ -460,6 +515,208 @@ fun HostListScreenContent(
                 onDisconnectAll()
             }
         )
+    }
+
+    if (showFilterDialog) {
+        HostFilterDialog(
+            filterState = uiState.filterState,
+            sortedByColor = uiState.sortedByColor,
+            onProtocolFilterChange = onProtocolFilterChange,
+            onToggleConnectedOnly = onToggleConnectedOnly,
+            onToggleKeysOnly = onToggleKeysOnly,
+            onToggleProfileOnly = onToggleProfileOnly,
+            onToggleSortOrder = onToggleSortOrder,
+            onClearFilters = onClearFilters,
+            onDismiss = { showFilterDialog = false }
+        )
+    }
+}
+
+@Composable
+private fun HostImportDialog(
+    importResult: ImportResult?,
+    onChooseFile: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    ShellPilotActionDialog(
+        title = "JSONインポート",
+        subtitle = "ホスト、プロファイル、ポート転送を既存データへ統合します。",
+        onDismiss = onDismiss,
+        dismissLabel = "閉じる"
+    ) {
+        CommandSurfaceCard(accent = MaterialTheme.colorScheme.outlineVariant) {
+            Text(
+                text = "ShellPilot形式のJSONを選択してください。",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Text(
+                text = "重複するホストやプロファイルはスキップされ、既存の接続情報は保持されます。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Button(onClick = onChooseFile, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Default.ContentCopy, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("JSONファイルを選択")
+            }
+        }
+
+        if (importResult != null) {
+            CommandSurfaceCard(accent = MaterialTheme.colorScheme.secondary) {
+                Text(
+                    text = "インポート結果",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    StatusChip(label = "ホスト ${importResult.hostsImported}")
+                    StatusChip(label = "スキップ ${importResult.hostsSkipped}")
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    StatusChip(label = "プロファイル ${importResult.profilesImported}")
+                    StatusChip(label = "スキップ ${importResult.profilesSkipped}")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HostSearchPanel(
+    query: String,
+    resultCount: Int,
+    totalCount: Int,
+    onQueryChange: (String) -> Unit,
+    onClear: () -> Unit
+) {
+    CommandSurfaceCard(accent = MaterialTheme.colorScheme.outlineVariant) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            label = { Text("ホストを検索") },
+            placeholder = { Text("名前、ユーザー、ホスト、プロトコル") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            trailingIcon = {
+                if (query.isNotBlank()) {
+                    IconButton(onClick = onClear) {
+                        Icon(Icons.Default.Close, contentDescription = "検索語を消去")
+                    }
+                }
+            }
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            StatusChip(label = "表示 $resultCount")
+            StatusChip(label = "全体 $totalCount")
+        }
+    }
+}
+
+@Composable
+private fun HostNoResultsCard(
+    onClearSearch: () -> Unit
+) {
+    CommandSurfaceCard(accent = MaterialTheme.colorScheme.outlineVariant) {
+        Text(
+            text = "一致するホストがありません",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = "検索語やフィルタ条件を変えてください。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        TextButton(onClick = onClearSearch) {
+            Text("検索とフィルタを解除")
+        }
+    }
+}
+
+@Composable
+private fun HostFilterDialog(
+    filterState: HostListFilterState,
+    sortedByColor: Boolean,
+    onProtocolFilterChange: (String?) -> Unit,
+    onToggleConnectedOnly: () -> Unit,
+    onToggleKeysOnly: () -> Unit,
+    onToggleProfileOnly: () -> Unit,
+    onToggleSortOrder: () -> Unit,
+    onClearFilters: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    ShellPilotActionDialog(
+        title = "表示フィルタ",
+        subtitle = "モックのフィルタパネルに合わせ、一覧をその場で絞り込みます。",
+        onDismiss = onDismiss,
+        confirmLabel = "閉じる",
+        onConfirm = onDismiss,
+        dismissLabel = null
+    ) {
+        CommandSurfaceCard(accent = MaterialTheme.colorScheme.outlineVariant) {
+            Text(
+                text = "プロトコル",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                CommandChipButton(
+                    label = "すべて",
+                    onClick = { onProtocolFilterChange(null) },
+                    emphasized = filterState.protocol == null
+                )
+                CommandChipButton(
+                    label = "SSH",
+                    onClick = { onProtocolFilterChange("ssh") },
+                    emphasized = filterState.protocol == "ssh"
+                )
+                CommandChipButton(
+                    label = "Telnet",
+                    onClick = { onProtocolFilterChange("telnet") },
+                    emphasized = filterState.protocol == "telnet"
+                )
+                CommandChipButton(
+                    label = "Local",
+                    onClick = { onProtocolFilterChange("local") },
+                    emphasized = filterState.protocol == "local"
+                )
+            }
+        }
+
+        CommandSurfaceCard(accent = MaterialTheme.colorScheme.outlineVariant) {
+            Text(
+                text = "状態と属性",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                CommandChipButton(
+                    label = "接続中",
+                    onClick = onToggleConnectedOnly,
+                    emphasized = filterState.connectedOnly
+                )
+                CommandChipButton(
+                    label = "鍵あり",
+                    onClick = onToggleKeysOnly,
+                    emphasized = filterState.keysOnly
+                )
+                CommandChipButton(
+                    label = "プロファイル",
+                    onClick = onToggleProfileOnly,
+                    emphasized = filterState.profileOnly
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                CommandChipButton(
+                    label = if (sortedByColor) "名前順へ" else "色順へ",
+                    onClick = onToggleSortOrder,
+                    emphasized = sortedByColor
+                )
+                TextButton(onClick = onClearFilters) {
+                    Text("条件を解除")
+                }
+            }
+        }
     }
 }
 
@@ -803,7 +1060,10 @@ private fun EmptyCommandCenterCard(
 
 private fun Host.displayEndpoint(): String {
     return when (protocol) {
-        "local" -> "local://${nickname.ifBlank { "device" }}"
+        "local" -> {
+            val label = nickname.ifBlank { "device" }
+            if (label.startsWith("local:", ignoreCase = true)) label else "local://$label"
+        }
         "ssh" -> {
             val userPart = if (username.isNotBlank()) "$username@" else ""
             "$userPart$hostname:$port"

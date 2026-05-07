@@ -31,6 +31,7 @@ import javax.inject.Inject
 
 data class SchemeManagerUiState(
     val schemes: List<ColorScheme> = emptyList(),
+    val schemePalettes: Map<Long, IntArray> = emptyMap(),
     val selectedSchemeId: Long? = null,
     val isLoading: Boolean = false,
     val error: String? = null,
@@ -56,9 +57,13 @@ class ColorSchemeManagerViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true) }
             try {
                 val schemes = repository.getAllSchemes()
+                val palettes = schemes.associate { scheme ->
+                    scheme.id to repository.getSchemeColors(scheme.id)
+                }
                 _uiState.update {
                     it.copy(
                         schemes = schemes,
+                        schemePalettes = palettes,
                         isLoading = false,
                         error = null
                     )
@@ -67,7 +72,7 @@ class ColorSchemeManagerViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        error = e.message ?: "Failed to load schemes"
+                        error = e.message ?: "カラースキームを読み込めませんでした"
                     )
                 }
             }
@@ -123,13 +128,13 @@ class ColorSchemeManagerViewModel @Inject constructor(
             try {
                 // Validate name
                 if (name.isBlank()) {
-                    _uiState.update { it.copy(dialogError = "Scheme name cannot be empty") }
+                    _uiState.update { it.copy(dialogError = "スキーム名を入力してください") }
                     return@launch
                 }
 
                 // Check for duplicate name
                 if (repository.schemeNameExists(name)) {
-                    _uiState.update { it.copy(dialogError = "A scheme with this name already exists") }
+                    _uiState.update { it.copy(dialogError = "同じ名前のスキームがすでにあります") }
                     return@launch
                 }
 
@@ -141,7 +146,7 @@ class ColorSchemeManagerViewModel @Inject constructor(
                 hideNewSchemeDialog()
             } catch (e: Exception) {
                 _uiState.update {
-                    it.copy(dialogError = e.message ?: "Failed to create scheme")
+                    it.copy(dialogError = e.message ?: "スキームを作成できませんでした")
                 }
             }
         }
@@ -154,7 +159,7 @@ class ColorSchemeManagerViewModel @Inject constructor(
                 val scheme = _uiState.value.schemes.find { it.id == schemeId }
                 if (scheme?.isBuiltIn == true) {
                     _uiState.update {
-                        it.copy(dialogError = "Cannot delete built-in schemes")
+                        it.copy(dialogError = "内蔵スキームは削除できません")
                     }
                     return@launch
                 }
@@ -168,7 +173,7 @@ class ColorSchemeManagerViewModel @Inject constructor(
                 _uiState.update { it.copy(selectedSchemeId = null) }
             } catch (e: Exception) {
                 _uiState.update {
-                    it.copy(dialogError = e.message ?: "Failed to delete scheme")
+                    it.copy(dialogError = e.message ?: "スキームを削除できませんでした")
                 }
             }
         }

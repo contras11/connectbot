@@ -48,12 +48,26 @@ enum class ConnectionState {
     DISCONNECTED
 }
 
+data class HostListFilterState(
+    val protocol: String? = null,
+    val connectedOnly: Boolean = false,
+    val keysOnly: Boolean = false,
+    val profileOnly: Boolean = false
+) {
+    val hasActiveFilters: Boolean
+        get() = protocol != null || connectedOnly || keysOnly || profileOnly
+}
+
 data class HostListUiState(
     val hosts: List<Host> = emptyList(),
+    val visibleHosts: List<Host> = emptyList(),
     val connectionStates: Map<Long, ConnectionState> = emptyMap(),
     val isLoading: Boolean = false,
     val error: String? = null,
     val sortedByColor: Boolean = false,
+    val isSearchActive: Boolean = false,
+    val searchQuery: String = "",
+    val filterState: HostListFilterState = HostListFilterState(),
     val exportedJson: String? = null,
     val exportResult: ExportResult? = null,
     val importResult: ImportResult? = null
@@ -137,7 +151,18 @@ class HostListViewModel @Inject constructor(
                 .collect { hosts ->
                     updateConnectionStates(hosts)
                     _uiState.update {
-                        it.copy(hosts = hosts, isLoading = false, error = null)
+                        val visibleHosts = filterHosts(
+                            hosts = hosts,
+                            searchQuery = it.searchQuery,
+                            filterState = it.filterState,
+                            connectionStates = it.connectionStates
+                        )
+                        it.copy(
+                            hosts = hosts,
+                            visibleHosts = visibleHosts,
+                            isLoading = false,
+                            error = null
+                        )
                     }
                 }
         }
@@ -206,7 +231,15 @@ class HostListViewModel @Inject constructor(
         val states = hosts.associate { host ->
             host.id to getConnectionState(host)
         }
-        _uiState.update { it.copy(connectionStates = states) }
+        _uiState.update {
+            val visibleHosts = filterHosts(
+                hosts = hosts,
+                searchQuery = it.searchQuery,
+                filterState = it.filterState,
+                connectionStates = states
+            )
+            it.copy(connectionStates = states, visibleHosts = visibleHosts)
+        }
     }
 
     private fun getConnectionState(host: Host): ConnectionState {
@@ -244,6 +277,102 @@ class HostListViewModel @Inject constructor(
         val newSortedByColor = !_uiState.value.sortedByColor
         sharedPreferences.edit { putBoolean(PreferenceConstants.SORT_BY_COLOR, newSortedByColor) }
         _uiState.update { it.copy(sortedByColor = newSortedByColor) }
+    }
+
+    fun enterSearchMode() {
+        _uiState.update { it.copy(isSearchActive = true) }
+    }
+
+    fun exitSearchMode() {
+        _uiState.update {
+            val visibleHosts = filterHosts(
+                hosts = it.hosts,
+                searchQuery = "",
+                filterState = it.filterState,
+                connectionStates = it.connectionStates
+            )
+            it.copy(isSearchActive = false, searchQuery = "", visibleHosts = visibleHosts)
+        }
+    }
+
+    fun updateSearchQuery(query: String) {
+        _uiState.update {
+            val visibleHosts = filterHosts(
+                hosts = it.hosts,
+                searchQuery = query,
+                filterState = it.filterState,
+                connectionStates = it.connectionStates
+            )
+            it.copy(searchQuery = query, visibleHosts = visibleHosts)
+        }
+    }
+
+    fun setProtocolFilter(protocol: String?) {
+        updateFilter { it.copy(protocol = protocol) }
+    }
+
+    fun toggleConnectedOnly() {
+        updateFilter { it.copy(connectedOnly = !it.connectedOnly) }
+    }
+
+    fun toggleKeysOnly() {
+        updateFilter { it.copy(keysOnly = !it.keysOnly) }
+    }
+
+    fun toggleProfileOnly() {
+        updateFilter { it.copy(profileOnly = !it.profileOnly) }
+    }
+
+    fun clearFilters() {
+        updateFilter { HostListFilterState() }
+    }
+
+    private fun updateFilter(transform: (HostListFilterState) -> HostListFilterState) {
+        _uiState.update {
+            val nextFilter = transform(it.filterState)
+            val visibleHosts = filterHosts(
+                hosts = it.hosts,
+                searchQuery = it.searchQuery,
+                filterState = nextFilter,
+                connectionStates = it.connectionStates
+            )
+            it.copy(filterState = nextFilter, visibleHosts = visibleHosts)
+        }
+    }
+
+    /**
+     * 変更理由: 検索/フィルタはレビュー画面の即時確認が目的のため、
+     * DBクエリを増やさず現在の表示リスト上で安全に絞り込む。
+     */
+    private fun filterHosts(
+        hosts: List<Host>,
+        searchQuery: String,
+        filterState: HostListFilterState,
+        connectionStates: Map<Long, ConnectionState>
+    ): List<Host> {
+        val normalizedQuery = searchQuery.trim().lowercase()
+        return hosts
+            .asSequence()
+            .filter { host ->
+                normalizedQuery.isBlank() ||
+                    host.nickname.contains(normalizedQuery, ignoreCase = true) ||
+                    host.username.contains(normalizedQuery, ignoreCase = true) ||
+                    host.hostname.contains(normalizedQuery, ignoreCase = true) ||
+                    host.protocol.contains(normalizedQuery, ignoreCase = true)
+            }
+            .filter { host ->
+                filterState.protocol == null || host.protocol == filterState.protocol
+            }
+            .filter { host ->
+                !filterState.connectedOnly || connectionStates[host.id] == ConnectionState.CONNECTED
+            }
+            .filter { host ->
+                !filterState.keysOnly || (host.protocol == "ssh" && host.useKeys)
+            }
+            .filter { host ->
+                !filterState.profileOnly || host.profileId != null
+            }
+            .toList()
     }
 
     fun deleteHost(host: Host) {

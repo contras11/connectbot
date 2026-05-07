@@ -218,14 +218,14 @@ class ProfileEditorViewModel @Inject constructor(
             val state = _uiState.value
 
             if (state.name.isBlank()) {
-                _uiState.update { it.copy(saveError = "Name cannot be empty") }
+                _uiState.update { it.copy(saveError = "プロファイル名を入力してください") }
                 return@launch
             }
 
             // Check for duplicate name (excluding current profile)
             val excludeId = if (profileId != -1L) profileId else null
             if (profileRepository.nameExists(state.name, excludeId)) {
-                _uiState.update { it.copy(saveError = "A profile with this name already exists") }
+                _uiState.update { it.copy(saveError = "同じ名前のプロファイルがすでにあります") }
                 return@launch
             }
 
