@@ -42,6 +42,8 @@ import io.shellpilot.app.service.TerminalManager
 import io.shellpilot.app.util.PreferenceConstants
 import javax.inject.Inject
 
+private const val DEFAULT_PROFILE_ID = 1L
+
 enum class ConnectionState {
     UNKNOWN,
     CONNECTED,
@@ -370,7 +372,7 @@ class HostListViewModel @Inject constructor(
                 !filterState.keysOnly || (host.protocol == "ssh" && host.useKeys)
             }
             .filter { host ->
-                !filterState.profileOnly || host.profileId != null
+                !filterState.profileOnly || host.profileId != DEFAULT_PROFILE_ID
             }
             .toList()
     }

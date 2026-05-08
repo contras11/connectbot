@@ -35,6 +35,7 @@ import io.shellpilot.app.data.entity.PortForward
 import io.shellpilot.app.data.entity.Profile
 import io.shellpilot.app.data.entity.Pubkey
 import io.shellpilot.app.di.CoroutineDispatchers
+import io.shellpilot.app.util.HostConstants
 import timber.log.Timber
 import java.io.File
 import javax.inject.Inject
@@ -137,14 +138,14 @@ class DatabaseMigrator @Inject constructor(
         val legacyHostsHaveData = legacyHostsExists && try {
             legacyHostReader.readHosts().isNotEmpty()
         } catch (e: Exception) {
-            logDebug("Failed to read legacy hosts database: ${e.message}")
-            false
+            logError("Failed to read legacy hosts database", e)
+            throw MigrationException("Legacy hosts database is unreadable: ${e.message}")
         }
         val legacyPubkeysHaveData = legacyPubkeysExists && try {
             legacyPubkeyReader.readPubkeys().isNotEmpty()
         } catch (e: Exception) {
-            logDebug("Failed to read legacy pubkeys database: ${e.message}")
-            false
+            logError("Failed to read legacy pubkeys database", e)
+            throw MigrationException("Legacy pubkeys database is unreadable: ${e.message}")
         }
         if (!legacyHostsHaveData && !legacyPubkeysHaveData) {
             logDebug("Legacy databases exist but are empty or unreadable, no migration needed")
@@ -354,9 +355,9 @@ class DatabaseMigrator @Inject constructor(
         }
 
         // Validate known hosts with hostId reference valid hosts (will be cleaned in transformToRoomEntities)
-        val invalidKnownHosts = data.knownHosts.filter { it.hostId != null && it.hostId !in hostIds }
+        val invalidKnownHosts = data.knownHosts.filter { it.hostId !in hostIds }
         if (invalidKnownHosts.isNotEmpty()) {
-            val warning = "Found ${invalidKnownHosts.size} known host(s) referencing non-existent hosts. These will have their host reference removed."
+            val warning = "Found ${invalidKnownHosts.size} known host(s) referencing non-existent hosts. These will be skipped."
             logWarning(warning)
         }
 
@@ -429,7 +430,7 @@ class DatabaseMigrator @Inject constructor(
             // Clear invalid pubkey references
             if (fixedHost.pubkeyId > 0 && fixedHost.pubkeyId !in pubkeyIds) {
                 logDebug("Clearing invalid pubkey reference (ID ${fixedHost.pubkeyId}) for host '${fixedHost.nickname}'")
-                fixedHost = fixedHost.copy(pubkeyId = -1L)
+                fixedHost = fixedHost.copy(pubkeyId = HostConstants.PUBKEYID_NEVER)
             }
 
             // Reset invalid color scheme references to default
@@ -550,14 +551,13 @@ class DatabaseMigrator @Inject constructor(
             }
         }
 
-        // Clean up known hosts with invalid host references
-        val cleanedKnownHosts = legacy.knownHosts.map { knownHost ->
-            if (knownHost.hostId != null && knownHost.hostId !in hostIds) {
-                logDebug("Removing invalid host reference (ID ${knownHost.hostId}) from known host for ${knownHost.hostname}:${knownHost.port}")
-                knownHost.copy(hostId = null)
-            } else {
-                knownHost
+        // Clean up known hosts with invalid host references.
+        val cleanedKnownHosts = legacy.knownHosts.filter { knownHost ->
+            val keep = knownHost.hostId in hostIds
+            if (!keep) {
+                logDebug("Skipping invalid known host reference (ID ${knownHost.hostId}) for ${knownHost.hostname}:${knownHost.port}")
             }
+            keep
         }
 
         // Log summary of recovery actions
@@ -566,7 +566,7 @@ class DatabaseMigrator @Inject constructor(
             logDebug("Recovery: Skipped $skippedPortForwards invalid port forward(s)")
         }
 
-        val cleanedKnownHostsCount = cleanedKnownHosts.count { it.hostId == null && legacy.knownHosts.find { kh -> kh.id == it.id }?.hostId != null }
+        val cleanedKnownHostsCount = legacy.knownHosts.size - cleanedKnownHosts.size
         if (cleanedKnownHostsCount > 0) {
             logDebug("Recovery: Cleaned $cleanedKnownHostsCount known host(s) with invalid references")
         }
@@ -724,10 +724,8 @@ class DatabaseMigrator @Inject constructor(
 
             // Insert known hosts with remapped host IDs
             data.knownHosts.forEach { knownHost ->
-                val newHostId = knownHost.hostId?.let { oldHostId ->
-                    hostIdMap[oldHostId]
-                        ?: throw MigrationException("Known host references unknown host ID: $oldHostId")
-                }
+                val newHostId = hostIdMap[knownHost.hostId]
+                    ?: throw MigrationException("Known host references unknown host ID: ${knownHost.hostId}")
                 val remappedKnownHost = knownHost.copy(hostId = newHostId)
                 roomDatabase.knownHostDao().insert(remappedKnownHost)
             }
@@ -776,18 +774,34 @@ class DatabaseMigrator @Inject constructor(
         if (!dbFile.exists()) return
 
         val migratedFile = getLegacyDatabaseFile("$name$MIGRATED_SUFFIX")
-        if (!dbFile.renameTo(migratedFile)) {
-            throw MigrationException("Failed to mark legacy database as migrated: ${dbFile.path}")
-        }
+        moveLegacyFileToMigrated(dbFile, migratedFile)
 
         listOf("-wal", "-shm", "-journal").forEach { suffix ->
             val sidecar = getLegacyDatabaseFile("$name$suffix")
             if (sidecar.exists()) {
                 val migratedSidecar = getLegacyDatabaseFile("$name$MIGRATED_SUFFIX$suffix")
-                if (!sidecar.renameTo(migratedSidecar)) {
-                    logWarning("Could not mark legacy sidecar as migrated: ${sidecar.path}")
-                }
+                moveLegacyFileToMigrated(sidecar, migratedSidecar)
             }
+        }
+    }
+
+    private fun moveLegacyFileToMigrated(source: File, destination: File) {
+        if (destination.exists() && !destination.delete()) {
+            throw MigrationException("Failed to replace migrated legacy file: ${destination.path}")
+        }
+        if (source.renameTo(destination)) {
+            return
+        }
+
+        runCatching {
+            // 変更理由: renameToが同一filesystemでも失敗する端末に備え、copy+deleteで明示的に退避する。
+            source.copyTo(destination, overwrite = true)
+            if (!source.delete()) {
+                throw MigrationException("Failed to delete legacy file after copy: ${source.path}")
+            }
+        }.getOrElse { throwable ->
+            destination.delete()
+            throw MigrationException("Failed to mark legacy file as migrated: ${source.path}: ${throwable.message}")
         }
     }
 

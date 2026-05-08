@@ -103,7 +103,7 @@ object HostConfigJson {
     fun importFromJson(context: Context, database: RoomDatabase, jsonString: String): ImportCounts {
         val schema = DatabaseSchema.load(context)
         val exporter = createExporter(database, schema)
-        val results = exporter.importFromJson(jsonString, EXPORT_TABLES)
+        val results = exporter.importFromJson(sanitizeJsonForImport(jsonString), EXPORT_TABLES)
 
         val hostCounts = results["hosts"] ?: Pair(0, 0)
         val profileCounts = results["profiles"] ?: Pair(0, 0)
@@ -145,8 +145,109 @@ object HostConfigJson {
                     tableName = "hosts",
                     fieldPath = "pubkeyId",
                     replacementValue = HostConstants.PUBKEYID_NEVER
+                ),
+                SchemaBasedExporter.DroppedReference(
+                    tableName = "profiles",
+                    fieldPath = "colorSchemeId",
+                    replacementValue = -1L
+                )
+            ),
+            skipRowsWhenParentSkipped = listOf(
+                SchemaBasedExporter.ImportReference(
+                    tableName = "port_forwards",
+                    fieldPath = "hostId",
+                    referencedTableName = "hosts"
                 )
             )
         )
+    }
+
+    /**
+     * JSON import前に、export対象外テーブルや旧値に由来する危険な参照を落とす。
+     */
+    private fun sanitizeJsonForImport(jsonString: String): String {
+        val json = JSONObject(jsonString)
+        sanitizeProfiles(json)
+        sanitizeHosts(json)
+        sanitizePortForwards(json)
+        return json.toString()
+    }
+
+    private fun sanitizeProfiles(json: JSONObject) {
+        val profiles = json.optJSONArray("profiles") ?: return
+        for (i in 0 until profiles.length()) {
+            val profile = profiles.getJSONObject(i)
+            if (profile.optLong("colorSchemeId", -1L) > 0L) {
+                profile.put("colorSchemeId", -1L)
+            }
+        }
+    }
+
+    private fun sanitizeHosts(json: JSONObject) {
+        val hosts = json.optJSONArray("hosts") ?: return
+        val hostById = mutableMapOf<Long, JSONObject>()
+        for (i in 0 until hosts.length()) {
+            val host = hosts.getJSONObject(i)
+            val id = host.optLong("id", 0L)
+            if (id > 0L) {
+                // 変更理由: 後続の書き換えで循環判定が順序依存にならないよう、元JSONを保持する。
+                hostById[id] = JSONObject(host.toString())
+            }
+        }
+
+        val jumpHostIdsToClear = mutableSetOf<Long>()
+        for (i in 0 until hosts.length()) {
+            val host = hosts.getJSONObject(i)
+            val jumpHostId = host.optLong("jumpHostId", 0L)
+            if (jumpHostId <= 0L) continue
+
+            val shouldClearJump = host.optString("protocol") != "ssh" ||
+                jumpHostId == host.optLong("id", 0L) ||
+                hostById[jumpHostId]?.optString("protocol") != "ssh" ||
+                hasJumpCycle(host.optLong("id", 0L), jumpHostId, hostById)
+
+            if (shouldClearJump) {
+                jumpHostIdsToClear += host.optLong("id", 0L)
+            }
+        }
+
+        for (i in 0 until hosts.length()) {
+            val host = hosts.getJSONObject(i)
+            if (host.optLong("id", 0L) in jumpHostIdsToClear) {
+                host.put("jumpHostId", JSONObject.NULL)
+            }
+        }
+    }
+
+    private fun hasJumpCycle(rootId: Long, firstJumpHostId: Long, hostById: Map<Long, JSONObject>): Boolean {
+        if (rootId <= 0L) return false
+        val visited = mutableSetOf(rootId)
+        var nextId = firstJumpHostId
+        while (nextId > 0L) {
+            if (!visited.add(nextId)) {
+                return true
+            }
+            val nextHost = hostById[nextId] ?: return true
+            nextId = nextHost.optLong("jumpHostId", 0L)
+        }
+        return false
+    }
+
+    private fun sanitizePortForwards(json: JSONObject) {
+        val portForwards = json.optJSONArray("port_forwards") ?: return
+        val sanitized = org.json.JSONArray()
+        for (i in 0 until portForwards.length()) {
+            val portForward = portForwards.getJSONObject(i)
+            when (portForward.optString("type")) {
+                HostConstants.PORTFORWARD_DYNAMIC4 -> {
+                    portForward.put("type", HostConstants.PORTFORWARD_DYNAMIC5)
+                    sanitized.put(portForward)
+                }
+                HostConstants.PORTFORWARD_LOCAL,
+                HostConstants.PORTFORWARD_REMOTE,
+                HostConstants.PORTFORWARD_DYNAMIC5 -> sanitized.put(portForward)
+            }
+        }
+        json.put("port_forwards", sanitized)
     }
 }

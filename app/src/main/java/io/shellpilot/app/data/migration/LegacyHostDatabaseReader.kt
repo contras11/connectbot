@@ -142,13 +142,35 @@ class LegacyHostDatabaseReader(private val context: Context) {
             val hasEndpointColumns = "hostname" in knownHostColumns && "port" in knownHostColumns
             val endpointHostname = if (hasEndpointColumns) "COALESCE(kh.hostname, h.hostname)" else "h.hostname"
             val endpointPort = if (hasEndpointColumns) "COALESCE(kh.port, h.port)" else "h.port"
+            val recoveredHostId = if (hasEndpointColumns) {
+                """
+                CASE
+                    WHEN h._id IS NOT NULL THEN kh.hostid
+                    WHEN (
+                        SELECT COUNT(*)
+                        FROM hosts hx
+                        WHERE hx.hostname = kh.hostname
+                          AND hx.port = kh.port
+                    ) = 1 THEN (
+                        SELECT hx._id
+                        FROM hosts hx
+                        WHERE hx.hostname = kh.hostname
+                          AND hx.port = kh.port
+                        LIMIT 1
+                    )
+                    ELSE NULL
+                END
+                """.trimIndent()
+            } else {
+                "CASE WHEN h._id IS NULL THEN NULL ELSE kh.hostid END"
+            }
 
-            // 変更理由: 孤立known hostもendpointを保持できる形式ならhostId=nullとして復旧する。
+            // 変更理由: 孤立known hostは一意に対応するhostがある場合だけ再接続し、それ以外は後段でskipする。
             db.rawQuery(
                 """
                 SELECT
                     kh._id,
-                    CASE WHEN h._id IS NULL THEN NULL ELSE kh.hostid END AS hostid,
+                    $recoveredHostId AS hostid,
                     kh.hostkeyalgo,
                     kh.hostkey,
                     $endpointHostname AS hostname,
@@ -322,7 +344,11 @@ class LegacyHostDatabaseReader(private val context: Context) {
 
         return KnownHost(
             id = cursor.getLong(idIndex),
-            hostId = if (cursor.isNull(hostIdIndex)) null else cursor.getLong(hostIdIndex),
+            hostId = if (cursor.isNull(hostIdIndex)) {
+                throw IllegalArgumentException("knownhost host reference could not be recovered")
+            } else {
+                cursor.getLong(hostIdIndex)
+            },
             hostname = cursor.getStringOrNull(hostnameIndex)
                 ?: throw IllegalArgumentException("knownhost endpoint hostname is missing"),
             port = cursor.getInt(portIndex),

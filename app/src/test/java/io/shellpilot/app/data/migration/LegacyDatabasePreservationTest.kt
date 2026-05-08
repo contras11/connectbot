@@ -88,8 +88,14 @@ class LegacyDatabasePreservationTest {
 
         val migrator = createDatabaseMigrator()
 
-        // Check if migration is needed (doesn't run migration, just checks)
-        migrator.isMigrationNeeded()
+        // 変更理由: 旧DBファイルが存在するのに読めない場合は、移行不要ではなく明示的な失敗にする。
+        var thrown: Throwable? = null
+        try {
+            migrator.isMigrationNeeded()
+        } catch (error: Throwable) {
+            thrown = error
+        }
+        assertThat(thrown).isInstanceOf(MigrationException::class.java)
 
         // Verify original files still exist and haven't been renamed
         assertThat(hostsDbFile.exists()).isTrue()
@@ -107,8 +113,14 @@ class LegacyDatabasePreservationTest {
 
         val migrator = createDatabaseMigrator()
 
-        // First migration attempt (will fail for some reason)
-        val result1 = migrator.migrate()
+        // First migration attempt fails, but must not destroy legacy files.
+        var thrown: Throwable? = null
+        try {
+            migrator.migrate()
+        } catch (error: Throwable) {
+            thrown = error
+        }
+        assertThat(thrown).isInstanceOf(MigrationException::class.java)
 
         // Even if migration failed, we should be able to read the legacy database again
         val reader = LegacyHostDatabaseReader(context)
@@ -136,7 +148,13 @@ class LegacyDatabasePreservationTest {
         val migrator = createDatabaseMigrator()
 
         // Attempt migration (will fail)
-        migrator.migrate()
+        var thrown: Throwable? = null
+        try {
+            migrator.migrate()
+        } catch (error: Throwable) {
+            thrown = error
+        }
+        assertThat(thrown).isInstanceOf(MigrationException::class.java)
 
         // Verify legacy database files have same size (weren't modified)
         assertThat(hostsDbFile.length()).isEqualTo(originalHostsSize)

@@ -114,7 +114,7 @@ data class Host(
      * Defaults to 1 (the Default profile).
      */
     @ColumnInfo(name = "profile_id", defaultValue = "1")
-    val profileId: Long? = 1L,
+    val profileId: Long = 1L,
 
     /**
      * IP version preference for connections.

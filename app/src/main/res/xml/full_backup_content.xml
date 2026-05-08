@@ -11,6 +11,9 @@
 		domain="database"
 		path="connectbot.db-shm" />
 	<exclude
+		domain="database"
+		path="connectbot.db-journal" />
+	<exclude
 		domain="sharedpref"
 		path="secure_host_passwords.xml" />
 </full-backup-content>

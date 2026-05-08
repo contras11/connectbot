@@ -28,6 +28,7 @@ import io.shellpilot.app.util.HostConstants
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
+import org.json.JSONObject
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -203,10 +204,119 @@ class HostConfigJsonTest {
         assertThat(totalForwards).isEqualTo(2)
     }
 
+    @Test
+    fun importFromJson_dropsCustomColorSchemeReference() = runTest {
+        val sourceProfileId = sourceDb.profileDao().insert(Profile(name = "Custom colors", colorSchemeId = 99L))
+        sourceDb.hostDao().insert(host(nickname = "profile-host", hostname = "profile.example.com", profileId = sourceProfileId))
+
+        val (exportedJson, _) = HostConfigJson.exportToJson(context, sourceDb, pretty = false)
+        HostConfigJson.importFromJson(context, destinationDb, exportedJson)
+
+        val importedProfile = destinationDb.profileDao().getAll().first { it.name == "Custom colors" }
+        val importedHost = destinationDb.hostDao().getAll().first { it.nickname == "profile-host" }
+        assertThat(importedProfile.colorSchemeId).isEqualTo(-1L)
+        assertThat(importedHost.profileId).isEqualTo(importedProfile.id)
+    }
+
+    @Test
+    fun importFromJson_fallsBackMissingProfileToDefault() = runTest {
+        sourceDb.hostDao().insert(host(nickname = "default-host", hostname = "default.example.com"))
+
+        val (exportedJson, _) = HostConfigJson.exportToJson(context, sourceDb, pretty = false)
+        val json = JSONObject(exportedJson)
+        json.put("profiles", org.json.JSONArray())
+        json.getJSONArray("hosts").getJSONObject(0).put("profileId", 999L)
+
+        HostConfigJson.importFromJson(context, destinationDb, json.toString())
+
+        val importedHosts = destinationDb.hostDao().getAll()
+        assertThat(importedHosts.first { it.nickname == "default-host" }.profileId).isEqualTo(1L)
+        assertThat(destinationDb.profileDao().getAll()).extracting("name").containsExactly("Default")
+    }
+
+    @Test
+    fun importFromJson_sanitizesJumpHostsAndPortForwardTypes() = runTest {
+        val jumpAId = sourceDb.hostDao().insert(host(nickname = "jump-a", hostname = "jump-a.example.com"))
+        val jumpBId = sourceDb.hostDao().insert(host(nickname = "jump-b", hostname = "jump-b.example.com", jumpHostId = jumpAId))
+        sourceDb.hostDao().update(sourceDb.hostDao().getById(jumpAId)!!.copy(jumpHostId = jumpBId))
+        val telnetId = sourceDb.hostDao().insert(
+            host(nickname = "telnet", hostname = "telnet.example.com").copy(protocol = "telnet")
+        )
+        val appId = sourceDb.hostDao().insert(host(nickname = "app", hostname = "app.example.com", jumpHostId = telnetId))
+        sourceDb.portForwardDao().insert(
+            PortForward(
+                hostId = appId,
+                nickname = "old-dynamic",
+                type = HostConstants.PORTFORWARD_DYNAMIC4,
+                sourcePort = 1080,
+                destAddr = null,
+                destPort = 0
+            )
+        )
+        sourceDb.portForwardDao().insert(
+            PortForward(
+                hostId = appId,
+                nickname = "bad-type",
+                type = "udp",
+                sourcePort = 1081,
+                destAddr = null,
+                destPort = 0
+            )
+        )
+
+        val (json, _) = HostConfigJson.exportToJson(context, sourceDb, pretty = false)
+        HostConfigJson.importFromJson(context, destinationDb, json)
+
+        val importedHosts = destinationDb.hostDao().getAll()
+        assertThat(importedHosts.first { it.nickname == "jump-a" }.jumpHostId).isNull()
+        assertThat(importedHosts.first { it.nickname == "jump-b" }.jumpHostId).isNull()
+        assertThat(importedHosts.first { it.nickname == "app" }.jumpHostId).isNull()
+
+        val importedApp = importedHosts.first { it.nickname == "app" }
+        val importedForwards = destinationDb.portForwardDao().getByHost(importedApp.id)
+        assertThat(importedForwards).hasSize(1)
+        assertThat(importedForwards.single().nickname).isEqualTo("old-dynamic")
+        assertThat(importedForwards.single().type).isEqualTo(HostConstants.PORTFORWARD_DYNAMIC5)
+    }
+
+    @Test
+    fun importFromJson_skipsPortForwardsWhenParentHostAlreadyExists() = runTest {
+        val sourceHostId = sourceDb.hostDao().insert(host(nickname = "existing-host", hostname = "source.example.com"))
+        sourceDb.portForwardDao().insert(
+            PortForward(
+                hostId = sourceHostId,
+                nickname = "source-forward",
+                type = "local",
+                sourcePort = 10022,
+                destAddr = "127.0.0.1",
+                destPort = 22
+            )
+        )
+        val destinationHostId = destinationDb.hostDao().insert(host(nickname = "existing-host", hostname = "destination.example.com"))
+        destinationDb.portForwardDao().insert(
+            PortForward(
+                hostId = destinationHostId,
+                nickname = "existing-forward",
+                type = "local",
+                sourcePort = 20022,
+                destAddr = "127.0.0.1",
+                destPort = 22
+            )
+        )
+
+        val (json, _) = HostConfigJson.exportToJson(context, sourceDb, pretty = false)
+        HostConfigJson.importFromJson(context, destinationDb, json)
+        HostConfigJson.importFromJson(context, destinationDb, json)
+
+        val destinationForwards = destinationDb.portForwardDao().getByHost(destinationHostId)
+        assertThat(destinationForwards).hasSize(1)
+        assertThat(destinationForwards.single().nickname).isEqualTo("existing-forward")
+    }
+
     private fun host(
         nickname: String,
         hostname: String,
-        profileId: Long? = 1L,
+        profileId: Long = 1L,
         pubkeyId: Long = HostConstants.PUBKEYID_ANY,
         jumpHostId: Long? = null
     ): Host {

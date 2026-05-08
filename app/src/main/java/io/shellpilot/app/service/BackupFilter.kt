@@ -59,9 +59,9 @@ class BackupFilter(
         val tempDb = Room.databaseBuilder(
             context,
             ShellPilotDatabase::class.java,
-            tempDbFile.name
+            tempDbFile.absolutePath
         )
-            .addMigrations(ShellPilotDatabase.MIGRATION_4_5, ShellPilotDatabase.MIGRATION_7_8)
+            .addMigrations(ShellPilotDatabase.MIGRATION_4_5, ShellPilotDatabase.MIGRATION_7_8, ShellPilotDatabase.MIGRATION_8_9)
             .setJournalMode(RoomDatabase.JournalMode.TRUNCATE)
             .allowMainThreadQueries() // Backup runs on backup thread
             .build()
@@ -71,6 +71,18 @@ class BackupFilter(
             val allProfiles = profileRepository.getAll()
             val allHosts = hostRepository.getHosts()
             val allColorSchemes = colorSchemeRepository.getAllSchemes()
+            val customColorSchemeIds = allColorSchemes
+                .filter { !it.isBuiltIn && it.id > 0L }
+                .map { it.id }
+                .toSet()
+            val backupProfiles = allProfiles.map { profile ->
+                if (profile.colorSchemeId > 0L && profile.colorSchemeId !in customColorSchemeIds) {
+                    // 変更理由: 復元先で存在しないカスタム配色IDへ誤接続しないようDefaultへ戻す。
+                    profile.copy(colorSchemeId = -1L)
+                } else {
+                    profile
+                }
+            }
 
             val backupablePubkeys = if (backupKeys) {
                 // Filter pubkeys - only keep backupable ones
@@ -80,17 +92,19 @@ class BackupFilter(
                 emptyList()
             }
 
-            Timber.d("Backing up ${allProfiles.size} profiles, ${allHosts.size} hosts, ${backupablePubkeys.size} pubkeys, ${allColorSchemes.size} color schemes")
+            Timber.d("Backing up ${backupProfiles.size} profiles, ${allHosts.size} hosts, ${backupablePubkeys.size} pubkeys, ${allColorSchemes.size} color schemes")
 
             // Insert all backupable data into temp database
-            allProfiles.forEach { profile ->
+            backupProfiles.forEach { profile ->
                 tempDb.profileDao().insert(profile)
             }
 
             val backupablePubkeyIds = backupablePubkeys.map { it.id }.toSet()
+            val profileIds = backupProfiles.map { it.id }.toSet()
             val hostIds = allHosts.map { it.id }.toSet()
+            val hostById = allHosts.associateBy { it.id }
             val backupHosts = allHosts.map { host ->
-                sanitizeHostReference(host, backupablePubkeyIds, hostIds)
+                sanitizeHostReference(host, backupablePubkeyIds, profileIds, hostIds, hostById)
             }
 
             backupHosts.forEach { host ->
@@ -104,7 +118,7 @@ class BackupFilter(
             backupHosts.forEach { host ->
                 // Also backup port forwards and known hosts for this host
                 val portForwards = hostRepository.getPortForwardsForHost(host.id)
-                portForwards.forEach { tempDb.portForwardDao().insert(it) }
+                portForwards.mapNotNull(::sanitizePortForward).forEach { tempDb.portForwardDao().insert(it) }
 
                 val knownHosts = hostRepository.getKnownHostsForHost(host.id)
                 knownHosts.forEach { tempDb.knownHostDao().insert(it) }
@@ -164,17 +178,64 @@ class BackupFilter(
     private fun sanitizeHostReference(
         host: Host,
         backupablePubkeyIds: Set<Long>,
-        hostIds: Set<Long>
+        profileIds: Set<Long>,
+        hostIds: Set<Long>,
+        hostById: Map<Long, Host>
     ): Host {
         val sanitizedPubkeyId = when {
             host.pubkeyId <= 0L -> host.pubkeyId
             host.pubkeyId in backupablePubkeyIds -> host.pubkeyId
             else -> HostConstants.PUBKEYID_NEVER
         }
-        val sanitizedJumpHostId = host.jumpHostId?.takeIf { it in hostIds && it != host.id }
+        val sanitizedProfileId = host.profileId.takeIf { it in profileIds } ?: DEFAULT_PROFILE_ID
+        val sanitizedJumpHostId = sanitizeJumpHostId(host, hostIds, hostById)
 
         // 変更理由: バックアップから落とした鍵や壊れた踏み台参照を復元先へ持ち込まない。
-        return host.copy(pubkeyId = sanitizedPubkeyId, jumpHostId = sanitizedJumpHostId)
+        return host.copy(
+            profileId = sanitizedProfileId,
+            pubkeyId = sanitizedPubkeyId,
+            jumpHostId = sanitizedJumpHostId
+        )
+    }
+
+    private fun sanitizeJumpHostId(
+        host: Host,
+        hostIds: Set<Long>,
+        hostById: Map<Long, Host>
+    ): Long? {
+        val jumpHostId = host.jumpHostId ?: return null
+        val jumpHost = hostById[jumpHostId]
+        if (jumpHostId !in hostIds || jumpHostId == host.id || jumpHost?.protocol != "ssh") {
+            return null
+        }
+        return if (hasJumpCycle(host.id, jumpHostId, hostById)) null else jumpHostId
+    }
+
+    private fun hasJumpCycle(rootId: Long, firstJumpHostId: Long, hostById: Map<Long, Host>): Boolean {
+        val visited = mutableSetOf(rootId)
+        var nextId: Long? = firstJumpHostId
+        while (nextId != null && nextId > 0L) {
+            if (!visited.add(nextId)) {
+                return true
+            }
+            val nextHost = hostById[nextId] ?: return true
+            if (nextHost.protocol != "ssh") {
+                return true
+            }
+            nextId = nextHost.jumpHostId
+        }
+        return false
+    }
+
+    private fun sanitizePortForward(portForward: io.shellpilot.app.data.entity.PortForward): io.shellpilot.app.data.entity.PortForward? {
+        val normalizedType = when (portForward.type) {
+            HostConstants.PORTFORWARD_DYNAMIC4 -> HostConstants.PORTFORWARD_DYNAMIC5
+            HostConstants.PORTFORWARD_LOCAL,
+            HostConstants.PORTFORWARD_REMOTE,
+            HostConstants.PORTFORWARD_DYNAMIC5 -> portForward.type
+            else -> return null
+        }
+        return portForward.copy(type = normalizedType)
     }
 
     /**
@@ -191,5 +252,9 @@ class BackupFilter(
         File(tempDbFile.path + "-shm").delete()
         File(tempDbFile.path + "-journal").delete()
         Timber.d("Deleted temporary database files")
+    }
+
+    private companion object {
+        const val DEFAULT_PROFILE_ID = 1L
     }
 }

@@ -50,7 +50,7 @@ data class KnownHost(
     val id: Long = 0,
 
     @ColumnInfo(name = "host_id")
-    val hostId: Long?,
+    val hostId: Long,
 
     val hostname: String,
 
@@ -80,7 +80,7 @@ data class KnownHost(
 
     override fun hashCode(): Int {
         var result = id.hashCode()
-        result = 31 * result + (hostId?.hashCode() ?: 0)
+        result = 31 * result + hostId.hashCode()
         result = 31 * result + hostname.hashCode()
         result = 31 * result + port
         result = 31 * result + hostKeyAlgo.hashCode()

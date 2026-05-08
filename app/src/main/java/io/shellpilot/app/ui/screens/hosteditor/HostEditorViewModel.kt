@@ -500,7 +500,7 @@ class HostEditorViewModel @Inject constructor(
                     port = if (isLocal) 0 else requireNotNull(port),
                     color = state.color.takeIf { it != "gray" },
                     pubkeyId = if (isSsh) state.pubkeyId else HostConstants.PUBKEYID_NEVER,
-                    profileId = state.profileId,
+                    profileId = state.profileId ?: DEFAULT_PROFILE_ID,
                     useAuthAgent = if (isSsh) state.useAuthAgent.takeIf { it != HostConstants.AUTHAGENT_NO } else null,
                     compression = if (isSsh) state.compression else false,
                     wantSession = state.wantSession,
@@ -586,5 +586,9 @@ class HostEditorViewModel @Inject constructor(
             nextId = hostsById[nextId]?.jumpHostId
         }
         return false
+    }
+
+    private companion object {
+        const val DEFAULT_PROFILE_ID = 1L
     }
 }

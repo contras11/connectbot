@@ -58,12 +58,34 @@ class ShellPilotDatabaseV8MigrationTest {
         db.close()
 
         val roomDb = Room.databaseBuilder(context, ShellPilotDatabase::class.java, TEST_DB)
-            .addMigrations(ShellPilotDatabase.MIGRATION_4_5, ShellPilotDatabase.MIGRATION_7_8)
+            .addMigrations(ShellPilotDatabase.MIGRATION_4_5, ShellPilotDatabase.MIGRATION_7_8, ShellPilotDatabase.MIGRATION_8_9)
             .allowMainThreadQueries()
             .build()
         try {
             runBlocking {
                 assertThat(roomDb.hostDao().getAll()).hasSize(4)
+            }
+        } finally {
+            roomDb.close()
+        }
+    }
+
+    @Test
+    fun migration8To9HardensProfileAndKnownHostInvariants() {
+        createV8Database()
+
+        val db = runV9MigrationWithOpenHelper()
+        assertV9DataWasNormalized(db)
+        db.close()
+
+        val roomDb = Room.databaseBuilder(context, ShellPilotDatabase::class.java, TEST_DB)
+            .addMigrations(ShellPilotDatabase.MIGRATION_8_9)
+            .allowMainThreadQueries()
+            .build()
+        try {
+            runBlocking {
+                assertThat(roomDb.hostDao().getAll()).hasSize(5)
+                assertThat(roomDb.knownHostDao().getByHostId(3)).hasSize(1)
             }
         } finally {
             roomDb.close()
@@ -91,6 +113,24 @@ class ShellPilotDatabaseV8MigrationTest {
                         assertThat(oldVersion).isEqualTo(7)
                         assertThat(newVersion).isEqualTo(8)
                         ShellPilotDatabase.MIGRATION_7_8.migrate(db)
+                    }
+                })
+                .build()
+        )
+        return helper.writableDatabase
+    }
+
+    private fun runV9MigrationWithOpenHelper(): SupportSQLiteDatabase {
+        val helper = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(TEST_DB)
+                .callback(object : SupportSQLiteOpenHelper.Callback(9) {
+                    override fun onCreate(db: SupportSQLiteDatabase) = Unit
+
+                    override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {
+                        assertThat(oldVersion).isEqualTo(8)
+                        assertThat(newVersion).isEqualTo(9)
+                        ShellPilotDatabase.MIGRATION_8_9.migrate(db)
                     }
                 })
                 .build()
@@ -137,6 +177,63 @@ class ShellPilotDatabaseV8MigrationTest {
         }
     }
 
+    private fun assertV9DataWasNormalized(db: SupportSQLiteDatabase) {
+        db.query("PRAGMA table_info(`hosts`)").use { cursor ->
+            var profileIdIsNotNull = false
+            while (cursor.moveToNext()) {
+                if (cursor.getString(cursor.getColumnIndexOrThrow("name")) == "profile_id") {
+                    profileIdIsNotNull = cursor.getInt(cursor.getColumnIndexOrThrow("notnull")) == 1
+                }
+            }
+            assertThat(profileIdIsNotNull).isTrue()
+        }
+
+        db.query("PRAGMA table_info(`known_hosts`)").use { cursor ->
+            var hostIdIsNotNull = false
+            while (cursor.moveToNext()) {
+                if (cursor.getString(cursor.getColumnIndexOrThrow("name")) == "host_id") {
+                    hostIdIsNotNull = cursor.getInt(cursor.getColumnIndexOrThrow("notnull")) == 1
+                }
+            }
+            assertThat(hostIdIsNotNull).isTrue()
+        }
+
+        db.query("SELECT profile_id, pubkey_id, jump_host_id FROM hosts WHERE id = 1").use { cursor ->
+            assertThat(cursor.moveToFirst()).isTrue()
+            assertThat(cursor.getLong(0)).isEqualTo(1L)
+            assertThat(cursor.getLong(1)).isEqualTo(HostConstants.PUBKEYID_NEVER)
+            assertThat(cursor.isNull(2)).isTrue()
+        }
+
+        db.query("SELECT color_scheme_id FROM profiles WHERE id = 2").use { cursor ->
+            assertThat(cursor.moveToFirst()).isTrue()
+            assertThat(cursor.getLong(0)).isEqualTo(-1L)
+        }
+
+        db.query("SELECT type FROM port_forwards ORDER BY id").use { cursor ->
+            assertThat(cursor.moveToFirst()).isTrue()
+            assertThat(cursor.getString(0)).isEqualTo(HostConstants.PORTFORWARD_DYNAMIC5)
+            assertThat(cursor.moveToNext()).isFalse()
+        }
+
+        db.query("SELECT host_id, hostname FROM known_hosts ORDER BY id").use { cursor ->
+            assertThat(cursor.moveToFirst()).isTrue()
+            assertThat(cursor.getLong(0)).isEqualTo(3L)
+            assertThat(cursor.getString(1)).isEqualTo("orphan.example.com")
+            assertThat(cursor.moveToNext()).isFalse()
+        }
+    }
+
+    private fun createV8Database() {
+        val dbFile = context.getDatabasePath(TEST_DB)
+        dbFile.parentFile?.mkdirs()
+        SQLiteDatabase.openOrCreateDatabase(dbFile, null).use { db ->
+            createV7Schema(db)
+            insertV8Fixture(db)
+            db.version = 8
+        }
+    }
+
     private fun createV7Schema(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE IF NOT EXISTS hosts (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `nickname` TEXT NOT NULL, `protocol` TEXT NOT NULL, `username` TEXT NOT NULL, `hostname` TEXT NOT NULL, `port` INTEGER NOT NULL, `host_key_algo` TEXT, `last_connect` INTEGER NOT NULL, `color` TEXT, `use_keys` INTEGER NOT NULL, `use_auth_agent` TEXT, `post_login` TEXT, `pubkey_id` INTEGER NOT NULL, `want_session` INTEGER NOT NULL, `compression` INTEGER NOT NULL, `stay_connected` INTEGER NOT NULL, `quick_disconnect` INTEGER NOT NULL, `scrollback_lines` INTEGER NOT NULL, `use_ctrl_alt_as_meta_key` INTEGER NOT NULL, `jump_host_id` INTEGER, `profile_id` INTEGER, `ip_version` TEXT NOT NULL DEFAULT 'IPV4_AND_IPV6')")
         db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_hosts_nickname` ON `hosts` (`nickname`)")
@@ -179,6 +276,27 @@ class ShellPilotDatabaseV8MigrationTest {
         db.execSQL("INSERT INTO known_hosts (id, host_id, hostname, port, host_key_algo, host_key) VALUES (3, 1, 'example.com', 22, 'ssh-rsa', X'BB')")
     }
 
+    private fun insertV8Fixture(db: SQLiteDatabase) {
+        db.execSQL("INSERT INTO profiles (id, name, color_scheme_id, font_size, del_key, encoding, emulation) VALUES (1, 'Default', -1, 10, 'del', 'UTF-8', 'xterm-256color')")
+        db.execSQL("INSERT INTO profiles (id, name, color_scheme_id, font_size, del_key, encoding, emulation) VALUES (2, 'Broken scheme', 999, 10, 'del', 'UTF-8', 'xterm-256color')")
+
+        db.execSQL("INSERT INTO pubkeys (id, nickname, type, private_key, public_key, encrypted, startup, confirmation, created_date, storage_type, allow_backup, keystore_alias) VALUES (1, 'broken exportable', 'ssh-rsa', NULL, X'01', 0, 1, 0, 100, 'EXPORTABLE', 1, NULL)")
+        db.execSQL("INSERT INTO pubkeys (id, nickname, type, private_key, public_key, encrypted, startup, confirmation, created_date, storage_type, allow_backup, keystore_alias) VALUES (2, 'keystore key', 'ssh-rsa', X'02', X'03', 0, 1, 0, 100, 'ANDROID_KEYSTORE', 1, 'alias')")
+
+        insertHost(db, id = 1, nickname = "needs-normalize", protocol = "ssh", profileId = 999, pubkeyId = 999, jumpHostId = 2)
+        insertHost(db, id = 2, nickname = "not-ssh", protocol = "telnet", profileId = 1, pubkeyId = -1, jumpHostId = null)
+        insertHost(db, id = 3, nickname = "orphan-target", protocol = "ssh", profileId = 1, pubkeyId = -1, jumpHostId = null, hostname = "orphan.example.com")
+        insertHost(db, id = 4, nickname = "ambiguous-a", protocol = "ssh", profileId = 1, pubkeyId = -1, jumpHostId = null, hostname = "ambiguous.example.com", username = "alice")
+        insertHost(db, id = 5, nickname = "ambiguous-b", protocol = "ssh", profileId = 1, pubkeyId = -1, jumpHostId = null, hostname = "ambiguous.example.com", username = "bob")
+
+        db.execSQL("INSERT INTO port_forwards (id, host_id, nickname, type, source_port, dest_addr, dest_port) VALUES (1, 1, 'dyn4', 'dynamic4', 1080, NULL, 0)")
+        db.execSQL("INSERT INTO port_forwards (id, host_id, nickname, type, source_port, dest_addr, dest_port) VALUES (2, 1, 'bad', 'unsupported', 1081, NULL, 0)")
+
+        db.execSQL("INSERT INTO known_hosts (id, host_id, hostname, port, host_key_algo, host_key) VALUES (1, NULL, 'orphan.example.com', 22, 'ssh-ed25519', X'AA')")
+        db.execSQL("INSERT INTO known_hosts (id, host_id, hostname, port, host_key_algo, host_key) VALUES (2, NULL, 'ambiguous.example.com', 22, 'ssh-ed25519', X'BB')")
+        db.execSQL("INSERT INTO known_hosts (id, host_id, hostname, port, host_key_algo, host_key) VALUES (3, 999, 'missing.example.com', 22, 'ssh-rsa', X'CC')")
+    }
+
     private fun insertHost(
         db: SQLiteDatabase,
         id: Long,
@@ -186,7 +304,9 @@ class ShellPilotDatabaseV8MigrationTest {
         protocol: String,
         profileId: Long,
         pubkeyId: Long,
-        jumpHostId: Long?
+        jumpHostId: Long?,
+        hostname: String = "example.com",
+        username: String = "user"
     ) {
         db.execSQL(
             """
@@ -199,7 +319,7 @@ class ShellPilotDatabaseV8MigrationTest {
             )
             VALUES (?, ?, ?, ?, ?, ?, NULL, 0, NULL, 1, 'no', NULL, ?, 1, 0, 0, 0, 140, 0, ?, ?, 'IPV4_AND_IPV6')
             """.trimIndent(),
-            arrayOf<Any?>(id, nickname, protocol, "user", "example.com", 22, pubkeyId, jumpHostId, profileId)
+            arrayOf<Any?>(id, nickname, protocol, username, hostname, 22, pubkeyId, jumpHostId, profileId)
         )
     }
 

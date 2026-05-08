@@ -120,6 +120,10 @@ class ProfileRepository @Inject constructor(
      * @return true if deleted, false if not found
      */
     suspend fun delete(profileId: Long): Boolean = withContext(dispatchers.io) {
+        if (profileId == DEFAULT_PROFILE_ID) {
+            // 変更理由: hosts.profile_id のDB defaultが参照するDefault profileは削除不可にする。
+            return@withContext false
+        }
         profileDao.deleteById(profileId) > 0
     }
 
@@ -184,4 +188,8 @@ class ProfileRepository @Inject constructor(
             )
             profileDao.insert(newProfile)
         }
+
+    private companion object {
+        const val DEFAULT_PROFILE_ID = 1L
+    }
 }

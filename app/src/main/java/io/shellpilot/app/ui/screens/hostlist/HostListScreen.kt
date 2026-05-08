@@ -930,7 +930,7 @@ private fun HostListItem(
             if (host.protocol == "ssh" && host.useKeys) {
                 StatusChip(label = "鍵")
             }
-            if (host.profileId != null) {
+            if (host.profileId != DEFAULT_PROFILE_ID) {
                 StatusChip(label = "プロファイル ${host.profileId}")
             }
             if (host.jumpHostId != null) {
@@ -973,6 +973,8 @@ private fun HostListItem(
         )
     }
 }
+
+private const val DEFAULT_PROFILE_ID = 1L
 
 @Composable
 private fun CommandCenterHeader(

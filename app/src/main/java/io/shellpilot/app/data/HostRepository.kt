@@ -28,6 +28,7 @@ import io.shellpilot.app.data.dao.PortForwardDao
 import io.shellpilot.app.data.entity.Host
 import io.shellpilot.app.data.entity.KnownHost
 import io.shellpilot.app.data.entity.PortForward
+import io.shellpilot.app.util.HostConstants
 import io.shellpilot.app.util.SecurePasswordStorage
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -135,14 +136,17 @@ class HostRepository @Inject constructor(
      * @param host The host to save
      * @return The saved host with updated ID
      */
-    suspend fun saveHost(host: Host): Host = if (host.id <= 0L) {
-        // New or temporary host - insert (assigns new positive ID)
-        val newId = hostDao.insert(host)
-        host.copy(id = newId)
-    } else {
-        // Existing host - update
-        hostDao.update(host)
-        host
+    suspend fun saveHost(host: Host): Host {
+        val sanitizedHost = sanitizeHost(host)
+        return if (sanitizedHost.id <= 0L) {
+            // New or temporary host - insert (assigns new positive ID)
+            val newId = hostDao.insert(sanitizedHost)
+            sanitizedHost.copy(id = newId)
+        } else {
+            // Existing host - update
+            hostDao.update(sanitizedHost)
+            sanitizedHost
+        }
     }
 
     /**
@@ -196,14 +200,17 @@ class HostRepository @Inject constructor(
      * @param portForward The port forward to save
      * @return The saved port forward with updated ID
      */
-    suspend fun savePortForward(portForward: PortForward): PortForward = if (portForward.id == 0L) {
-        // New port forward - insert
-        val newId = portForwardDao.insert(portForward)
-        portForward.copy(id = newId)
-    } else {
-        // Existing port forward - update
-        portForwardDao.update(portForward)
-        portForward
+    suspend fun savePortForward(portForward: PortForward): PortForward {
+        val normalized = normalizePortForward(portForward)
+        return if (normalized.id == 0L) {
+            // New port forward - insert
+            val newId = portForwardDao.insert(normalized)
+            normalized.copy(id = newId)
+        } else {
+            // Existing port forward - update
+            portForwardDao.update(normalized)
+            normalized
+        }
     }
 
     /**
@@ -445,5 +452,71 @@ class HostRepository @Inject constructor(
         }
 
         return null
+    }
+
+    private suspend fun sanitizeHost(host: Host): Host {
+        val profileId = host.profileId.takeIf { profileId ->
+            profileId > 0L && database.profileDao().getById(profileId) != null
+        } ?: DEFAULT_PROFILE_ID
+
+        val pubkeyId = when {
+            host.pubkeyId <= 0L -> host.pubkeyId
+            database.pubkeyDao().getById(host.pubkeyId) != null -> host.pubkeyId
+            else -> HostConstants.PUBKEYID_NEVER
+        }
+
+        // 変更理由: migrationだけでなく保存境界でも参照不整合をDBへ入れない。
+        return host.copy(
+            profileId = profileId,
+            pubkeyId = pubkeyId,
+            jumpHostId = sanitizeJumpHostId(host)
+        )
+    }
+
+    private suspend fun sanitizeJumpHostId(host: Host): Long? {
+        val jumpHostId = host.jumpHostId ?: return null
+        if (jumpHostId <= 0L || jumpHostId == host.id) return null
+
+        val jumpHost = hostDao.getById(jumpHostId) ?: return null
+        if (jumpHost.protocol != "ssh") return null
+
+        return if (wouldCreateJumpCycle(host, jumpHost)) null else jumpHostId
+    }
+
+    private suspend fun wouldCreateJumpCycle(host: Host, firstJumpHost: Host): Boolean {
+        val visited = mutableSetOf<Long>()
+        if (host.id > 0L) {
+            visited.add(host.id)
+        }
+
+        var nextHost: Host? = firstJumpHost
+        while (nextHost != null) {
+            if (nextHost.id > 0L && !visited.add(nextHost.id)) {
+                return true
+            }
+            val nextJumpHostId = nextHost.jumpHostId ?: return false
+            nextHost = hostDao.getById(nextJumpHostId) ?: return true
+            if (nextHost.protocol != "ssh") {
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun normalizePortForward(portForward: PortForward): PortForward {
+        val normalizedType = when (portForward.type) {
+            HostConstants.PORTFORWARD_DYNAMIC4 -> HostConstants.PORTFORWARD_DYNAMIC5
+            HostConstants.PORTFORWARD_LOCAL,
+            HostConstants.PORTFORWARD_REMOTE,
+            HostConstants.PORTFORWARD_DYNAMIC5 -> portForward.type
+            else -> throw IllegalArgumentException("Unsupported port forward type: ${portForward.type}")
+        }
+
+        // 変更理由: 接続処理が扱えるtypeだけを永続化し、旧dynamic4はdynamic5へ統一する。
+        return portForward.copy(type = normalizedType)
+    }
+
+    private companion object {
+        const val DEFAULT_PROFILE_ID = 1L
     }
 }

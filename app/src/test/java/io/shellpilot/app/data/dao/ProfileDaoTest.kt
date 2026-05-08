@@ -242,13 +242,14 @@ class ProfileDaoTest {
 
     @Test
     fun getHostsUsingProfileReturnsCorrectCount() = runTest {
+        profileDao.insert(Profile(id = 1, name = "Default"))
         val profile = createTestProfile(name = "UsedProfile")
         val profileId = profileDao.insert(profile)
 
         // Create hosts using this profile
         val host1 = createTestHost(nickname = "host1", profileId = profileId)
         val host2 = createTestHost(nickname = "host2", profileId = profileId)
-        val host3 = createTestHost(nickname = "host3", profileId = null)
+        val host3 = createTestHost(nickname = "host3", profileId = 1L)
 
         hostDao.insert(host1)
         hostDao.insert(host2)
@@ -368,7 +369,7 @@ class ProfileDaoTest {
 
     private fun createTestHost(
         nickname: String,
-        profileId: Long?
+        profileId: Long
     ): Host {
         return Host(
             nickname = nickname,

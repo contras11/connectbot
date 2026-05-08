@@ -303,7 +303,7 @@ class HostDaoTest {
         scrollbackLines: Int = 140,
         useCtrlAltAsMetaKey: Boolean = false,
         jumpHostId: Long? = null,
-        profileId: Long? = 1L
+        profileId: Long = 1L
     ): Host {
         return Host(
             nickname = nickname,

@@ -42,7 +42,8 @@ class SchemaBasedExporter(
     private val database: RoomDatabase,
     private val schema: DatabaseSchema,
     private val importReferences: List<ImportReference> = emptyList(),
-    private val droppedReferences: List<DroppedReference> = emptyList()
+    private val droppedReferences: List<DroppedReference> = emptyList(),
+    private val skipRowsWhenParentSkipped: List<ImportReference> = emptyList()
 ) {
 
     /**
@@ -106,6 +107,7 @@ class SchemaBasedExporter(
 
         // Track ID mappings for foreign key remapping: tableName -> (oldId -> newId)
         val idMappings = mutableMapOf<String, MutableMap<Long, Long>>()
+        val insertedIdMappings = mutableMapOf<String, MutableMap<Long, Long>>()
 
         db.beginTransaction()
         try {
@@ -131,6 +133,11 @@ class SchemaBasedExporter(
                 for (i in 0 until rows.length()) {
                     val row = rows.getJSONObject(i)
                     val oldId = row.optLong("id", 0)
+
+                    if (shouldSkipBecauseParentWasSkipped(tableName, row, insertedIdMappings)) {
+                        skippedCount++
+                        continue
+                    }
 
                     // Remap foreign key values using previously imported ID mappings
                     val remappedRow = remapForeignKeys(row, foreignKeys, idMappings, entitySchema)
@@ -159,6 +166,7 @@ class SchemaBasedExporter(
 
                 // Second pass: update explicitly configured self-referencing keys.
                 updateSelfReferences(db, tableName, entitySchema, idMapping, insertedIdMapping, rows)
+                insertedIdMappings[tableName] = insertedIdMapping
 
                 results[tableName] = Pair(insertedCount, skippedCount)
             }
@@ -338,7 +346,15 @@ class SchemaBasedExporter(
         importReferences
             .filter { it.tableName == tableName }
             .forEach { reference ->
-                if (!remapped.has(reference.fieldPath) || remapped.isNull(reference.fieldPath)) {
+                if (!remapped.has(reference.fieldPath)) {
+                    return@forEach
+                }
+
+                if (remapped.isNull(reference.fieldPath)) {
+                    // 変更理由: Room FKの汎用remapでNULL化されたprofileIdは、Defaultへ戻す必要がある。
+                    if (reference.missingValue != JSONObject.NULL) {
+                        remapped.put(reference.fieldPath, reference.missingValue)
+                    }
                     return@forEach
                 }
 
@@ -358,6 +374,25 @@ class SchemaBasedExporter(
                 }
             }
         return remapped
+    }
+
+    /**
+     * 親行が既存データとしてskipされた子行は、重複importを避けるため取り込まない。
+     */
+    private fun shouldSkipBecauseParentWasSkipped(
+        tableName: String,
+        row: JSONObject,
+        insertedIdMappings: Map<String, Map<Long, Long>>
+    ): Boolean {
+        return skipRowsWhenParentSkipped
+            .filter { it.tableName == tableName }
+            .any { reference ->
+                if (!row.has(reference.fieldPath) || row.isNull(reference.fieldPath)) {
+                    return@any false
+                }
+                val oldParentId = row.optLong(reference.fieldPath, 0L)
+                oldParentId > 0L && insertedIdMappings[reference.referencedTableName]?.containsKey(oldParentId) == false
+            }
     }
 
     /**

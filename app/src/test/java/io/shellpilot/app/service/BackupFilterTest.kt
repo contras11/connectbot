@@ -30,6 +30,7 @@ import io.shellpilot.app.data.PubkeyRepository
 import io.shellpilot.app.data.entity.ColorScheme
 import io.shellpilot.app.data.entity.Host
 import io.shellpilot.app.data.entity.KeyStorageType
+import io.shellpilot.app.data.entity.PortForward
 import io.shellpilot.app.data.entity.Profile
 import io.shellpilot.app.data.entity.Pubkey
 import io.shellpilot.app.util.HostConstants
@@ -303,7 +304,7 @@ class BackupFilterTest {
 
             // Open the temp database and verify contents
             val tempDb =
-                Room.databaseBuilder(context, ShellPilotDatabase::class.java, tempDbFile.name)
+                Room.databaseBuilder(context, ShellPilotDatabase::class.java, tempDbFile.absolutePath)
                     .allowMainThreadQueries()
                     .build()
 
@@ -378,7 +379,7 @@ class BackupFilterTest {
 
             // Open the temp database and verify contents
             val tempDb =
-                Room.databaseBuilder(context, ShellPilotDatabase::class.java, tempDbFile.name)
+                Room.databaseBuilder(context, ShellPilotDatabase::class.java, tempDbFile.absolutePath)
                     .allowMainThreadQueries()
                     .build()
 
@@ -396,6 +397,84 @@ class BackupFilterTest {
             }
         } finally {
             // Clean up temp database
+            backupFilter.cleanupTempDatabase(tempDbFile)
+            assertFalse(tempDbFile.exists())
+        }
+    }
+
+    @Test
+    fun buildFilteredDatabase_SanitizesInvalidReferencesAndPortForwardTypes() = runBlocking {
+        val host = Host(
+            id = 1L,
+            nickname = "ssh-host",
+            protocol = "ssh",
+            hostname = "example.com",
+            profileId = 777L,
+            pubkeyId = 42L,
+            jumpHostId = 2L
+        )
+        val nonSshJump = Host(
+            id = 2L,
+            nickname = "telnet-host",
+            protocol = "telnet",
+            hostname = "jump.example.com"
+        )
+        val dynamicForward = PortForward(
+            id = 10L,
+            hostId = host.id,
+            nickname = "dynamic4",
+            type = HostConstants.PORTFORWARD_DYNAMIC4,
+            sourcePort = 1080,
+            destAddr = null,
+            destPort = 0
+        )
+        val badForward = PortForward(
+            id = 11L,
+            hostId = host.id,
+            nickname = "bad",
+            type = "udp",
+            sourcePort = 1081,
+            destAddr = null,
+            destPort = 0
+        )
+        val profile = Profile(id = 1L, name = "Default")
+        val brokenSchemeProfile = Profile(id = 999L, name = "Broken", colorSchemeId = 100L)
+
+        whenever(mockProfileRepository.getAll()).thenReturn(listOf(profile, brokenSchemeProfile))
+        whenever(mockHostRepository.getHosts()).thenReturn(listOf(host, nonSshJump))
+        whenever(mockHostRepository.getPortForwardsForHost(host.id)).thenReturn(listOf(dynamicForward, badForward))
+        whenever(mockHostRepository.getKnownHostsForHost(host.id)).thenReturn(emptyList())
+        whenever(mockHostRepository.getPortForwardsForHost(nonSshJump.id)).thenReturn(emptyList())
+        whenever(mockHostRepository.getKnownHostsForHost(nonSshJump.id)).thenReturn(emptyList())
+        whenever(mockPubkeyRepository.getAll()).thenReturn(emptyList())
+        whenever(mockColorSchemeRepository.getAllSchemes()).thenReturn(emptyList())
+
+        val tempDbFile = File(context.cacheDir, "test_backup_sanitized.db")
+
+        try {
+            backupFilter.buildFilteredDatabase(tempDbFile, backupKeys = true)
+
+            val tempDb =
+                Room.databaseBuilder(context, ShellPilotDatabase::class.java, tempDbFile.absolutePath)
+                    .allowMainThreadQueries()
+                    .build()
+
+            try {
+                val savedHost = tempDb.hostDao().getById(host.id)!!
+                assertEquals(1L, savedHost.profileId)
+                assertEquals(HostConstants.PUBKEYID_NEVER, savedHost.pubkeyId)
+                assertEquals(null, savedHost.jumpHostId)
+
+                val savedProfile = tempDb.profileDao().getById(brokenSchemeProfile.id)!!
+                assertEquals(-1L, savedProfile.colorSchemeId)
+
+                val forwards = tempDb.portForwardDao().getByHost(host.id)
+                assertEquals(1, forwards.size)
+                assertEquals(HostConstants.PORTFORWARD_DYNAMIC5, forwards.single().type)
+            } finally {
+                tempDb.close()
+            }
+        } finally {
             backupFilter.cleanupTempDatabase(tempDbFile)
             assertFalse(tempDbFile.exists())
         }

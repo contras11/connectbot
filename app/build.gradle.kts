@@ -166,6 +166,9 @@ android {
         getByName("main") {
             assets.directories.add("build/generated/exportSchema")
         }
+        getByName("androidTest") {
+            assets.directories.add("schemas")
+        }
     }
 
     lint {
@@ -368,6 +371,7 @@ dependencies {
 
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.core)
+    implementation(platform(libs.kotlinx.serialization.bom))
 
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
@@ -382,6 +386,8 @@ dependencies {
         exclude(group = "com.google.android.apps.common.testing.accessibility.framework", module = "accessibility-test-framework")
     }
     androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(platform(libs.kotlinx.serialization.bom))
+    androidTestImplementation(libs.androidx.room.testing)
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.assertj.core)
 

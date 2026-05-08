@@ -339,7 +339,7 @@ class TerminalBridge {
                     }
 
                     // Observe the current profile for attribute changes
-                    val profileToObserve = newProfileId ?: 1L // Default to profile 1 if null
+                    val profileToObserve = newProfileId
                     manager.profileRepository.observeById(profileToObserve)
                         .filterNotNull()
                         .collectLatest { profile ->

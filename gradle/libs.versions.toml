@@ -30,6 +30,7 @@ playServicesBasement = "18.10.0"
 conscrypt = "2.5.3"
 conscryptOpenJdk = "2.5.2"
 coroutines = "1.10.2"
+kotlinxSerialization = "1.8.1"
 timber = "5.0.1"
 
 recyclerview = "1.4.0"
@@ -84,6 +85,7 @@ mockito-kotlin = { module = "org.mockito.kotlin:mockito-kotlin", version.ref = "
 assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+kotlinx-serialization-bom = { module = "org.jetbrains.kotlinx:kotlinx-serialization-bom", version.ref = "kotlinxSerialization" }
 conscrypt-openjdk-uber = { module = "org.conscrypt:conscrypt-openjdk-uber", version.ref = "conscryptOpenJdk" }
 
 errorprone-core = { module = "com.google.errorprone:error_prone_core", version.ref = "errorproneCore" }
