@@ -60,6 +60,7 @@ import io.shellpilot.app.data.entity.Pubkey
  * - Version 8: Normalized broken references and added core FK/index guards (manual migration)
  * - Version 9: Hardened profile/known-host invariants and repeated data sanitizers (manual migration)
  * - Version 10: Repaired default profile and tightened remaining core data guards (manual migration)
+ * - Version 11: Re-applied runtime guards for current-version writes/imports (manual migration)
  * - Future versions: Use Room AutoMigration when possible for simple schema changes
  *
  * Security Considerations:
@@ -76,7 +77,7 @@ import io.shellpilot.app.data.entity.Pubkey
         ColorPalette::class,
         Profile::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -100,7 +101,7 @@ abstract class ShellPilotDatabase : RoomDatabase() {
          * Current database schema version.
          * This is also used for JSON export/import versioning.
          */
-        const val SCHEMA_VERSION = 10
+        const val SCHEMA_VERSION = 11
 
         /**
          * Migration from version 4 to 5: Add profiles table and profile_id to hosts.
@@ -783,17 +784,40 @@ abstract class ShellPilotDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("PRAGMA foreign_keys=OFF")
 
-                ensureDefaultProfileInvariant(db)
-                normalizeColorSchemesForBackup(db)
-                normalizeProfilesForRuntime(db)
-                normalizePubkeysForRuntime(db)
-                normalizeHostsForRuntime(db)
-                normalizePortForwardsForRuntime(db)
-                normalizeKnownHostsForRuntime(db)
-                normalizeColorPaletteForRuntime(db)
+                normalizeRuntimeInvariants(db)
 
                 db.execSQL("PRAGMA foreign_keys=ON")
             }
+        }
+
+        /**
+         * Migration from version 10 to 11: no schema shape change. The migration
+         * makes current-version DBs pass the same runtime sanitizers that onOpen
+         * now applies after JSON import, backup restore, or legacy migration.
+         */
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("PRAGMA foreign_keys=OFF")
+                normalizeRuntimeInvariants(db)
+                db.execSQL("PRAGMA foreign_keys=ON")
+            }
+        }
+
+        /**
+         * Current-version guard used by migrations and Room callbacks.
+         *
+         * 変更理由: v10到達後にJSON/backup/legacy/DAO経由で壊れた値が入っても、
+         * 次回open時に接続処理へ危険な参照を渡さない。
+         */
+        fun normalizeRuntimeInvariants(db: SupportSQLiteDatabase) {
+            ensureDefaultProfileInvariant(db)
+            normalizeColorSchemesForBackup(db)
+            normalizeProfilesForRuntime(db)
+            normalizePubkeysForRuntime(db)
+            normalizeHostsForRuntime(db)
+            normalizePortForwardsForRuntime(db)
+            normalizeKnownHostsForRuntime(db)
+            normalizeColorPaletteForRuntime(db)
         }
 
         /**
@@ -879,7 +903,8 @@ abstract class ShellPilotDatabase : RoomDatabase() {
             db.execSQL(
                 """
                 UPDATE `pubkeys`
-                SET `startup` = 0
+                SET `startup` = 0,
+                    `allow_backup` = 0
                 WHERE `storage_type` = 'EXPORTABLE'
                   AND `private_key` IS NULL
                 """.trimIndent()
@@ -891,8 +916,13 @@ abstract class ShellPilotDatabase : RoomDatabase() {
             db.execSQL(
                 """
                 UPDATE `hosts`
-                SET `port` = CASE WHEN `protocol` = 'telnet' THEN 23 ELSE 22 END
-                WHERE `port` < 1 OR `port` > 65535
+                SET `port` = CASE
+                    WHEN `protocol` = 'local' THEN 0
+                    WHEN `protocol` = 'telnet' THEN 23
+                    ELSE 22
+                END
+                WHERE (`protocol` = 'local' AND `port` != 0)
+                   OR (`protocol` != 'local' AND (`port` < 1 OR `port` > 65535))
                 """.trimIndent()
             )
             db.execSQL("UPDATE `hosts` SET `use_auth_agent` = 'no' WHERE `use_auth_agent` NOT IN ('no', 'confirm', 'yes')")
@@ -995,6 +1025,16 @@ abstract class ShellPilotDatabase : RoomDatabase() {
                     WHERE `hosts`.`id` = `known_hosts`.`host_id`
                       AND `hosts`.`protocol` = 'ssh'
                 )
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                DELETE FROM `known_hosts`
+                WHERE trim(`hostname`) = ''
+                   OR `port` < 1
+                   OR `port` > 65535
+                   OR trim(`host_key_algo`) = ''
+                   OR length(`host_key`) = 0
                 """.trimIndent()
             )
             db.execSQL(

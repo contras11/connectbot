@@ -179,7 +179,7 @@ class PubkeyEntityTest {
 
         assertThat(pubkey.id).isEqualTo(0) // Default from @PrimaryKey(autoGenerate = true)
         assertThat(pubkey.storageType).isEqualTo(KeyStorageType.EXPORTABLE) // Default
-        assertThat(pubkey.allowBackup).isTrue() // Default
+        assertThat(pubkey.allowBackup).isFalse() // Default: 秘密鍵バックアップは明示opt-in
         assertThat(pubkey.keystoreAlias).isNull() // Default
     }
 

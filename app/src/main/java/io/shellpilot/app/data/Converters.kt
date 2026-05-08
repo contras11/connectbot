@@ -31,6 +31,7 @@ class Converters {
 
     @TypeConverter
     fun toKeyStorageType(value: String): KeyStorageType {
-        return KeyStorageType.valueOf(value)
+        // 変更理由: 壊れたDB値でRoom読込自体を落とさず、Repository側の正規化へ渡す。
+        return runCatching { KeyStorageType.valueOf(value) }.getOrDefault(KeyStorageType.EXPORTABLE)
     }
 }

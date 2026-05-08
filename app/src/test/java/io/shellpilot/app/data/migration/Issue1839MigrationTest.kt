@@ -122,7 +122,7 @@ class Issue1839MigrationTest {
             ShellPilotDatabase::class.java,
             roomDbName
         )
-            .addMigrations(ShellPilotDatabase.MIGRATION_4_5, ShellPilotDatabase.MIGRATION_7_8, ShellPilotDatabase.MIGRATION_8_9, ShellPilotDatabase.MIGRATION_9_10)
+            .addMigrations(ShellPilotDatabase.MIGRATION_4_5, ShellPilotDatabase.MIGRATION_7_8, ShellPilotDatabase.MIGRATION_8_9, ShellPilotDatabase.MIGRATION_9_10, ShellPilotDatabase.MIGRATION_10_11)
             .addCallback(object : RoomDatabase.Callback() {
                 override fun onCreate(db: SupportSQLiteDatabase) {
                     super.onCreate(db)
@@ -205,7 +205,7 @@ class Issue1839MigrationTest {
             ShellPilotDatabase::class.java,
             roomDbName
         )
-            .addMigrations(ShellPilotDatabase.MIGRATION_4_5, ShellPilotDatabase.MIGRATION_7_8, ShellPilotDatabase.MIGRATION_8_9, ShellPilotDatabase.MIGRATION_9_10)
+            .addMigrations(ShellPilotDatabase.MIGRATION_4_5, ShellPilotDatabase.MIGRATION_7_8, ShellPilotDatabase.MIGRATION_8_9, ShellPilotDatabase.MIGRATION_9_10, ShellPilotDatabase.MIGRATION_10_11)
             .addCallback(object : RoomDatabase.Callback() {
                 override fun onCreate(db: SupportSQLiteDatabase) {
                     super.onCreate(db)

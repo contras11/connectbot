@@ -19,6 +19,7 @@ package io.shellpilot.app.data
 
 import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 import io.shellpilot.app.data.dao.PubkeyDao
 import io.shellpilot.app.data.entity.KeyStorageType
@@ -49,7 +50,9 @@ class PubkeyRepository @Inject constructor(
      *
      * @return Flow of pubkey list that updates automatically
      */
-    fun observeAll(): Flow<List<Pubkey>> = pubkeyDao.observeAll()
+    fun observeAll(): Flow<List<Pubkey>> = pubkeyDao.observeAll().map { pubkeys ->
+        pubkeys.map(CoreDataSanitizer::sanitizePubkey)
+    }
 
     /**
      * Observe pubkeys by storage type reactively.
@@ -58,7 +61,9 @@ class PubkeyRepository @Inject constructor(
      * @return Flow of pubkey list filtered by type
      */
     fun observeByStorageType(type: KeyStorageType): Flow<List<Pubkey>> =
-        pubkeyDao.observeByStorageType(type)
+        pubkeyDao.observeByStorageType(type).map { pubkeys ->
+            pubkeys.map(CoreDataSanitizer::sanitizePubkey)
+        }
 
     /**
      * Observe a specific pubkey reactively.
@@ -66,14 +71,16 @@ class PubkeyRepository @Inject constructor(
      * @param pubkeyId The pubkey ID
      * @return Flow of pubkey that updates automatically
      */
-    fun observePubkey(pubkeyId: Long): Flow<Pubkey?> = pubkeyDao.observeById(pubkeyId)
+    fun observePubkey(pubkeyId: Long): Flow<Pubkey?> = pubkeyDao.observeById(pubkeyId).map {
+        it?.let(CoreDataSanitizer::sanitizePubkey)
+    }
 
     /**
      * Get all pubkeys.
      *
      * @return List of all pubkeys
      */
-    suspend fun getAll(): List<Pubkey> = pubkeyDao.getAll()
+    suspend fun getAll(): List<Pubkey> = pubkeyDao.getAll().map(CoreDataSanitizer::sanitizePubkey)
 
     /**
      * Find a pubkey by its unique ID.
@@ -81,7 +88,7 @@ class PubkeyRepository @Inject constructor(
      * @param pubkeyId The pubkey ID
      * @return The pubkey, or null if not found
      */
-    suspend fun getById(pubkeyId: Long): Pubkey? = pubkeyDao.getById(pubkeyId)
+    suspend fun getById(pubkeyId: Long): Pubkey? = pubkeyDao.getById(pubkeyId)?.let(CoreDataSanitizer::sanitizePubkey)
 
     /**
      * Find a pubkey by its unique ID (blocking).
@@ -91,7 +98,7 @@ class PubkeyRepository @Inject constructor(
      * @return The pubkey, or null if not found
      */
     fun getByIdBlocking(pubkeyId: Long): Pubkey? = runBlocking {
-        pubkeyDao.getById(pubkeyId)
+        getById(pubkeyId)
     }
 
     /**
@@ -101,21 +108,21 @@ class PubkeyRepository @Inject constructor(
      * @return The pubkey, or null if not found
      */
     suspend fun getByNickname(nickname: String): Pubkey? =
-        pubkeyDao.getByNickname(nickname)
+        pubkeyDao.getByNickname(nickname)?.let(CoreDataSanitizer::sanitizePubkey)
 
     /**
      * Get all pubkeys that allow backup.
      *
      * @return List of backupable pubkeys
      */
-    suspend fun getBackupable(): List<Pubkey> = pubkeyDao.getBackupable()
+    suspend fun getBackupable(): List<Pubkey> = pubkeyDao.getBackupable().map(CoreDataSanitizer::sanitizePubkey)
 
     /**
      * Get all exportable pubkeys (not stored in Android Keystore).
      *
      * @return List of exportable pubkeys
      */
-    suspend fun getExportable(): List<Pubkey> = pubkeyDao.getExportable()
+    suspend fun getExportable(): List<Pubkey> = pubkeyDao.getExportable().map(CoreDataSanitizer::sanitizePubkey)
 
     /**
      * Get all pubkeys marked for automatic unlocking at startup.
@@ -123,6 +130,8 @@ class PubkeyRepository @Inject constructor(
      * @return List of startup pubkeys
      */
     suspend fun getStartupKeys(): List<Pubkey> = pubkeyDao.getStartupKeys()
+        .map(CoreDataSanitizer::sanitizePubkey)
+        .filter { it.startup }
 
     /**
      * Get all pubkeys marked for automatic unlocking at startup (blocking).
@@ -131,7 +140,7 @@ class PubkeyRepository @Inject constructor(
      * @return List of startup pubkeys
      */
     fun getStartupKeysBlocking(): List<Pubkey> = runBlocking {
-        pubkeyDao.getStartupKeys()
+        getStartupKeys()
     }
 
     /**
@@ -141,14 +150,15 @@ class PubkeyRepository @Inject constructor(
      * @return The saved pubkey with updated ID
      */
     suspend fun save(pubkey: Pubkey): Pubkey {
-        return if (pubkey.id == 0L) {
+        val sanitized = CoreDataSanitizer.sanitizePubkey(pubkey)
+        return if (sanitized.id == 0L) {
             // New pubkey - insert
-            val newId = pubkeyDao.insert(pubkey)
-            pubkey.copy(id = newId)
+            val newId = pubkeyDao.insert(sanitized)
+            sanitized.copy(id = newId)
         } else {
             // Existing pubkey - update
-            pubkeyDao.update(pubkey)
-            pubkey
+            pubkeyDao.update(sanitized)
+            sanitized
         }
     }
 

@@ -108,6 +108,39 @@ class HostRepositoryTest {
     }
 
     @Test
+    fun saveHost_whenHostBecomesNonSsh_clearsOwnSshOnlyData() = runTest {
+        val hostId = hostDao.insert(
+            Host(
+                nickname = "server",
+                protocol = "ssh",
+                username = "alice",
+                hostname = "server.example.com",
+                pubkeyId = 42L,
+                jumpHostId = null
+            )
+        )
+        database.portForwardDao().insert(
+            PortForward(
+                hostId = hostId,
+                nickname = "web",
+                type = HostConstants.PORTFORWARD_LOCAL,
+                sourcePort = 18080,
+                destAddr = "127.0.0.1",
+                destPort = 8080
+            )
+        )
+        knownHostDao.insert(knownHost(hostId, "server.example.com", 22, "ssh-rsa", "key"))
+
+        repository.saveHost(hostDao.getById(hostId)!!.copy(protocol = "local"))
+
+        val saved = hostDao.getById(hostId)!!
+        assertThat(saved.pubkeyId).isEqualTo(HostConstants.PUBKEYID_NEVER)
+        assertThat(saved.jumpHostId).isNull()
+        assertThat(database.portForwardDao().getByHost(hostId)).isEmpty()
+        assertThat(knownHostDao.getByHostId(hostId)).isEmpty()
+    }
+
+    @Test
     fun savePortForward_rejectsNonSshHost() = runTest {
         val telnetHostId = hostDao.insert(Host(nickname = "telnet", protocol = "telnet", hostname = "telnet.example.com"))
 

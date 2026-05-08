@@ -144,7 +144,7 @@ class HostEditorScreenTest {
 
         quickConnectField()
             .performClick()
-            .performTextInput("test@example.com")
+            .performTextInput("test-${System.nanoTime()}@example.com")
 
         composeTestRule.waitForIdle()
 

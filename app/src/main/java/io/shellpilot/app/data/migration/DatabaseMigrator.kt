@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import io.shellpilot.app.BuildConfig
+import io.shellpilot.app.data.CoreDataSanitizer
 import io.shellpilot.app.data.ShellPilotDatabase
 import io.shellpilot.app.data.entity.ColorPalette
 import io.shellpilot.app.data.entity.ColorScheme
@@ -416,7 +417,8 @@ class DatabaseMigrator @Inject constructor(
         }
 
         // Combine original and synthesized schemes
-        val allColorSchemes = legacy.colorSchemes + synthesizedSchemes
+        val allColorSchemes = (legacy.colorSchemes + synthesizedSchemes)
+            .mapNotNull(CoreDataSanitizer::sanitizeColorScheme)
         colorSchemeIds = allColorSchemes.map { it.id }.toSet()
 
         // Fix duplicate host nicknames by appending " (1)", " (2)", etc.
@@ -482,13 +484,16 @@ class DatabaseMigrator @Inject constructor(
                 val profileId = nextProfileId++
                 settingsToProfileId[key] = profileId
                 profiles.add(
-                    Profile(
-                        id = profileId,
-                        name = "Migrated Profile $profileId",
-                        colorSchemeId = key.colorSchemeId,
-                        fontSize = key.fontSize,
-                        delKey = key.delKey,
-                        encoding = key.encoding
+                    CoreDataSanitizer.sanitizeProfile(
+                        Profile(
+                            id = profileId,
+                            name = "Migrated Profile $profileId",
+                            colorSchemeId = key.colorSchemeId,
+                            fontSize = key.fontSize,
+                            delKey = key.delKey,
+                            encoding = key.encoding
+                        ),
+                        colorSchemeIds
                     )
                 )
                 logDebug("Created profile '$profileId' for settings: $key")
@@ -496,7 +501,7 @@ class DatabaseMigrator @Inject constructor(
         }
 
         // Convert LegacyHost to Host with profile_id
-        val fixedHosts = fixedLegacyHosts.map { legacyHost ->
+        val rawHosts = fixedLegacyHosts.map { legacyHost ->
             val settingsKey = ProfileSettingsKey(
                 colorSchemeId = legacyHost.colorSchemeId,
                 fontSize = legacyHost.fontSize,
@@ -528,36 +533,38 @@ class DatabaseMigrator @Inject constructor(
                 profileId = profileId
             )
         }
+        val rawHostById = rawHosts.associateBy { it.id }
+        val profileIds = profiles.map { it.id }.toSet()
+        val fixedHosts = rawHosts.map { host ->
+            CoreDataSanitizer.sanitizeHost(
+                host = host,
+                profileExists = { it in profileIds },
+                pubkeyExists = { it in pubkeyIds },
+                jumpHostById = { rawHostById[it] }
+            )
+        }
 
         // Fix duplicate pubkey nicknames by appending " (1)", " (2)", etc.
         val fixedPubkeys = makeNicknamesUnique(legacy.pubkeys) { it.nickname }
-            .map { (pubkey, uniqueNickname) -> pubkey.copy(nickname = uniqueNickname) }
+            .map { (pubkey, uniqueNickname) -> CoreDataSanitizer.sanitizePubkey(pubkey.copy(nickname = uniqueNickname)) }
 
         // Filter out invalid port forwards
-        val validPortForwards = legacy.portForwards.filter { portForward ->
-            when {
-                portForward.hostId !in hostIds -> {
-                    logDebug("Skipping invalid port forward (host ID ${portForward.hostId})")
-                    false
-                }
-
-                portForward.type !in setOf("local", "remote", "dynamic5") -> {
-                    // 変更理由: 未対応typeは接続時に失敗するため、旧DB取り込み時点で除外する。
-                    logDebug("Skipping unsupported port forward type '${portForward.type}'")
-                    false
-                }
-
-                else -> true
+        val fixedHostById = fixedHosts.associateBy { it.id }
+        val validPortForwards = legacy.portForwards.mapNotNull { portForward ->
+            val normalized = CoreDataSanitizer.sanitizePortForward(portForward, fixedHostById[portForward.hostId])
+            if (normalized == null) {
+                logDebug("Skipping invalid port forward '${portForward.nickname}' for host ID ${portForward.hostId}")
             }
+            normalized
         }
 
         // Clean up known hosts with invalid host references.
-        val cleanedKnownHosts = legacy.knownHosts.filter { knownHost ->
-            val keep = knownHost.hostId in hostIds
-            if (!keep) {
+        val cleanedKnownHosts = legacy.knownHosts.mapNotNull { knownHost ->
+            val sanitized = CoreDataSanitizer.sanitizeKnownHost(knownHost, fixedHostById[knownHost.hostId])
+            if (sanitized == null) {
                 logDebug("Skipping invalid known host reference (ID ${knownHost.hostId}) for ${knownHost.hostname}:${knownHost.port}")
             }
-            keep
+            sanitized
         }
 
         // Log summary of recovery actions
@@ -590,7 +597,7 @@ class DatabaseMigrator @Inject constructor(
             portForwards = validPortForwards,
             knownHosts = cleanedKnownHosts,
             colorSchemes = allColorSchemes,
-            colorPalettes = legacy.colorPalettes,
+            colorPalettes = legacy.colorPalettes.mapNotNull { CoreDataSanitizer.sanitizeColorPalette(it, colorSchemeIds) },
             pubkeys = fixedPubkeys,
             profiles = profiles
         )

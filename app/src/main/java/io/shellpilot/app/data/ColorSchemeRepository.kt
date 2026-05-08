@@ -132,6 +132,9 @@ class ColorSchemeRepository @Inject constructor(
      */
     suspend fun setColorForScheme(schemeId: Long, colorIndex: Int, colorValue: Int) =
         withContext(dispatchers.io) {
+            require(schemeId > 0L) { "Only custom color schemes can be edited" }
+            require(colorIndex in 0..15) { "Color index must be 0..15" }
+            colorSchemeDao.getById(schemeId) ?: throw IllegalArgumentException("Scheme not found: $schemeId")
             val colorEntry = ColorPalette(
                 schemeId = schemeId,
                 colorIndex = colorIndex,
@@ -152,6 +155,9 @@ class ColorSchemeRepository @Inject constructor(
         foregroundColorIndex: Int,
         backgroundColorIndex: Int
     ) = withContext(dispatchers.io) {
+        require(schemeId > 0L) { "Only custom color schemes can be edited" }
+        require(foregroundColorIndex in 0..15) { "Foreground color index must be 0..15" }
+        require(backgroundColorIndex in 0..15) { "Background color index must be 0..15" }
         val scheme = colorSchemeDao.getById(schemeId)
         if (scheme != null) {
             colorSchemeDao.update(
@@ -200,6 +206,7 @@ class ColorSchemeRepository @Inject constructor(
         description: String = "",
         basedOnSchemeId: Long = -1L
     ): Long = withContext(dispatchers.io) {
+        val normalizedName = name.trim().ifEmpty { "Custom Scheme" }
         // Copy colors from the base scheme
         val sourcePalette = getSchemeColors(basedOnSchemeId)
         val sourceDefaults = getSchemeDefaults(basedOnSchemeId)
@@ -207,8 +214,8 @@ class ColorSchemeRepository @Inject constructor(
         // Create new color scheme in database (ID will be auto-generated)
         val newScheme = ColorScheme(
             id = 0, // Auto-generate (will be assigned by Room)
-            name = name,
-            description = description,
+            name = normalizedName,
+            description = description.trim(),
             isBuiltIn = false,
             foreground = sourceDefaults.first,
             background = sourceDefaults.second
@@ -261,10 +268,13 @@ class ColorSchemeRepository @Inject constructor(
         if (schemeId <= 0) return@withContext false
 
         val scheme = colorSchemeDao.getById(schemeId) ?: return@withContext false
+        val normalizedName = newName.trim().ifEmpty { scheme.name }
         colorSchemeDao.update(
             scheme.copy(
-                name = newName,
-                description = newDescription
+                name = normalizedName,
+                description = newDescription.trim(),
+                foreground = CoreDataSanitizer.sanitizeColorIndex(scheme.foreground, HostConstants.DEFAULT_FG_COLOR),
+                background = CoreDataSanitizer.sanitizeColorIndex(scheme.background, HostConstants.DEFAULT_BG_COLOR)
             )
         )
         true

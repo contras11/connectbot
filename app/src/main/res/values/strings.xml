@@ -727,6 +727,8 @@
 	<string name="terminal_no_session">"ホスト設定によりセッションを開始しません。"</string>
 	<!-- Message shown in terminal when a port forward is enabled. Parameter is the port forward description. -->
 	<string name="terminal_enable_portfoward">ポート転送を有効化: %1$s</string>
+	<string name="terminal_enable_portforward_failed">ポート転送を有効化できませんでした: %1$s</string>
+	<string name="host_key_saved_data_corrupted">保存済みホスト鍵データが壊れているため接続を中止しました。対象ホストのホスト鍵を削除してから再承認してください。</string>
 
 	<!-- Error message shown when trying to open a local shell but it's not available on the device -->
 	<string name="local_shell_unavailable">この端末ではローカルシェルを利用できません。</string>

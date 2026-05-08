@@ -21,6 +21,7 @@ import android.content.Context
 import androidx.room.withTransaction
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 import io.shellpilot.app.data.dao.HostDao
 import io.shellpilot.app.data.dao.KnownHostDao
@@ -28,7 +29,6 @@ import io.shellpilot.app.data.dao.PortForwardDao
 import io.shellpilot.app.data.entity.Host
 import io.shellpilot.app.data.entity.KnownHost
 import io.shellpilot.app.data.entity.PortForward
-import io.shellpilot.app.util.HostConstants
 import io.shellpilot.app.util.SecurePasswordStorage
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -63,6 +63,7 @@ class HostRepository @Inject constructor(
      * @return Flow of host list that updates automatically
      */
     fun observeHosts(): Flow<List<Host>> = hostDao.observeAll()
+        .map { sanitizeHosts(it) }
 
     /**
      * Observe all hosts sorted by color reactively.
@@ -70,6 +71,7 @@ class HostRepository @Inject constructor(
      * @return Flow of host list sorted by color
      */
     fun observeHostsSortedByColor(): Flow<List<Host>> = hostDao.observeAllSortedByColor()
+        .map { sanitizeHosts(it).sortedBy { host -> host.color } }
 
     /**
      * Observe a specific host reactively.
@@ -78,6 +80,7 @@ class HostRepository @Inject constructor(
      * @return Flow of host that updates automatically
      */
     fun observeHost(hostId: Long): Flow<Host?> = hostDao.observeById(hostId)
+        .map { host -> host?.let { sanitizeHost(it) } }
 
     /**
      * Get all hosts.
@@ -85,12 +88,14 @@ class HostRepository @Inject constructor(
      * @param sortedByColor If true, hosts will be grouped by color
      * @return List of all hosts
      */
-    suspend fun getHosts(sortedByColor: Boolean = false): List<Host> = if (sortedByColor) {
-        // For now, sort by color in memory
-        // TODO: Add a proper DAO query for this
-        hostDao.getAll().sortedBy { it.color }
-    } else {
-        hostDao.getAll()
+    suspend fun getHosts(sortedByColor: Boolean = false): List<Host> {
+        val hosts = sanitizeHosts(hostDao.getAll())
+        return if (sortedByColor) {
+            // 変更理由: 壊れた参照を補正した後に表示順を決める。
+            hosts.sortedBy { it.color }
+        } else {
+            hosts
+        }
     }
 
     /**
@@ -99,14 +104,14 @@ class HostRepository @Inject constructor(
      * @param hostId The host ID
      * @return The host, or null if not found
      */
-    suspend fun findHostById(hostId: Long): Host? = hostDao.getById(hostId)
+    suspend fun findHostById(hostId: Long): Host? = hostDao.getById(hostId)?.let { sanitizeHost(it) }
 
     /**
      * Get all SSH hosts that can be used as jump hosts.
      *
      * @return List of SSH hosts
      */
-    suspend fun getSshHosts(): List<Host> = hostDao.getSshHosts()
+    suspend fun getSshHosts(): List<Host> = sanitizeHosts(hostDao.getSshHosts()).filter { it.protocol == "ssh" }
 
     /**
      * Observe all SSH hosts (for jump host selection UI).
@@ -114,6 +119,7 @@ class HostRepository @Inject constructor(
      * @return Flow of SSH hosts
      */
     fun observeSshHosts(): Flow<List<Host>> = hostDao.observeSshHosts()
+        .map { hosts -> sanitizeHosts(hosts).filter { it.protocol == "ssh" } }
 
     /**
      * Get the count of hosts using a specific public key.
@@ -150,6 +156,9 @@ class HostRepository @Inject constructor(
             }
 
             if (savedHost.protocol != "ssh" && savedHost.id > 0L) {
+                // 変更理由: 非SSH化したホストへSSH専用データが残ると、backup/import/接続時に不整合になる。
+                portForwardDao.deleteByHost(savedHost.id)
+                knownHostDao.deleteByHostId(savedHost.id)
                 clearJumpHostReferences(savedHost.id)
             }
             savedHost
@@ -199,7 +208,11 @@ class HostRepository @Inject constructor(
      * @param hostId The host ID
      * @return List of port forwards
      */
-    suspend fun getPortForwardsForHost(hostId: Long): List<PortForward> = portForwardDao.getByHost(hostId)
+    suspend fun getPortForwardsForHost(hostId: Long): List<PortForward> {
+        val host = hostDao.getById(hostId) ?: return emptyList()
+        // 変更理由: 旧DB/import由来の壊れた転送設定を接続時に成功扱いしない。
+        return portForwardDao.getByHost(hostId).mapNotNull { CoreDataSanitizer.sanitizePortForward(it, host) }
+    }
 
     /**
      * Save a port forward (insert or update).
@@ -233,7 +246,12 @@ class HostRepository @Inject constructor(
     // Known Host Operations
     // ============================================================================
 
-    suspend fun getKnownHostsForHost(hostId: Long): List<KnownHost> = knownHostDao.getByHostId(hostId)
+    suspend fun getKnownHostsForHost(hostId: Long): List<KnownHost> {
+        val host = hostDao.getById(hostId) ?: return emptyList()
+        // 変更理由: 壊れたknown_hostsは新規承認へ進めず、接続側には有効な鍵だけ渡す。
+        return knownHostDao.getByHostId(hostId)
+            .mapNotNull { CoreDataSanitizer.sanitizeKnownHost(it, host) }
+    }
 
     /**
      * Get the list of host key algorithms known for a specific host.
@@ -242,12 +260,12 @@ class HostRepository @Inject constructor(
      * @return List of algorithm names
      */
     suspend fun getHostKeyAlgorithmsForHost(hostId: Long): List<String> {
-        val knownHosts = knownHostDao.getByHostId(hostId)
+        val knownHosts = getKnownHostsForHost(hostId)
         return knownHosts.map { it.hostKeyAlgo }.distinct()
     }
 
     suspend fun getHostKeyAlgorithmsForEndpoint(hostId: Long, hostname: String, port: Int): List<String> {
-        val knownHosts = knownHostDao.getByHostId(hostId)
+        val knownHosts = getKnownHostsForHost(hostId)
         return knownHosts
             .filter { it.hostname == hostname && it.port == port }
             .map { it.hostKeyAlgo }
@@ -270,23 +288,28 @@ class HostRepository @Inject constructor(
         serverHostKeyAlgorithm: String,
         serverHostKey: ByteArray
     ) {
-        // Check if this exact key already exists for this endpoint.
-        val existing = knownHostDao.getByHostEndpointAlgoAndKey(
-            host.id,
-            hostname,
-            port,
-            serverHostKeyAlgorithm,
-            serverHostKey
-        )
-        if (existing == null) {
-            // Insert new key - this allows multiple keys per algorithm for key rotation
-            val knownHost = KnownHost(
+        require(host.protocol == "ssh") { "Known hosts are only supported for SSH hosts" }
+        val knownHost = CoreDataSanitizer.sanitizeKnownHost(
+            KnownHost(
                 hostId = host.id,
                 hostname = hostname,
                 port = port,
                 hostKeyAlgo = serverHostKeyAlgorithm,
                 hostKey = serverHostKey
-            )
+            ),
+            host
+        ) ?: throw IllegalArgumentException("Invalid known host entry for ${host.nickname}")
+
+        // Check if this exact key already exists for this endpoint.
+        val existing = knownHostDao.getByHostEndpointAlgoAndKey(
+            knownHost.hostId,
+            knownHost.hostname,
+            knownHost.port,
+            knownHost.hostKeyAlgo,
+            knownHost.hostKey
+        )
+        if (existing == null) {
+            // Insert new key - this allows multiple keys per algorithm for key rotation
             knownHostDao.insert(knownHost)
         }
     }
@@ -301,18 +324,27 @@ class HostRepository @Inject constructor(
         serverHostKeyAlgorithm: String,
         serverHostKey: ByteArray
     ) {
+        require(host.protocol == "ssh") { "Known hosts are only supported for SSH hosts" }
+        val knownHost = CoreDataSanitizer.sanitizeKnownHost(
+            KnownHost(
+                hostId = host.id,
+                hostname = hostname,
+                port = port,
+                hostKeyAlgo = serverHostKeyAlgorithm,
+                hostKey = serverHostKey
+            ),
+            host
+        ) ?: throw IllegalArgumentException("Invalid known host entry for ${host.nickname}")
+
         database.withTransaction {
             // 変更理由: ホスト鍵変更承認時に旧鍵を残すと、次回以降も変更警告が残る。
-            knownHostDao.deleteByHostEndpointAndAlgorithm(host.id, hostname, port, serverHostKeyAlgorithm)
-            knownHostDao.insert(
-                KnownHost(
-                    hostId = host.id,
-                    hostname = hostname,
-                    port = port,
-                    hostKeyAlgo = serverHostKeyAlgorithm,
-                    hostKey = serverHostKey
-                )
+            knownHostDao.deleteByHostEndpointAndAlgorithm(
+                knownHost.hostId,
+                knownHost.hostname,
+                knownHost.port,
+                knownHost.hostKeyAlgo
             )
+            knownHostDao.insert(knownHost)
         }
     }
 
@@ -485,7 +517,7 @@ class HostRepository @Inject constructor(
         // Try to find by nickname first (most specific)
         val nickname = selection["nickname"]
         if (nickname != null) {
-            val allHosts = hostDao.getAll()
+            val allHosts = getHosts()
             allHosts.find { it.nickname == nickname }?.let { return it }
         }
 
@@ -497,7 +529,7 @@ class HostRepository @Inject constructor(
         val port = portStr?.toIntOrNull()
 
         if (protocol != null && hostname != null) {
-            val allHosts = hostDao.getAll()
+            val allHosts = getHosts()
             allHosts.find { host ->
                 host.protocol == protocol &&
                     host.hostname == hostname &&
@@ -510,22 +542,23 @@ class HostRepository @Inject constructor(
     }
 
     private suspend fun sanitizeHost(host: Host): Host {
-        val profileId = host.profileId.takeIf { profileId ->
-            profileId > 0L && database.profileDao().getById(profileId) != null
-        } ?: DEFAULT_PROFILE_ID
+        return sanitizeHosts(listOf(host)).first()
+    }
 
-        val pubkeyId = when {
-            host.pubkeyId <= 0L -> host.pubkeyId
-            database.pubkeyDao().getById(host.pubkeyId) != null -> host.pubkeyId
-            else -> HostConstants.PUBKEYID_NEVER
-        }
+    private suspend fun sanitizeHosts(hosts: List<Host>): List<Host> {
+        val profileIds = database.profileDao().getAll().map { it.id }.toSet()
+        val pubkeyIds = database.pubkeyDao().getAll().map { it.id }.toSet()
+        val hostsById = hostDao.getAll().associateBy { it.id }
 
         // 変更理由: migrationだけでなく保存境界でも参照不整合をDBへ入れない。
-        return host.copy(
-            profileId = profileId,
-            pubkeyId = pubkeyId,
-            jumpHostId = sanitizeJumpHostId(host)
-        )
+        return hosts.map { host ->
+            CoreDataSanitizer.sanitizeHost(
+                host = host,
+                profileExists = { it in profileIds },
+                pubkeyExists = { it in pubkeyIds },
+                jumpHostById = { hostsById[it] }
+            )
+        }
     }
 
     private suspend fun clearJumpHostReferences(jumpHostId: Long) {
@@ -535,75 +568,13 @@ class HostRepository @Inject constructor(
             .forEach { hostDao.update(it.copy(jumpHostId = null)) }
     }
 
-    private suspend fun sanitizeJumpHostId(host: Host): Long? {
-        val jumpHostId = host.jumpHostId ?: return null
-        if (jumpHostId <= 0L || jumpHostId == host.id) return null
-
-        val jumpHost = hostDao.getById(jumpHostId) ?: return null
-        if (jumpHost.protocol != "ssh") return null
-
-        return if (wouldCreateJumpCycle(host, jumpHost)) null else jumpHostId
-    }
-
-    private suspend fun wouldCreateJumpCycle(host: Host, firstJumpHost: Host): Boolean {
-        val visited = mutableSetOf<Long>()
-        if (host.id > 0L) {
-            visited.add(host.id)
-        }
-
-        var nextHost: Host? = firstJumpHost
-        while (nextHost != null) {
-            if (nextHost.id > 0L && !visited.add(nextHost.id)) {
-                return true
-            }
-            val nextJumpHostId = nextHost.jumpHostId ?: return false
-            nextHost = hostDao.getById(nextJumpHostId) ?: return true
-            if (nextHost.protocol != "ssh") {
-                return true
-            }
-        }
-        return false
-    }
-
     private suspend fun normalizePortForward(portForward: PortForward): PortForward {
-        val normalizedType = when (portForward.type) {
-            HostConstants.PORTFORWARD_DYNAMIC4 -> HostConstants.PORTFORWARD_DYNAMIC5
-            HostConstants.PORTFORWARD_LOCAL,
-            HostConstants.PORTFORWARD_REMOTE,
-            HostConstants.PORTFORWARD_DYNAMIC5 -> portForward.type
-            else -> throw IllegalArgumentException("Unsupported port forward type: ${portForward.type}")
-        }
-
         val host = hostDao.getById(portForward.hostId)
             ?: throw IllegalArgumentException("Port forward host does not exist: ${portForward.hostId}")
-        require(host.protocol == "ssh") { "Port forwarding is only supported for SSH hosts" }
-        require(portForward.sourcePort in PORT_RANGE) { "Source port must be 1..65535" }
-
-        val normalizedDestAddr = portForward.destAddr?.trim().orEmpty()
-        if (normalizedType == HostConstants.PORTFORWARD_LOCAL || normalizedType == HostConstants.PORTFORWARD_REMOTE) {
-            require(normalizedDestAddr.isNotEmpty()) { "Destination address is required" }
-            require(portForward.destPort in PORT_RANGE) { "Destination port must be 1..65535" }
-        }
-
-        val nickname = portForward.nickname.trim().ifEmpty {
-            when (normalizedType) {
-                HostConstants.PORTFORWARD_LOCAL -> "Local ${portForward.sourcePort}"
-                HostConstants.PORTFORWARD_REMOTE -> "Remote ${portForward.sourcePort}"
-                else -> "Dynamic ${portForward.sourcePort}"
-            }
-        }
 
         // 変更理由: Repository境界で接続処理が扱える値だけを永続化し、dynamic転送の宛先は実行時に使わせない。
-        return portForward.copy(
-            nickname = nickname,
-            type = normalizedType,
-            destAddr = if (normalizedType == HostConstants.PORTFORWARD_DYNAMIC5) null else normalizedDestAddr,
-            destPort = if (normalizedType == HostConstants.PORTFORWARD_DYNAMIC5) 0 else portForward.destPort
-        )
+        return CoreDataSanitizer.sanitizePortForward(portForward, host)
+            ?: throw IllegalArgumentException("Invalid port forward for host ${host.nickname}")
     }
 
-    private companion object {
-        const val DEFAULT_PROFILE_ID = 1L
-        val PORT_RANGE = 1..65535
-    }
 }

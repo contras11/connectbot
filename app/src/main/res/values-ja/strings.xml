@@ -302,6 +302,8 @@
   <string name="terminal_auth_fail">このホストはパスワード認証またはキーボードインタラクティブ認証に対応していません。</string>
   <string name="terminal_no_session">ホスト設定によりセッションを開始しません</string>
   <string name="terminal_enable_portfoward">ポート転送 %1$s を有効化</string>
+  <string name="terminal_enable_portforward_failed">ポート転送 %1$s を有効化できませんでした</string>
+  <string name="host_key_saved_data_corrupted">保存済みホスト鍵データが壊れているため接続を中止しました。対象ホストのホスト鍵を削除してから再承認してください。</string>
   <string name="local_shell_unavailable">エラー! この電話機にはローカルシェルがありません.</string>
   <string name="notification_text">%1$s でベルが鳴りました。</string>
   <string name="no">いいえ</string>

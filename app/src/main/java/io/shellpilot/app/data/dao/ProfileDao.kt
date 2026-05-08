@@ -18,7 +18,6 @@
 package io.shellpilot.app.data.dao
 
 import androidx.room.Dao
-import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -80,12 +79,6 @@ interface ProfileDao {
      */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdate(profile: Profile): Long
-
-    /**
-     * Delete a profile.
-     */
-    @Delete
-    suspend fun delete(profile: Profile)
 
     /**
      * Delete a profile by ID.

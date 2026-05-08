@@ -49,13 +49,20 @@ object TestDatabaseModule {
                 ShellPilotDatabase.MIGRATION_4_5,
                 ShellPilotDatabase.MIGRATION_7_8,
                 ShellPilotDatabase.MIGRATION_8_9,
-                ShellPilotDatabase.MIGRATION_9_10
+                ShellPilotDatabase.MIGRATION_9_10,
+                ShellPilotDatabase.MIGRATION_10_11
             )
             .addCallback(object : RoomDatabase.Callback() {
                 override fun onCreate(db: SupportSQLiteDatabase) {
                     super.onCreate(db)
                     // 変更理由: テストDBでも本番DBと同じDefault profile不変条件を使う。
                     ShellPilotDatabase.ensureDefaultProfileInvariant(db)
+                }
+
+                override fun onOpen(db: SupportSQLiteDatabase) {
+                    super.onOpen(db)
+                    // 変更理由: 計測テストも本番と同じDB整合性guardで動かす。
+                    ShellPilotDatabase.normalizeRuntimeInvariants(db)
                 }
             })
             .allowMainThreadQueries()

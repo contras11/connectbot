@@ -90,6 +90,7 @@ class LegacyHostDatabaseReader(private val context: Context) {
                         hosts.add(host)
                     } catch (e: Exception) {
                         Timber.e(e, "Error reading host from cursor")
+                        throw MigrationException("Failed to read legacy host row: ${e.message}")
                     }
                 }
             }

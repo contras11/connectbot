@@ -96,6 +96,7 @@ interface HostDao {
     /**
      * Find host associated with a known host entry.
      */
+    @Deprecated("Use endpoint-aware KnownHostDao APIs through HostRepository")
     @Query("""
         SELECT h.* FROM hosts h
         JOIN known_hosts kh ON h.id = kh.host_id

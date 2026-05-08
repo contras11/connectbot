@@ -69,10 +69,16 @@ class Relay(
     fun setCharset(encoding: String) {
         Timber.d("changing charset to $encoding")
 
-        val charset = if (encoding == "CP437") {
-            IBM437("IBM437", arrayOf("IBM437", "CP437"))
-        } else {
-            Charset.forName(encoding)
+        val charset = runCatching {
+            if (encoding == "CP437") {
+                IBM437("IBM437", arrayOf("IBM437", "CP437"))
+            } else {
+                Charset.forName(encoding)
+            }
+        }.getOrElse { throwable ->
+            // 変更理由: 壊れたprofile encodingで接続後のRelay初期化を落とさずUTF-8へ戻す。
+            Timber.w(throwable, "Unsupported charset '$encoding'; falling back to UTF-8")
+            StandardCharsets.UTF_8
         }
 
         if (charset == currentCharset) {

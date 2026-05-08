@@ -68,7 +68,7 @@ data class Pubkey(
     val storageType: KeyStorageType = KeyStorageType.EXPORTABLE,
 
     @ColumnInfo(name = "allow_backup")
-    val allowBackup: Boolean = true,
+    val allowBackup: Boolean = false,
 
     @ColumnInfo(name = "keystore_alias")
     val keystoreAlias: String? = null

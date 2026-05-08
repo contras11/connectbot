@@ -172,6 +172,7 @@ class SSH :
 
             // Convert to KnownHosts format, grouping by (algo, key) to handle renamed hosts
             val hosts = KnownHosts()
+            var hasInvalidSavedKeyForEndpoint = false
             data class HostKeyGroup(val algo: String, val key: ByteArray) {
                 override fun equals(other: Any?): Boolean {
                     if (this === other) return true
@@ -192,10 +193,14 @@ class SSH :
                     hosts.addHostkey(hostnames, group.algo, group.key)
                 } catch (e: Exception) {
                     Timber.e(e, "Failed to add known host key")
+                    if (entries.any { it.hostname == hostname && it.port == port }) {
+                        hasInvalidSavedKeyForEndpoint = true
+                    }
                 }
             }
 
             val matchName = String.format(Locale.US, "%s:%d", hostname, port)
+            val hasSavedKeyForEndpoint = knownHostsList.any { it.hostname == hostname && it.port == port }
             val algorithmName = getKeyType(serverHostKeyAlgorithm)
             val sha256 = KeyFingerprint.createSHA256Fingerprint(serverHostKey)
             val md5 = KeyFingerprint.createMD5Fingerprint(serverHostKey)
@@ -213,6 +218,11 @@ class SSH :
                 }
 
                 KnownHosts.HOSTKEY_IS_NEW -> {
+                    if (hasSavedKeyForEndpoint && hasInvalidSavedKeyForEndpoint) {
+                        // 変更理由: 壊れた既存ピンを新規ホスト扱いで上書きすると、ホスト鍵検証がfail-openになる。
+                        bridge?.outputLine(manager?.res?.getString(R.string.host_key_saved_data_corrupted))
+                        return false
+                    }
                     // Keep terminal output for backward compatibility
                     bridge?.outputLine(manager?.res?.getString(R.string.host_authenticity_warning, hostname))
                     bridge?.outputLine(manager?.res?.getString(R.string.host_fingerprint, algorithmName, fingerprint))
@@ -627,10 +637,14 @@ class SSH :
 
         for (portForward in portForwards) {
             try {
-                enablePortForward(portForward)
-                bridge?.outputLine(manager?.res?.getString(R.string.terminal_enable_portfoward, portForward.getDescription()))
+                if (enablePortForward(portForward)) {
+                    bridge?.outputLine(manager?.res?.getString(R.string.terminal_enable_portfoward, portForward.getDescription()))
+                } else {
+                    bridge?.outputLine(manager?.res?.getString(R.string.terminal_enable_portforward_failed, portForward.getDescription()))
+                }
             } catch (e: Exception) {
                 Timber.e(e, "Error setting up port forward during connect")
+                bridge?.outputLine(manager?.res?.getString(R.string.terminal_enable_portforward_failed, portForward.getDescription()))
             }
         }
 
@@ -660,7 +674,7 @@ class SSH :
             sessionOpen = true
 
             bridge?.onConnected()
-        } catch (e1: IOException) {
+        } catch (e1: Exception) {
             Timber.e(e1, "Problem while trying to create PTY in finishConnection()")
             close()
             bridge?.failConnection(manager?.res?.getString(R.string.terminal_failed), e1)

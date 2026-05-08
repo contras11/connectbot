@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.shellpilot.app.data.entity.Host
+import io.shellpilot.app.data.entity.KeyStorageType
 import io.shellpilot.app.data.entity.Profile
 import io.shellpilot.app.data.entity.Pubkey
 import io.shellpilot.app.util.HostConstants
@@ -62,6 +63,32 @@ class PubkeyRepositoryTest {
     @Test
     fun deleteById_returnsFalseForMissingPubkey() = runTest {
         assertThat(repository.deleteById(9999L)).isFalse()
+    }
+
+    @Test
+    fun save_sanitizesKeystoreKeyAndExportableStartupWithoutPrivateKey() = runTest {
+        val keystore = repository.save(
+            pubkey("bio").copy(
+                storageType = KeyStorageType.ANDROID_KEYSTORE,
+                privateKey = "private".toByteArray(),
+                startup = true,
+                allowBackup = true,
+                keystoreAlias = "alias"
+            )
+        )
+        val brokenExportable = repository.save(
+            pubkey("broken").copy(
+                privateKey = null,
+                startup = true,
+                allowBackup = true
+            )
+        )
+
+        assertThat(keystore.privateKey).isNull()
+        assertThat(keystore.startup).isFalse()
+        assertThat(keystore.allowBackup).isFalse()
+        assertThat(brokenExportable.startup).isFalse()
+        assertThat(brokenExportable.allowBackup).isFalse()
     }
 
     private fun pubkey(nickname: String) = Pubkey(

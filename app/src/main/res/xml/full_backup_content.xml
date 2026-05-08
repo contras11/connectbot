@@ -14,6 +14,42 @@
 		domain="database"
 		path="connectbot.db-journal" />
 	<exclude
+		domain="database"
+		path="connectbot_backup_temp.db" />
+	<exclude
+		domain="database"
+		path="connectbot_backup_temp.db-wal" />
+	<exclude
+		domain="database"
+		path="connectbot_backup_temp.db-shm" />
+	<exclude
+		domain="database"
+		path="connectbot_backup_temp.db-journal" />
+	<exclude
+		domain="database"
+		path="connectbot.db.restore" />
+	<exclude
+		domain="database"
+		path="connectbot.db.restore-wal" />
+	<exclude
+		domain="database"
+		path="connectbot.db.restore-shm" />
+	<exclude
+		domain="database"
+		path="connectbot.db.restore-journal" />
+	<exclude
+		domain="database"
+		path="connectbot.db.pre-restore" />
+	<exclude
+		domain="database"
+		path="connectbot.db.pre-restore-wal" />
+	<exclude
+		domain="database"
+		path="connectbot.db.pre-restore-shm" />
+	<exclude
+		domain="database"
+		path="connectbot.db.pre-restore-journal" />
+	<exclude
 		domain="sharedpref"
 		path="secure_host_passwords.xml" />
 </full-backup-content>

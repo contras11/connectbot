@@ -294,16 +294,16 @@ class DatabaseMigratorTest {
     }
 
     @Test
-    fun unsupportedPortForwardTypesAreSkippedDuringTransform() = runTest {
+    fun legacyDynamic4PortForwardIsNormalizedDuringTransform() = runTest {
         val host = createTestHost(id = 1, nickname = "server")
         val valid = createTestPortForward(id = 1, hostId = 1, type = HostConstants.PORTFORWARD_LOCAL)
         val dynamic5 = createTestPortForward(id = 2, hostId = 1, type = HostConstants.PORTFORWARD_DYNAMIC5)
-        val unsupported = createTestPortForward(id = 3, hostId = 1, type = "dynamic4")
+        val legacyDynamic4 = createTestPortForward(id = 3, hostId = 1, type = "dynamic4")
         val missingHost = createTestPortForward(id = 4, hostId = 999, type = HostConstants.PORTFORWARD_REMOTE)
 
         val legacyData = LegacyData(
             hosts = listOf(host),
-            portForwards = listOf(valid, dynamic5, unsupported, missingHost),
+            portForwards = listOf(valid, dynamic5, legacyDynamic4, missingHost),
             knownHosts = emptyList(),
             colorSchemes = emptyList(),
             colorPalettes = emptyList(),
@@ -312,7 +312,9 @@ class DatabaseMigratorTest {
 
         val transformed = migrator.transformToRoomEntitiesForTesting(legacyData)
 
-        assertThat(transformed.portForwards.map { it.id }).containsExactly(1L, 2L)
+        assertThat(transformed.portForwards.map { it.id }).containsExactly(1L, 2L, 3L)
+        assertThat(transformed.portForwards.single { it.id == 3L }.type)
+            .isEqualTo(HostConstants.PORTFORWARD_DYNAMIC5)
     }
 
     private fun createTestHost(

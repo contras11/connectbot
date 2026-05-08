@@ -189,7 +189,7 @@ class LegacyDatabaseMigrationIntegrationTest {
             assertThat(rsaKey?.encrypted).isFalse()
             assertThat(rsaKey?.startup).isTrue()
             assertThat(rsaKey?.confirmation).isFalse()
-            assertThat(rsaKey?.allowBackup).isTrue()
+            assertThat(rsaKey?.allowBackup).isFalse()
 
             val ed25519Key = pubkeys.find { it.nickname == "fast-ed25519" }
             assertThat(ed25519Key).isNotNull()

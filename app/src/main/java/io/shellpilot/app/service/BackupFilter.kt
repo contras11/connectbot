@@ -21,10 +21,11 @@ import android.content.Context
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import io.shellpilot.app.data.ColorSchemeRepository
-import io.shellpilot.app.data.ShellPilotDatabase
+import io.shellpilot.app.data.CoreDataSanitizer
 import io.shellpilot.app.data.HostRepository
 import io.shellpilot.app.data.ProfileRepository
 import io.shellpilot.app.data.PubkeyRepository
+import io.shellpilot.app.data.ShellPilotDatabase
 import io.shellpilot.app.data.entity.Host
 import io.shellpilot.app.data.entity.KeyStorageType
 import io.shellpilot.app.util.HostConstants
@@ -65,7 +66,8 @@ class BackupFilter(
                 ShellPilotDatabase.MIGRATION_4_5,
                 ShellPilotDatabase.MIGRATION_7_8,
                 ShellPilotDatabase.MIGRATION_8_9,
-                ShellPilotDatabase.MIGRATION_9_10
+                ShellPilotDatabase.MIGRATION_9_10,
+                ShellPilotDatabase.MIGRATION_10_11
             )
             .setJournalMode(RoomDatabase.JournalMode.TRUNCATE)
             .allowMainThreadQueries() // Backup runs on backup thread
@@ -119,7 +121,8 @@ class BackupFilter(
                 portForwards.mapNotNull { sanitizePortForward(it, host) }.forEach { tempDb.portForwardDao().insert(it) }
 
                 val knownHosts = hostRepository.getKnownHostsForHost(host.id)
-                knownHosts.forEach { tempDb.knownHostDao().insert(it) }
+                knownHosts.mapNotNull { CoreDataSanitizer.sanitizeKnownHost(it, host) }
+                    .forEach { tempDb.knownHostDao().insert(it) }
             }
 
             backupablePubkeys.forEach { pubkey ->
@@ -161,7 +164,8 @@ class BackupFilter(
     fun filterBackupablePubkeys(pubkeys: List<io.shellpilot.app.data.entity.Pubkey>):
             List<io.shellpilot.app.data.entity.Pubkey> {
         return pubkeys.filter { pubkey ->
-            val isBackupable = pubkey.allowBackup && pubkey.storageType != KeyStorageType.ANDROID_KEYSTORE
+            val sanitized = CoreDataSanitizer.sanitizePubkey(pubkey)
+            val isBackupable = sanitized.allowBackup && sanitized.storageType != KeyStorageType.ANDROID_KEYSTORE
 
             if (!isBackupable) {
                 Timber.d("Filtering out pubkey: ${pubkey.nickname} " +
@@ -170,11 +174,12 @@ class BackupFilter(
 
             isBackupable
         }.map { pubkey ->
+            val sanitized = CoreDataSanitizer.sanitizePubkey(pubkey)
             // 変更理由: exportable鍵にKeystore aliasが残っていても復元先の別aliasへ誤接続しないよう落とす。
-            pubkey.copy(
+            sanitized.copy(
                 storageType = KeyStorageType.EXPORTABLE,
                 keystoreAlias = null,
-                startup = pubkey.startup && pubkey.privateKey != null
+                startup = sanitized.startup && sanitized.privateKey != null
             )
         }
     }
@@ -185,14 +190,7 @@ class BackupFilter(
     ): List<io.shellpilot.app.data.entity.Profile> {
         val sanitizedProfiles = profiles
             .filter { it.id > 0L }
-            .map { profile ->
-                if (profile.colorSchemeId > 0L && profile.colorSchemeId !in customColorSchemeIds) {
-                    // 変更理由: 復元先で存在しないカスタム配色IDへ誤接続しないようDefaultへ戻す。
-                    profile.copy(colorSchemeId = -1L)
-                } else {
-                    profile
-                }
-            }
+            .map { CoreDataSanitizer.sanitizeProfile(it, customColorSchemeIds) }
 
         val withDefault = if (sanitizedProfiles.any { it.id == DEFAULT_PROFILE_ID }) {
             sanitizedProfiles
@@ -210,15 +208,15 @@ class BackupFilter(
                 name = "$baseName ($suffix)"
                 suffix++
             }
-            if (name == profile.name) profile else profile.copy(name = name)
+            val renamed = if (name == profile.name) profile else profile.copy(name = name)
+            CoreDataSanitizer.sanitizeProfile(renamed, customColorSchemeIds)
         }
     }
 
     private fun sanitizeColorSchemeForBackup(
         scheme: io.shellpilot.app.data.entity.ColorScheme
     ): io.shellpilot.app.data.entity.ColorScheme? {
-        if (scheme.isBuiltIn || scheme.id <= 0L) return null
-        return scheme.copy(isBuiltIn = false)
+        return CoreDataSanitizer.sanitizeColorScheme(scheme)
     }
 
     private fun sanitizeHostReference(
@@ -228,16 +226,22 @@ class BackupFilter(
         hostIds: Set<Long>,
         hostById: Map<Long, Host>
     ): Host {
+        val baseHost = CoreDataSanitizer.sanitizeHost(
+            host = host,
+            profileExists = { it in profileIds },
+            pubkeyExists = { it in backupablePubkeyIds },
+            jumpHostById = { hostById[it] }
+        )
         val sanitizedPubkeyId = when {
             host.pubkeyId <= 0L -> host.pubkeyId
             host.pubkeyId in backupablePubkeyIds -> host.pubkeyId
             else -> HostConstants.PUBKEYID_NEVER
         }
-        val sanitizedProfileId = host.profileId.takeIf { it in profileIds } ?: DEFAULT_PROFILE_ID
-        val sanitizedJumpHostId = sanitizeJumpHostId(host, hostIds, hostById)
+        val sanitizedProfileId = baseHost.profileId.takeIf { it in profileIds } ?: DEFAULT_PROFILE_ID
+        val sanitizedJumpHostId = sanitizeJumpHostId(baseHost, hostIds, hostById)
 
         // 変更理由: バックアップから落とした鍵や壊れた踏み台参照を復元先へ持ち込まない。
-        return host.copy(
+        return baseHost.copy(
             profileId = sanitizedProfileId,
             pubkeyId = sanitizedPubkeyId,
             jumpHostId = sanitizedJumpHostId
@@ -277,28 +281,8 @@ class BackupFilter(
         portForward: io.shellpilot.app.data.entity.PortForward,
         host: Host
     ): io.shellpilot.app.data.entity.PortForward? {
-        if (host.protocol != "ssh" || portForward.sourcePort !in PORT_RANGE) return null
-
-        val normalizedType = when (portForward.type) {
-            HostConstants.PORTFORWARD_DYNAMIC4 -> HostConstants.PORTFORWARD_DYNAMIC5
-            HostConstants.PORTFORWARD_LOCAL,
-            HostConstants.PORTFORWARD_REMOTE,
-            HostConstants.PORTFORWARD_DYNAMIC5 -> portForward.type
-            else -> return null
-        }
-
-        val destAddr = portForward.destAddr?.trim().orEmpty()
-        if (normalizedType == HostConstants.PORTFORWARD_LOCAL || normalizedType == HostConstants.PORTFORWARD_REMOTE) {
-            if (destAddr.isEmpty() || portForward.destPort !in PORT_RANGE) return null
-        }
-
         // 変更理由: バックアップ用DBにも実行時が扱える転送設定だけを書き出す。
-        return portForward.copy(
-            type = normalizedType,
-            nickname = portForward.nickname.trim().ifEmpty { "Forward ${portForward.sourcePort}" },
-            destAddr = if (normalizedType == HostConstants.PORTFORWARD_DYNAMIC5) null else destAddr,
-            destPort = if (normalizedType == HostConstants.PORTFORWARD_DYNAMIC5) 0 else portForward.destPort
-        )
+        return CoreDataSanitizer.sanitizePortForward(portForward, host)
     }
 
     /**
@@ -320,6 +304,5 @@ class BackupFilter(
     private companion object {
         const val DEFAULT_PROFILE_ID = 1L
         const val DEFAULT_PROFILE_NAME = "Default"
-        val PORT_RANGE = 1..65535
     }
 }

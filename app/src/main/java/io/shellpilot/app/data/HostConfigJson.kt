@@ -20,6 +20,8 @@ package io.shellpilot.app.data
 import android.content.Context
 import androidx.room.RoomDatabase
 import io.shellpilot.app.util.HostConstants
+import java.nio.charset.Charset
+import org.json.JSONArray
 import org.json.JSONObject
 
 /**
@@ -177,14 +179,41 @@ object HostConfigJson {
         val profiles = json.optJSONArray("profiles") ?: return
         for (i in 0 until profiles.length()) {
             val profile = profiles.getJSONObject(i)
+            val id = profile.optLong("id", 0L)
+            val name = if (id == CoreDataSanitizer.DEFAULT_PROFILE_ID) {
+                CoreDataSanitizer.DEFAULT_PROFILE_NAME
+            } else {
+                profile.optString("name", "").trim().ifEmpty { "Profile" }
+            }
+            profile.put("name", name)
             if (profile.optLong("colorSchemeId", -1L) > 0L) {
                 profile.put("colorSchemeId", -1L)
             }
+            val fontSize = profile.optInt("fontSize", 10).coerceIn(6, 96)
+            profile.put("fontSize", fontSize)
+            if (profile.optString("delKey") !in setOf("del", "backspace")) {
+                profile.put("delKey", "del")
+            }
+            val encoding = profile.optString("encoding").trim()
+            if (encoding.isEmpty() || !runCatching { Charset.isSupported(encoding) }.getOrDefault(false)) {
+                profile.put("encoding", "UTF-8")
+            } else {
+                profile.put("encoding", encoding)
+            }
+            if (profile.optString("emulation").trim().isEmpty()) {
+                profile.put("emulation", "xterm-256color")
+            }
+            normalizeOptionalRange(profile, "forceSizeRows", 1..400)
+            normalizeOptionalRange(profile, "forceSizeColumns", 1..400)
         }
     }
 
     private fun sanitizeHosts(json: JSONObject) {
         val hosts = json.optJSONArray("hosts") ?: return
+        for (i in 0 until hosts.length()) {
+            sanitizeHostObject(hosts.getJSONObject(i))
+        }
+
         val hostById = mutableMapOf<Long, JSONObject>()
         for (i in 0 until hosts.length()) {
             val host = hosts.getJSONObject(i)
@@ -219,6 +248,48 @@ object HostConfigJson {
         }
     }
 
+    private fun sanitizeHostObject(host: JSONObject) {
+        val protocol = when (host.optString("protocol")) {
+            "ssh", "telnet", "local" -> host.optString("protocol")
+            else -> "ssh"
+        }
+        host.put("protocol", protocol)
+
+        val port = host.optInt("port", if (protocol == "telnet") 23 else 22)
+        host.put(
+            "port",
+            when {
+                protocol == "local" -> 0
+                port in 1..65535 -> port
+                protocol == "telnet" -> 23
+                else -> 22
+            }
+        )
+
+        if (host.optString("useAuthAgent") !in setOf(
+                HostConstants.AUTHAGENT_NO,
+                HostConstants.AUTHAGENT_CONFIRM,
+                HostConstants.AUTHAGENT_YES
+            )
+        ) {
+            host.put("useAuthAgent", HostConstants.AUTHAGENT_NO)
+        }
+        if (host.optString("ipVersion") !in setOf("IPV4_AND_IPV6", "IPV4_ONLY", "IPV6_ONLY")) {
+            host.put("ipVersion", "IPV4_AND_IPV6")
+        }
+        val scrollback = host.optInt("scrollbackLines", 140)
+        if (scrollback !in 0..100000) {
+            host.put("scrollbackLines", 140)
+        }
+
+        if (protocol != "ssh") {
+            host.put("pubkeyId", HostConstants.PUBKEYID_NEVER)
+            host.put("jumpHostId", JSONObject.NULL)
+        } else if (host.optLong("pubkeyId", HostConstants.PUBKEYID_NEVER) > 0L) {
+            host.put("pubkeyId", HostConstants.PUBKEYID_NEVER)
+        }
+    }
+
     private fun hasJumpCycle(rootId: Long, firstJumpHostId: Long, hostById: Map<Long, JSONObject>): Boolean {
         if (rootId <= 0L) return false
         val visited = mutableSetOf(rootId)
@@ -235,19 +306,49 @@ object HostConfigJson {
 
     private fun sanitizePortForwards(json: JSONObject) {
         val portForwards = json.optJSONArray("port_forwards") ?: return
-        val sanitized = org.json.JSONArray()
+        val hosts = json.optJSONArray("hosts") ?: JSONArray()
+        val hostById = mutableMapOf<Long, JSONObject>()
+        for (i in 0 until hosts.length()) {
+            val host = hosts.getJSONObject(i)
+            val id = host.optLong("id", 0L)
+            if (id > 0L) hostById[id] = host
+        }
+
+        val sanitized = JSONArray()
         for (i in 0 until portForwards.length()) {
             val portForward = portForwards.getJSONObject(i)
-            when (portForward.optString("type")) {
-                HostConstants.PORTFORWARD_DYNAMIC4 -> {
-                    portForward.put("type", HostConstants.PORTFORWARD_DYNAMIC5)
-                    sanitized.put(portForward)
-                }
+            val host = hostById[portForward.optLong("hostId", 0L)]
+            val normalizedType = when (portForward.optString("type")) {
+                HostConstants.PORTFORWARD_DYNAMIC4 -> HostConstants.PORTFORWARD_DYNAMIC5
                 HostConstants.PORTFORWARD_LOCAL,
                 HostConstants.PORTFORWARD_REMOTE,
-                HostConstants.PORTFORWARD_DYNAMIC5 -> sanitized.put(portForward)
+                HostConstants.PORTFORWARD_DYNAMIC5 -> portForward.optString("type")
+                else -> continue
             }
+            if (host?.optString("protocol") != "ssh") continue
+            if (portForward.optInt("sourcePort", 0) !in 1..65535) continue
+
+            portForward.put("type", normalizedType)
+            if (normalizedType == HostConstants.PORTFORWARD_DYNAMIC5) {
+                portForward.put("destAddr", JSONObject.NULL)
+                portForward.put("destPort", 0)
+                sanitized.put(portForward)
+                continue
+            }
+
+            val destAddr = portForward.optString("destAddr", "").trim()
+            if (destAddr.isEmpty() || portForward.optInt("destPort", 0) !in 1..65535) continue
+            portForward.put("destAddr", destAddr)
+            sanitized.put(portForward)
         }
         json.put("port_forwards", sanitized)
+    }
+
+    private fun normalizeOptionalRange(json: JSONObject, field: String, range: IntRange) {
+        if (!json.has(field) || json.isNull(field)) return
+        val value = json.optInt(field, Int.MIN_VALUE)
+        if (value !in range) {
+            json.put(field, JSONObject.NULL)
+        }
     }
 }

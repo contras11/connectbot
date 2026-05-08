@@ -17,8 +17,8 @@
 
 package io.shellpilot.app.data
 
-import java.nio.charset.Charset
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import io.shellpilot.app.data.dao.ProfileDao
@@ -42,25 +42,33 @@ class ProfileRepository @Inject constructor(
     /**
      * Observe all profiles.
      */
-    fun observeAll(): Flow<List<Profile>> = profileDao.observeAll()
+    fun observeAll(): Flow<List<Profile>> = profileDao.observeAll().map { profiles ->
+        val colorSchemeIds = database.colorSchemeDao().getAll().map { it.id }.toSet()
+        profiles.map { CoreDataSanitizer.sanitizeProfile(it, colorSchemeIds) }
+    }
 
     /**
      * Observe a single profile by ID.
      */
-    fun observeById(profileId: Long): Flow<Profile?> = profileDao.observeById(profileId)
+    fun observeById(profileId: Long): Flow<Profile?> = profileDao.observeById(profileId).map { profile ->
+        val colorSchemeIds = database.colorSchemeDao().getAll().map { it.id }.toSet()
+        profile?.let { CoreDataSanitizer.sanitizeProfile(it, colorSchemeIds) }
+    }
 
     /**
      * Get all profiles.
      */
     suspend fun getAll(): List<Profile> = withContext(dispatchers.io) {
-        profileDao.getAll()
+        val colorSchemeIds = database.colorSchemeDao().getAll().map { it.id }.toSet()
+        profileDao.getAll().map { CoreDataSanitizer.sanitizeProfile(it, colorSchemeIds) }
     }
 
     /**
      * Get a profile by ID.
      */
     suspend fun getById(profileId: Long): Profile? = withContext(dispatchers.io) {
-        profileDao.getById(profileId)
+        val colorSchemeIds = database.colorSchemeDao().getAll().map { it.id }.toSet()
+        profileDao.getById(profileId)?.let { CoreDataSanitizer.sanitizeProfile(it, colorSchemeIds) }
     }
 
     /**
@@ -205,33 +213,10 @@ class ProfileRepository @Inject constructor(
         }
 
     private suspend fun sanitizeProfile(profile: Profile): Profile {
-        val name = profile.name.trim().ifEmpty { "Profile" }
-        val fontSize = profile.fontSize.coerceIn(6, 96)
-        val delKey = when (profile.delKey) {
-            "del", "backspace" -> profile.delKey
-            else -> "del"
-        }
-        val encoding = profile.encoding.trim().takeIf { it.isNotEmpty() && Charset.isSupported(it) } ?: "UTF-8"
-        val emulation = profile.emulation.trim().ifEmpty { "xterm-256color" }
-        val rows = profile.forceSizeRows?.takeIf { it in 1..400 }
-        val columns = profile.forceSizeColumns?.takeIf { it in 1..400 }
-        val colorSchemeId = if (profile.colorSchemeId > 0L && database.colorSchemeDao().getById(profile.colorSchemeId) == null) {
-            -1L
-        } else {
-            profile.colorSchemeId
-        }
+        val colorSchemeIds = database.colorSchemeDao().getAll().map { it.id }.toSet()
 
         // 変更理由: TerminalBridgeが直接使う値をRepository境界で安全な範囲へ揃える。
-        return profile.copy(
-            name = name,
-            colorSchemeId = colorSchemeId,
-            fontSize = fontSize,
-            delKey = delKey,
-            encoding = encoding,
-            emulation = emulation,
-            forceSizeRows = rows,
-            forceSizeColumns = columns
-        )
+        return CoreDataSanitizer.sanitizeProfile(profile, colorSchemeIds)
     }
 
     private suspend fun ensureNameIsAvailable(name: String, excludeProfileId: Long?) {

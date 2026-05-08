@@ -46,13 +46,20 @@ object DatabaseModule {
                 ShellPilotDatabase.MIGRATION_4_5,
                 ShellPilotDatabase.MIGRATION_7_8,
                 ShellPilotDatabase.MIGRATION_8_9,
-                ShellPilotDatabase.MIGRATION_9_10
+                ShellPilotDatabase.MIGRATION_9_10,
+                ShellPilotDatabase.MIGRATION_10_11
             )
             .addCallback(object : RoomDatabase.Callback() {
                 override fun onCreate(db: SupportSQLiteDatabase) {
                     super.onCreate(db)
                     // 変更理由: hosts.profile_id の既定値が参照する id=1 を新規DBでも固定する。
                     ShellPilotDatabase.ensureDefaultProfileInvariant(db)
+                }
+
+                override fun onOpen(db: SupportSQLiteDatabase) {
+                    super.onOpen(db)
+                    // 変更理由: 現行DBへimport/restore等で入った不整合も、接続前に安全値へ戻す。
+                    ShellPilotDatabase.normalizeRuntimeInvariants(db)
                 }
             })
             .build()

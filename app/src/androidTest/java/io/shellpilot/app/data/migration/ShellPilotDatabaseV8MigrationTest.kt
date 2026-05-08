@@ -62,7 +62,8 @@ class ShellPilotDatabaseV8MigrationTest {
                 ShellPilotDatabase.MIGRATION_4_5,
                 ShellPilotDatabase.MIGRATION_7_8,
                 ShellPilotDatabase.MIGRATION_8_9,
-                ShellPilotDatabase.MIGRATION_9_10
+                ShellPilotDatabase.MIGRATION_9_10,
+                ShellPilotDatabase.MIGRATION_10_11
             )
             .allowMainThreadQueries()
             .build()
@@ -84,7 +85,7 @@ class ShellPilotDatabaseV8MigrationTest {
         db.close()
 
         val roomDb = Room.databaseBuilder(context, ShellPilotDatabase::class.java, TEST_DB)
-            .addMigrations(ShellPilotDatabase.MIGRATION_8_9, ShellPilotDatabase.MIGRATION_9_10)
+            .addMigrations(ShellPilotDatabase.MIGRATION_8_9, ShellPilotDatabase.MIGRATION_9_10, ShellPilotDatabase.MIGRATION_10_11)
             .allowMainThreadQueries()
             .build()
         try {
@@ -106,13 +107,36 @@ class ShellPilotDatabaseV8MigrationTest {
         db.close()
 
         val roomDb = Room.databaseBuilder(context, ShellPilotDatabase::class.java, TEST_DB)
-            .addMigrations(ShellPilotDatabase.MIGRATION_9_10)
+            .addMigrations(ShellPilotDatabase.MIGRATION_9_10, ShellPilotDatabase.MIGRATION_10_11)
             .allowMainThreadQueries()
             .build()
         try {
             runBlocking {
                 assertThat(roomDb.profileDao().getDefault()?.name).isEqualTo("Default")
                 assertThat(roomDb.hostDao().getById(20)?.profileId).isEqualTo(1L)
+            }
+        } finally {
+            roomDb.close()
+        }
+    }
+
+    @Test
+    fun migration10To11ReappliesRuntimeSanitizerForDirtyCurrentDatabase() {
+        createV10DirtyDatabase()
+
+        val db = runV11MigrationWithOpenHelper()
+        assertV11DataWasNormalized(db)
+        db.close()
+
+        val roomDb = Room.databaseBuilder(context, ShellPilotDatabase::class.java, TEST_DB)
+            .addMigrations(ShellPilotDatabase.MIGRATION_10_11)
+            .allowMainThreadQueries()
+            .build()
+        try {
+            runBlocking {
+                assertThat(roomDb.profileDao().getDefault()?.name).isEqualTo("Default")
+                assertThat(roomDb.hostDao().getById(30)?.protocol).isEqualTo("local")
+                assertThat(roomDb.hostDao().getById(30)?.pubkeyId).isEqualTo(HostConstants.PUBKEYID_NEVER)
             }
         } finally {
             roomDb.close()
@@ -176,6 +200,24 @@ class ShellPilotDatabaseV8MigrationTest {
                         assertThat(oldVersion).isEqualTo(9)
                         assertThat(newVersion).isEqualTo(10)
                         ShellPilotDatabase.MIGRATION_9_10.migrate(db)
+                    }
+                })
+                .build()
+        )
+        return helper.writableDatabase
+    }
+
+    private fun runV11MigrationWithOpenHelper(): SupportSQLiteDatabase {
+        val helper = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(TEST_DB)
+                .callback(object : SupportSQLiteOpenHelper.Callback(11) {
+                    override fun onCreate(db: SupportSQLiteDatabase) = Unit
+
+                    override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {
+                        assertThat(oldVersion).isEqualTo(10)
+                        assertThat(newVersion).isEqualTo(11)
+                        ShellPilotDatabase.MIGRATION_10_11.migrate(db)
                     }
                 })
                 .build()
@@ -323,6 +365,62 @@ class ShellPilotDatabaseV8MigrationTest {
         }
     }
 
+    private fun assertV11DataWasNormalized(db: SupportSQLiteDatabase) {
+        db.query("SELECT name, font_size, del_key, encoding, emulation FROM profiles WHERE id = 1").use { cursor ->
+            assertThat(cursor.moveToFirst()).isTrue()
+            assertThat(cursor.getString(0)).isEqualTo("Default")
+            assertThat(cursor.getInt(1)).isEqualTo(10)
+            assertThat(cursor.getString(2)).isEqualTo("del")
+            assertThat(cursor.getString(3)).isEqualTo("UTF-8")
+            assertThat(cursor.getString(4)).isEqualTo("xterm-256color")
+        }
+
+        db.query("SELECT COUNT(*) FROM profiles WHERE name = 'Default' AND id != 1").use { cursor ->
+            assertThat(cursor.moveToFirst()).isTrue()
+            assertThat(cursor.getInt(0)).isEqualTo(0)
+        }
+
+        db.query("SELECT is_built_in FROM color_schemes WHERE id = 30").use { cursor ->
+            assertThat(cursor.moveToFirst()).isTrue()
+            assertThat(cursor.getInt(0)).isEqualTo(0)
+        }
+
+        db.query("SELECT COUNT(*) FROM color_palette WHERE color_index = 20").use { cursor ->
+            assertThat(cursor.moveToFirst()).isTrue()
+            assertThat(cursor.getInt(0)).isEqualTo(0)
+        }
+
+        db.query("SELECT protocol, port, pubkey_id, jump_host_id, profile_id, ip_version, use_auth_agent, scrollback_lines FROM hosts WHERE id = 30").use { cursor ->
+            assertThat(cursor.moveToFirst()).isTrue()
+            assertThat(cursor.getString(0)).isEqualTo("local")
+            assertThat(cursor.getInt(1)).isEqualTo(0)
+            assertThat(cursor.getLong(2)).isEqualTo(HostConstants.PUBKEYID_NEVER)
+            assertThat(cursor.isNull(3)).isTrue()
+            assertThat(cursor.getLong(4)).isEqualTo(1L)
+            assertThat(cursor.getString(5)).isEqualTo(HostConstants.IPVERSION_IPV4_AND_IPV6)
+            assertThat(cursor.getString(6)).isEqualTo(HostConstants.AUTHAGENT_NO)
+            assertThat(cursor.getInt(7)).isEqualTo(140)
+        }
+
+        db.query("SELECT COUNT(*) FROM port_forwards WHERE host_id = 30 OR source_port = 70000").use { cursor ->
+            assertThat(cursor.moveToFirst()).isTrue()
+            assertThat(cursor.getInt(0)).isEqualTo(0)
+        }
+
+        db.query("SELECT COUNT(*) FROM known_hosts WHERE host_id = 30 OR host_key_algo = ''").use { cursor ->
+            assertThat(cursor.moveToFirst()).isTrue()
+            assertThat(cursor.getInt(0)).isEqualTo(0)
+        }
+
+        db.query("SELECT startup, allow_backup, private_key, storage_type FROM pubkeys WHERE id = 30").use { cursor ->
+            assertThat(cursor.moveToFirst()).isTrue()
+            assertThat(cursor.getInt(0)).isEqualTo(0)
+            assertThat(cursor.getInt(1)).isEqualTo(0)
+            assertThat(cursor.isNull(2)).isTrue()
+            assertThat(cursor.getString(3)).isEqualTo("EXPORTABLE")
+        }
+    }
+
     private fun createV8Database() {
         val dbFile = context.getDatabasePath(TEST_DB)
         dbFile.parentFile?.mkdirs()
@@ -339,6 +437,25 @@ class ShellPilotDatabaseV8MigrationTest {
         SQLiteDatabase.openDatabase(context.getDatabasePath(TEST_DB).path, null, SQLiteDatabase.OPEN_READWRITE).use { db ->
             insertV9Fixture(db)
             db.version = 9
+        }
+    }
+
+    private fun createV10DirtyDatabase() {
+        createV9Database()
+        runV10MigrationWithOpenHelper().close()
+        SQLiteDatabase.openDatabase(context.getDatabasePath(TEST_DB).path, null, SQLiteDatabase.OPEN_READWRITE).use { db ->
+            db.execSQL("UPDATE profiles SET name = 'Broken Default', font_size = 500, del_key = 'delete', encoding = '', emulation = '' WHERE id = 1")
+            db.execSQL("INSERT INTO profiles (id, name, color_scheme_id, font_size, del_key, encoding, emulation) VALUES (30, 'Default', -1, 10, 'del', 'UTF-8', 'xterm-256color')")
+            db.execSQL("INSERT INTO color_schemes (id, name, is_built_in, description, foreground, background) VALUES (30, 'Legacy Runtime Custom', 1, 'legacy', 7, 0)")
+            db.execSQL("UPDATE profiles SET color_scheme_id = 30 WHERE id = 2")
+            db.execSQL("INSERT INTO color_palette (id, scheme_id, color_index, color) VALUES (30, 30, 20, 123456)")
+            db.execSQL("INSERT INTO pubkeys (id, nickname, type, private_key, public_key, encrypted, startup, confirmation, created_date, storage_type, allow_backup, keystore_alias) VALUES (30, 'runtime invalid storage', 'ssh-rsa', NULL, X'01', 0, 1, 0, 100, 'BROKEN', 1, NULL)")
+            insertHost(db, id = 30, nickname = "dirty-local", protocol = "local", profileId = 999, pubkeyId = 30, jumpHostId = 1)
+            db.execSQL("UPDATE hosts SET port = 2222, ip_version = 'BROKEN', use_auth_agent = 'agent', scrollback_lines = 200000 WHERE id = 30")
+            db.execSQL("INSERT INTO port_forwards (id, host_id, nickname, type, source_port, dest_addr, dest_port) VALUES (300, 30, 'non-ssh-forward', 'local', 70000, 'example.com', 22)")
+            db.execSQL("INSERT INTO known_hosts (id, host_id, hostname, port, host_key_algo, host_key) VALUES (300, 30, 'local.example.com', 22, 'ssh-ed25519', X'AA')")
+            db.execSQL("INSERT INTO known_hosts (id, host_id, hostname, port, host_key_algo, host_key) VALUES (301, 1, 'bad.example.com', 22, '', X'')")
+            db.version = 10
         }
     }
 

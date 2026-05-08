@@ -36,7 +36,7 @@ class LegacyPubkeyDatabaseReader(private val context: Context) {
 
     /**
      * Reads all pubkeys from the legacy database.
-     * All migrated keys are marked as EXPORTABLE with allowBackup=true by default.
+     * 秘密鍵materialを持つ旧鍵は安全側に倒し、バックアップは明示opt-inにする。
      */
     fun readPubkeys(): List<Pubkey> {
         val pubkeys = mutableListOf<Pubkey>()
@@ -57,6 +57,7 @@ class LegacyPubkeyDatabaseReader(private val context: Context) {
                         pubkeys.add(pubkey)
                     } catch (e: Exception) {
                         Timber.e(e, "Error reading pubkey from cursor")
+                        throw MigrationException("Failed to read legacy pubkey row: ${e.message}")
                     }
                 }
             }
@@ -90,7 +91,7 @@ class LegacyPubkeyDatabaseReader(private val context: Context) {
             confirmation = cursor.getInt(confirmUseIndex) == 1,
             createdDate = System.currentTimeMillis(), // Legacy DB doesn't track this, use current time
             storageType = KeyStorageType.EXPORTABLE, // All legacy keys are exportable
-            allowBackup = true, // Default to allowing backup for legacy keys
+            allowBackup = false, // 変更理由: 秘密鍵をOS backupへ含める操作は明示opt-inに限定する。
             keystoreAlias = null // Legacy keys don't use Android Keystore
         )
     }

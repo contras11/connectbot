@@ -280,6 +280,78 @@ class HostConfigJsonTest {
     }
 
     @Test
+    fun importFromJson_sanitizesInvalidRuntimeValuesBeforeRawInsert() = runTest {
+        val json = JSONObject()
+            .put("version", ShellPilotDatabase.SCHEMA_VERSION)
+            .put("profiles", org.json.JSONArray())
+            .put(
+                "hosts",
+                org.json.JSONArray().put(
+                    JSONObject()
+                        .put("id", 100L)
+                        .put("nickname", "broken-host")
+                        .put("protocol", "ftp")
+                        .put("username", "alice")
+                        .put("hostname", "broken.example.com")
+                        .put("port", 70000)
+                        .put("color", JSONObject.NULL)
+                        .put("useKeys", 1)
+                        .put("useAuthAgent", "agent")
+                        .put("postLogin", JSONObject.NULL)
+                        .put("pubkeyId", 999L)
+                        .put("wantSession", 1)
+                        .put("compression", 0)
+                        .put("stayConnected", 0)
+                        .put("quickDisconnect", 0)
+                        .put("scrollbackLines", 200000)
+                        .put("useCtrlAltAsMetaKey", 0)
+                        .put("jumpHostId", JSONObject.NULL)
+                        .put("profileId", 1L)
+                        .put("ipVersion", "BROKEN")
+                )
+            )
+            .put(
+                "port_forwards",
+                org.json.JSONArray()
+                    .put(
+                        JSONObject()
+                            .put("id", 10L)
+                            .put("hostId", 100L)
+                            .put("nickname", "bad-port")
+                            .put("type", HostConstants.PORTFORWARD_LOCAL)
+                            .put("sourcePort", 70000)
+                            .put("destAddr", "127.0.0.1")
+                            .put("destPort", 22)
+                    )
+                    .put(
+                        JSONObject()
+                            .put("id", 11L)
+                            .put("hostId", 100L)
+                            .put("nickname", "dynamic")
+                            .put("type", HostConstants.PORTFORWARD_DYNAMIC4)
+                            .put("sourcePort", 1080)
+                            .put("destAddr", "ignored.example.com")
+                            .put("destPort", 2222)
+                    )
+            )
+
+        HostConfigJson.importFromJson(context, destinationDb, json.toString())
+
+        val imported = destinationDb.hostDao().getAll().first { it.nickname == "broken-host" }
+        assertThat(imported.protocol).isEqualTo("ssh")
+        assertThat(imported.port).isEqualTo(22)
+        assertThat(imported.useAuthAgent).isEqualTo(HostConstants.AUTHAGENT_NO)
+        assertThat(imported.pubkeyId).isEqualTo(HostConstants.PUBKEYID_NEVER)
+        assertThat(imported.scrollbackLines).isEqualTo(140)
+        assertThat(imported.ipVersion).isEqualTo("IPV4_AND_IPV6")
+        val forwards = destinationDb.portForwardDao().getByHost(imported.id)
+        assertThat(forwards).hasSize(1)
+        assertThat(forwards.single().type).isEqualTo(HostConstants.PORTFORWARD_DYNAMIC5)
+        assertThat(forwards.single().destAddr).isNull()
+        assertThat(forwards.single().destPort).isEqualTo(0)
+    }
+
+    @Test
     fun importFromJson_skipsPortForwardsWhenParentHostAlreadyExists() = runTest {
         val sourceHostId = sourceDb.hostDao().insert(host(nickname = "existing-host", hostname = "source.example.com"))
         sourceDb.portForwardDao().insert(

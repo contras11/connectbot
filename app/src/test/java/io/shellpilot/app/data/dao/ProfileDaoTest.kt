@@ -159,13 +159,16 @@ class ProfileDaoTest {
 
     @Test
     fun deleteProfile() = runTest {
+        // id=1 の標準プロファイルは削除保護されるため、削除対象は別行にする。
+        profileDao.insert(createTestProfile(name = "Dummy"))
         val profile = createTestProfile(name = "ToDelete")
         val id = profileDao.insert(profile)
 
         val retrieved = profileDao.getById(id)
         assertThat(retrieved).isNotNull()
 
-        profileDao.delete(retrieved!!)
+        val deletedCount = profileDao.deleteById(retrieved!!.id)
+        assertThat(deletedCount).isEqualTo(1)
 
         val afterDelete = profileDao.getById(id)
         assertThat(afterDelete).isNull()

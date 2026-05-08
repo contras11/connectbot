@@ -127,7 +127,7 @@ class BackupAgent : BackupAgentHelper() {
             throw IllegalStateException("Database does not exist for backup: ${dbFile.path}")
         }
 
-        val tempDbFile = getDatabasePath(TEMP_DATABASE_NAME)
+        val tempDbFile = File(noBackupFilesDir, TEMP_DATABASE_NAME)
 
         // 変更理由: 復元直後の旧DBでも通常経路と同じmigration/callbackで開く。
         val database = buildMainDatabase()
@@ -160,23 +160,32 @@ class BackupAgent : BackupAgentHelper() {
         }
     }
 
-    private fun buildMainDatabase(): ShellPilotDatabase {
+    private fun buildMainDatabase(): ShellPilotDatabase = buildDatabase(DATABASE_NAME)
+
+    private fun buildDatabase(databaseName: String): ShellPilotDatabase {
         return Room.databaseBuilder(
             applicationContext,
             ShellPilotDatabase::class.java,
-            DATABASE_NAME
+            databaseName
         )
             .addMigrations(
                 ShellPilotDatabase.MIGRATION_4_5,
                 ShellPilotDatabase.MIGRATION_7_8,
                 ShellPilotDatabase.MIGRATION_8_9,
-                ShellPilotDatabase.MIGRATION_9_10
+                ShellPilotDatabase.MIGRATION_9_10,
+                ShellPilotDatabase.MIGRATION_10_11
             )
             .addCallback(object : RoomDatabase.Callback() {
                 override fun onCreate(db: SupportSQLiteDatabase) {
                     super.onCreate(db)
                     // 変更理由: DatabaseModuleと同じDefault profile不変条件をBackupAgent経由でも守る。
                     ShellPilotDatabase.ensureDefaultProfileInvariant(db)
+                }
+
+                override fun onOpen(db: SupportSQLiteDatabase) {
+                    super.onOpen(db)
+                    // 変更理由: 復元DBでも通常起動時と同じ不変条件を検証する。
+                    ShellPilotDatabase.normalizeRuntimeInvariants(db)
                 }
             })
             .build()
@@ -219,8 +228,12 @@ class BackupAgent : BackupAgentHelper() {
         }
 
         val dbFile = getDatabasePath(DATABASE_NAME)
-        val tempFile = File(dbFile.parentFile, "$DATABASE_NAME.restore")
+        val tempFile = File(noBackupFilesDir, "$DATABASE_NAME.restore")
+        val backupFile = File(noBackupFilesDir, "$DATABASE_NAME.pre-restore")
         dbFile.parentFile?.mkdirs()
+        noBackupFilesDir.mkdirs()
+        deleteDatabaseWithSidecars(tempFile, warnOnly = true)
+        deleteDatabaseWithSidecars(backupFile, warnOnly = true)
 
         FileOutputStream(tempFile).use { output ->
             val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
@@ -237,17 +250,24 @@ class BackupAgent : BackupAgentHelper() {
         }
 
         validateDatabaseFile(tempFile, "restored temp database")
-        deleteDatabaseSidecars(dbFile)
-        if (dbFile.exists() && !dbFile.delete()) {
-            throw IllegalStateException("Existing database could not be deleted before restore: ${dbFile.path}")
+        validateRoomDatabaseFile(tempFile, "restored temp database")
+
+        try {
+            moveExistingDatabaseAside(dbFile, backupFile)
+            if (!tempFile.renameTo(dbFile)) {
+                throw IllegalStateException("Restored database could not be moved into place: ${dbFile.path}")
+            }
+            validateDatabaseFile(dbFile, "restored database")
+            validateRestoredRoomDatabase()
+            deleteDatabaseWithSidecars(backupFile, warnOnly = true)
+            Timber.d("Restored database from backup (${dbFile.length()} bytes)")
+        } catch (e: Exception) {
+            Timber.e(e, "Restore failed; attempting rollback")
+            rollbackDatabase(dbFile, backupFile)
+            throw e
+        } finally {
+            deleteDatabaseWithSidecars(tempFile, warnOnly = true)
         }
-        if (!tempFile.renameTo(dbFile)) {
-            tempFile.delete()
-            throw IllegalStateException("Restored database could not be moved into place: ${dbFile.path}")
-        }
-        validateDatabaseFile(dbFile, "restored database")
-        validateRestoredRoomDatabase()
-        Timber.d("Restored database from backup (${dbFile.length()} bytes)")
     }
 
     private fun validateDatabaseFile(dbFile: File, label: String) {
@@ -291,6 +311,43 @@ class BackupAgent : BackupAgentHelper() {
         }
     }
 
+    private fun validateRoomDatabaseFile(dbFile: File, label: String) {
+        val database = buildDatabase(dbFile.absolutePath)
+        try {
+            database.openHelper.writableDatabase.query("PRAGMA foreign_key_check").use { cursor ->
+                if (cursor.moveToFirst()) {
+                    throw IllegalStateException("$label failed foreign_key_check")
+                }
+            }
+        } finally {
+            database.close()
+        }
+    }
+
+    private fun moveExistingDatabaseAside(dbFile: File, backupFile: File) {
+        deleteDatabaseWithSidecars(backupFile, warnOnly = false)
+        deleteDatabaseSidecars(dbFile)
+        if (!dbFile.exists()) return
+        if (dbFile.renameTo(backupFile)) return
+        dbFile.copyTo(backupFile, overwrite = true)
+        if (!dbFile.delete()) {
+            backupFile.delete()
+            throw IllegalStateException("Existing database could not be moved before restore: ${dbFile.path}")
+        }
+    }
+
+    private fun rollbackDatabase(dbFile: File, backupFile: File) {
+        deleteDatabaseWithSidecars(dbFile, warnOnly = true)
+        if (backupFile.exists() && !backupFile.renameTo(dbFile)) {
+            runCatching {
+                backupFile.copyTo(dbFile, overwrite = true)
+                backupFile.delete()
+            }.onFailure {
+                Timber.e(it, "Failed to roll back database restore")
+            }
+        }
+    }
+
     private fun deleteDatabaseSidecars(dbFile: File) {
         listOf(
             dbFile,
@@ -300,6 +357,21 @@ class BackupAgent : BackupAgentHelper() {
         ).forEach { file ->
             if (file != dbFile && file.exists() && !file.delete()) {
                 Timber.w("Could not delete database sidecar before restore: ${file.path}")
+            }
+        }
+    }
+
+    private fun deleteDatabaseWithSidecars(dbFile: File, warnOnly: Boolean) {
+        listOf(
+            dbFile,
+            File("${dbFile.path}-wal"),
+            File("${dbFile.path}-shm"),
+            File("${dbFile.path}-journal")
+        ).forEach { file ->
+            if (file.exists() && !file.delete() && !warnOnly) {
+                throw IllegalStateException("Could not delete database file: ${file.path}")
+            } else if (file.exists()) {
+                Timber.w("Could not delete database file: ${file.path}")
             }
         }
     }

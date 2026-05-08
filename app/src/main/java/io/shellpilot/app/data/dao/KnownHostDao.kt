@@ -117,6 +117,7 @@ interface KnownHostDao {
      * Delete a known host by hostname and port.
      * Legacy compatibility only. Endpoint-aware callers must include hostId, algorithm, and key.
      */
+    @Deprecated("Use endpoint-aware deleteByHostEndpoint* APIs")
     @Query("DELETE FROM known_hosts WHERE hostname = :hostname AND port = :port")
     suspend fun deleteByHostnameAndPort(hostname: String, port: Int)
 
