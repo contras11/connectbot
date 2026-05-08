@@ -252,6 +252,19 @@ SSH Transport (stdout)
 | `HostDao` (Room DAO) | Hostテーブルへのデータアクセス。CRUD操作、Flow による監視 |
 | `HostRepository` | Hostデータの一元管理。DAO経由のCRUD、ホスト検索クエリ |
 
+### DB / backup 関連
+
+| ファイル | 役割 |
+|----------|------|
+| `app/src/main/java/io/shellpilot/app/data/ShellPilotDatabase.kt` | Room database 定義、schema version、migration 登録 |
+| `app/schemas/io.shellpilot.app.data.ShellPilotDatabase/` | Room schema export。DB version 更新時は必ず追跡対象にする |
+| `app/src/main/res/xml/full_backup_content.xml` | Android full backup から DB / 保存パスワードを除外する設定 |
+| `app/src/main/res/xml/data_extraction_rules.xml` | Android 12+ の cloud backup / device transfer 除外設定 |
+| `app/src/main/java/io/shellpilot/app/service/BackupAgent.kt` | Android BackupAgent。通常DBと同じ migration 設定を使う |
+| `app/src/main/java/io/shellpilot/app/service/BackupFilter.kt` | backup / restore 用のフィルタ済み temp DB 作成 |
+| `app/src/main/java/io/shellpilot/app/data/migration/DatabaseMigrator.kt` | 旧 ConnectBot DB から ShellPilot DB への移行 |
+| `app/src/main/java/io/shellpilot/app/data/migration/LegacyHostDatabaseReader.kt` | legacy hosts / known_hosts / port forwards の読み取り |
+
 ---
 
 ## 4. 設計上の注意点

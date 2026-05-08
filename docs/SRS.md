@@ -20,7 +20,7 @@ Android 14以上向けのSSHクライアントを、ConnectBotをベースにKot
 - ターミナル表示（ANSI対応）
 - ショートカット機能（プリセット + カスタム）
 - 日本語UI
-- Android 14制約準拠
+- 現在の Android SDK 設定に準拠
 
 ### 対象外
 
@@ -71,7 +71,9 @@ Android 14以上向けのSSHクライアントを、ConnectBotをベースにKot
 
 ## 5. 非機能要件
 
-- minSdk = 34
-- targetSdk = 34以上
+- compileSdk = 36
+- minSdk = 24
+- targetSdk = 35
 - オフライン動作
 - 鍵の平文外部保存禁止
+- Room schema / backup policy の変更はテストとドキュメントを同時更新すること

@@ -9,46 +9,58 @@ SSH/core compatibility intact.
 * Make sure you have a [GitHub account](https://github.com/signup/free)
 * Open an issue in the ShellPilot repository if one doesn't already exist.
 * Fork the repository on GitHub and then clone your fork.
+* `connectbot/` ディレクトリを Android Studio project root として開いてください。
 * Try to build for the first time:
   * `JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew :app:assembleOssDebug`
 * Run the tests:
-  * `JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew testOssDebugUnitTest`
+  * `JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew :app:testOssDebugUnitTest`
 
 ## Making changes
 
 * Create a topic branch from where you want to base your work.
-  * This should be based off the master branch.
-  * To create a topic branch based on master:
-    * `git checkout -b my_fix master`
-  * Make commits of logical units
-  * Make sure your commit messages are in the proper format (from [Pro Git chapter 5.2](https://git-scm.com/book/en/v2/Distributed-Git-Contributing-to-a-Project)).
+  * active な ShellPilot branch または repository の default branch をベースにしてください。
+  * topic branch を作成する例:
+    * `git checkout -b my_fix`
+  * 論理的な単位で commit してください。
+  * commit message は日本語で、変更理由が分かる本文を付けてください。
+  * 基本形は次のとおりです。
 ````
-    Short (50 chars or less) summary of changes
+    短い変更概要
 
-    More detailed explanatory text, if necessary.  Wrap it to
-    about 72 characters or so.  In some contexts, the first
-    line is treated as the subject of an email and the rest of
-    the text as the body.  The blank line separating the
-    summary from the body is critical (unless you omit the body
-    entirely); tools like rebase can get confused if you run
-    the two together.
+    なぜ変更したか、何を守ったか、どの検証を通したかを簡潔に書く。
 
-    Further paragraphs come after blank lines.
-
-        - Bullet points are okay, too
-
-        - Typically a hyphen or asterisk is used for the bullet,
-          preceded by a single space, with blank lines in
-          between, but conventions vary here
+    動作確認: :app:assembleOssDebug / :app:testOssDebugUnitTest
 ````
   * Make sure you have added necessary tests to your changes.
+  * Room database version を変更した場合は、`app/schemas/` の generated schema と migration test を同じ変更に含めます。
+  * Android backup または device transfer の挙動を変更した場合は、`app/src/main/res/xml/full_backup_content.xml`、`app/src/main/res/xml/data_extraction_rules.xml`、`docs/SECURITY.md` を更新します。
   * Check for unnecessary whitespace:
     * `git diff --check`
   * Make sure no new Android lint issues pop up:
-    * `./gradlew lint`
+    * `JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew :app:lintOssDebug`
     * Read the output to see if any of your newly-added or changed lines have lint errors.
   * Make sure all the checks and tests pass:
-    * `./gradlew check test`
+    * `JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew :app:testOssDebugUnitTest :app:assembleOssDebug :app:lintOssDebug`
+  * DB、SSH、認証、backup / restore、UI navigation の変更では、次も実行します。
+    * `JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew connectedOssDebugAndroidTest`
+
+## Worktree hygiene
+
+ローカルレビュー資産、認証情報、端末固有ファイルはコミットしません。
+
+* `.claude/`
+* `review/`
+* `local.properties`
+* release signing keys and keystore properties
+* APK/AAB outputs, logcat files, hprof files, and temporary archives
+
+変更に含まれる場合は、次の generated / policy file はコミット対象です。
+
+* Room schema exports in `app/schemas/`
+* backup / data extraction XML in `app/src/main/res/xml/`
+* tests under `app/src/test/` and `app/src/androidTest/`
+
+詳細なルールは `docs/WORKTREE_HYGIENE.md` を参照してください。
 
 ## Submitting changes
 

@@ -4,6 +4,9 @@ ShellPilot is a [Secure Shell](https://en.wikipedia.org/wiki/Secure_Shell)
 client for Android with AI CLI tool support. It is a fork of ConnectBot,
 modernized with Kotlin, Compose, Room, and ShellPilot-specific package IDs.
 
+## Repository Root
+
+`connectbot/` checkout を Android project root として開いてください。親ディレクトリの `SSH_App/` は workspace container であり、Git root ではありません。
 
 ## How to Install
 
@@ -30,7 +33,20 @@ directory as the Android project root.
 To compile ShellPilot using `gradlew`, use the Android Studio bundled JBR:
 
 ```sh
+cd /Users/contras11/codes/SSH_App/connectbot
 JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew :app:assembleOssDebug
+```
+
+広範囲の変更では、単体テストと lint も実行します。
+
+```sh
+JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew :app:testOssDebugUnitTest :app:lintOssDebug
+```
+
+計測テストは既存 AVD `OshiCue_Medium_Phone_API_36_1` を使います。
+
+```sh
+JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew connectedOssDebugAndroidTest
 ```
 
 ### Continuous Integration
@@ -56,3 +72,13 @@ act -W .github/workflows/ci.yml
 Translation files are inherited from the ConnectBot fork point. When changing
 ShellPilot-specific branding, update the default strings and brand tokens in
 localized resources without rewriting unrelated translations.
+
+## Repository Hygiene
+
+ローカルレビュー資産と認証情報は Git に含めません。主なルールは次のとおりです。
+
+- DB version を変更したら、Room schema export を `app/schemas/` にコミットします。
+- Android backup policy XML は `app/src/main/res/xml/` にコミットします。
+- `.claude/`、`review/`、`local.properties`、署名鍵、APK/AAB、logcat はコミットしません。
+
+詳細は [`docs/WORKTREE_HYGIENE.md`](docs/WORKTREE_HYGIENE.md) を参照してください。
