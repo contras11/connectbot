@@ -1,14 +1,31 @@
+# ShellPilot / ConnectBot repository hygiene
+#
+# 変更理由: レビュー用キャプチャ、Codexローカル設定、署名鍵、端末固有設定を
+# 誤ってコミットしないように、追跡対象とローカル成果物の境界を明確にする。
+
 # translation artifacts
 launchpad-*.tar.gz
 
 # local config files
 local.properties
+*.local.properties
+
+# Codex / review assets
+.claude/
+review/
 
 # working files
 *~
+*.swp
+*.swo
+*.tmp
+*.bak
+*.orig
+*.rej
 
-# OS X sucks
+# macOS metadata
 .DS_Store
+._*
 
 # SublimeText working files
 *.sublime-project
@@ -17,6 +34,8 @@ local.properties
 # Android Studio
 .gradle/
 build/
+.kotlin/
+captures/
 
 # Android gradle native build
 \.externalNativeBuild/
@@ -25,8 +44,51 @@ build/
 .idea/*
 !.idea/codeStyles/
 !.idea/copyright/
+*.iml
 
 **/.cxx
 
 # Jenkinsfile-runner
 \.jenkinsfile-runner/
+
+# Android build / profiling outputs
+*.apk
+*.ap_
+*.aab
+*.idsig
+*.aar
+*.dex
+*.hprof
+*.prof
+*.trace
+mapping.txt
+
+# Release signing and credentials
+*.jks
+*.keystore
+*.p12
+*.pem
+*.cer
+*.der
+keystore.properties
+signing.properties
+release.properties
+
+# Logs and temporary archives
+*.log
+*.logcat
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+
+# Test fixtures are allowed when explicitly placed under test resources.
+!app/src/test/resources/**/*.zip
+!app/src/test/resources/**/*.pem
+!app/src/androidTest/assets/**/*.zip
+!app/src/androidTest/assets/**/*.pem
+
+# Firebase / Play Console local downloads
+google-services.json
+play-account.json
+service-account*.json

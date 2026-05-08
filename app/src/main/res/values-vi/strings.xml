@@ -336,7 +336,7 @@
   <string name="dialog_title_edit_color">Chỉnh sửa màu %1$d</string>
   <string name="dialog_title_reset_all">Khôi phục tất cả màu sắc mặc định?</string>
   <string name="dialog_message_reset_all">Thao tác này sẽ đặt lại tất cả 256 màu về giá trị mặc định. Thao tác này không thể hoàn tác.</string>
-  <string name="app_is_running">ConnectBot đang kết nối</string>
+  <string name="app_is_running">ShellPilot đang kết nối</string>
   <string name="label_red">Đỏ</string>
   <string name="label_green">Màu xanh lá cây</string>
   <string name="label_blue">Xanh lam</string>
@@ -480,7 +480,7 @@
   <string name="logs_title">Nhật ký ứng dụng</string>
   <string name="copy_logs">Sao chép nhật ký</string>
   <string name="logs_copied">Nhật ký đã được sao chép vào bộ nhớ tạm</string>
-  <string name="logs_bug_report_info">Để báo cáo lỗi, hãy sao chép các nhật ký này và mở một báo cáo mới tại https://connectbot.org/bug</string>
+  <string name="logs_bug_report_info">Để báo cáo lỗi, hãy sao chép các nhật ký này và mở một báo cáo mới tại https://github.com/contras11/connectbot/issues</string>
   <string name="no_logs_available">Không có nhật ký nào khả dụng</string>
   <string name="help_section_about">Giới thiệu</string>
   <string name="title_contact">Liên hệ và Hỗ trợ</string>
@@ -536,8 +536,8 @@
   <string name="pref_auth_on_launch_title">Xác thực khi khởi động</string>
   <string name="pref_auth_on_launch_summary">Yêu cầu sử dụng dấu vân tay, khuôn mặt hoặc mã PIN của thiết bị khi mở ứng dụng</string>
   <string name="pref_security_category">Bảo mật</string>
-  <string name="auth_screen_title">ConnectBot đã bị khóa</string>
+  <string name="auth_screen_title">ShellPilot đã bị khóa</string>
   <string name="auth_screen_unlock_button">Chạm để mở khóa</string>
-  <string name="auth_prompt_title">Mở khóa ConnectBot</string>
+  <string name="auth_prompt_title">Mở khóa ShellPilot</string>
   <string name="auth_prompt_subtitle">Xác minh danh tính của bạn để tiếp tục</string>
 </resources>

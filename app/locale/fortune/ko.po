@@ -2676,8 +2676,8 @@ msgstr "클립보드로 로그 복사됨"
 msgctxt "logs_bug_report_info"
 msgid ""
 "To report a bug, copy these logs and open a new issue at "
-"https://connectbot.org/bug"
-msgstr "버그를報告하려면 이러한 로그를 복사하고 https://connectbot.org/bug에서 새로운 문제를 열어주세요"
+"https://github.com/contras11/connectbot/issues"
+msgstr "버그를報告하려면 이러한 로그를 복사하고 https://github.com/contras11/connectbot/issues에서 새로운 문제를 열어주세요"
 
 #. Message shown when no logs are available
 msgctxt "no_logs_available"

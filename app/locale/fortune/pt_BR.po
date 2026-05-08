@@ -2714,10 +2714,10 @@ msgstr "Registros copiados para a área de transferência"
 msgctxt "logs_bug_report_info"
 msgid ""
 "To report a bug, copy these logs and open a new issue at "
-"https://connectbot.org/bug"
+"https://github.com/contras11/connectbot/issues"
 msgstr ""
 "Para relatar um bug, copie esses registros e abra uma nova questão em "
-"https://connectbot.org/bug"
+"https://github.com/contras11/connectbot/issues"
 
 #. Message shown when no logs are available
 msgctxt "no_logs_available"

@@ -2678,8 +2678,8 @@ msgstr "日志已复制到剪贴板"
 msgctxt "logs_bug_report_info"
 msgid ""
 "To report a bug, copy these logs and open a new issue at "
-"https://connectbot.org/bug"
-msgstr "如需报告错误，请复制这些日志，然后在 https://connectbot.org/bug 上提交新的问题"
+"https://github.com/contras11/connectbot/issues"
+msgstr "如需报告错误，请复制这些日志，然后在 https://github.com/contras11/connectbot/issues 上提交新的问题"
 
 #. Message shown when no logs are available
 msgctxt "no_logs_available"

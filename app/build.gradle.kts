@@ -24,6 +24,9 @@ coveralls {
 }
 
 appVersioning {
+    // 変更理由: ShellPilotフォーク用のバージョニング。
+    // gitタグから自動でバージョンを算出する。
+    // Play Store配信時は `git tag v1.0.0` でタグを打つこと。
     tagFilter.set("v[0-9].*")
     overrideVersionCode { gitTag, _, _ ->
         val semVer = gitTag.toSemVer()
@@ -39,14 +42,17 @@ appVersioning {
 }
 
 android {
-    namespace = "org.connectbot"
+    namespace = "io.shellpilot.app"
     compileSdk =
         libs.versions.compileSdk
             .get()
             .toInt()
 
     defaultConfig {
-        applicationId = "org.connectbot"
+        // 変更理由: Play Store配信時にオリジナルConnectBotと競合しないよう
+        // applicationIdをフォーク固有のものに変更。
+        // namespaceは既存コードのパッケージ名と一致させるためio.shellpilot.appを維持。
+        applicationId = "io.shellpilot.app"
 
         minSdk =
             libs.versions.minSdk
@@ -64,8 +70,8 @@ android {
             debugSymbolLevel = "full"
         }
 
-        testApplicationId = "org.connectbot.tests"
-        testInstrumentationRunner = "org.connectbot.HiltTestRunner"
+        testApplicationId = "io.shellpilot.app.tests"
+        testInstrumentationRunner = "io.shellpilot.app.HiltTestRunner"
 
         // The following argument makes the Android Test Orchestrator run its
         // "pm clear" command after each test invocation. This command ensures
@@ -224,8 +230,8 @@ val generateExportSchema by tasks.registering {
     val exportTables = setOf("profiles", "hosts", "port_forwards")
     val excludedFields = setOf("last_connect", "host_key_algo")
 
-    // Read schema version from ConnectBotDatabase.kt to avoid duplicate definitions
-    val databaseFile = file("src/main/java/org/connectbot/data/ConnectBotDatabase.kt")
+    // Read schema version from ShellPilotDatabase.kt to avoid duplicate definitions
+    val databaseFile = file("src/main/java/io/shellpilot/app/data/ShellPilotDatabase.kt")
     val schemaVersion =
         databaseFile
             .readText()
@@ -234,7 +240,7 @@ val generateExportSchema by tasks.registering {
             ?.get(1)
             ?.toInt()
             ?: error("Could not find SCHEMA_VERSION in $databaseFile")
-    val inputFile = file("schemas/org.connectbot.data.ConnectBotDatabase/$schemaVersion.json")
+    val inputFile = file("schemas/io.shellpilot.app.data.ShellPilotDatabase/$schemaVersion.json")
     val outputDir = file("build/generated/exportSchema")
     val outputFile = file("$outputDir/export_schema.json")
 

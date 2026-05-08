@@ -1,0 +1,202 @@
+/*
+ * ConnectBot: simple, powerful, open-source SSH client for Android
+ * Copyright 2025 Kenny Root
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package io.shellpilot.app.ui.screens.colors
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import io.shellpilot.app.data.ColorSchemeRepository
+import io.shellpilot.app.data.ProfileRepository
+import io.shellpilot.app.data.entity.ColorScheme
+import javax.inject.Inject
+
+data class SchemeManagerUiState(
+    val schemes: List<ColorScheme> = emptyList(),
+    val schemePalettes: Map<Long, IntArray> = emptyMap(),
+    val selectedSchemeId: Long? = null,
+    val isLoading: Boolean = false,
+    val error: String? = null,
+    val showNewSchemeDialog: Boolean = false,
+    val showDeleteDialog: Boolean = false,
+    val dialogError: String? = null
+)
+
+@HiltViewModel
+class ColorSchemeManagerViewModel @Inject constructor(
+    val repository: ColorSchemeRepository,
+    private val profileRepository: ProfileRepository
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow(SchemeManagerUiState())
+    val uiState: StateFlow<SchemeManagerUiState> = _uiState.asStateFlow()
+
+    init {
+        loadSchemes()
+    }
+
+    private fun loadSchemes() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            try {
+                val schemes = repository.getAllSchemes()
+                val palettes = schemes.associate { scheme ->
+                    scheme.id to repository.getSchemeColors(scheme.id)
+                }
+                _uiState.update {
+                    it.copy(
+                        schemes = schemes,
+                        schemePalettes = palettes,
+                        isLoading = false,
+                        error = null
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = e.message ?: "カラースキームを読み込めませんでした"
+                    )
+                }
+            }
+        }
+    }
+
+    fun selectScheme(schemeId: Long) {
+        _uiState.update {
+            it.copy(
+                selectedSchemeId = if (it.selectedSchemeId == schemeId) null else schemeId
+            )
+        }
+    }
+
+    fun showNewSchemeDialog() {
+        _uiState.update {
+            it.copy(
+                showNewSchemeDialog = true,
+                dialogError = null
+            )
+        }
+    }
+
+    fun hideNewSchemeDialog() {
+        _uiState.update {
+            it.copy(
+                showNewSchemeDialog = false,
+                dialogError = null
+            )
+        }
+    }
+
+    fun showDeleteDialog() {
+        _uiState.update {
+            it.copy(
+                showDeleteDialog = true,
+                dialogError = null
+            )
+        }
+    }
+
+    fun hideDeleteDialog() {
+        _uiState.update {
+            it.copy(
+                showDeleteDialog = false,
+                dialogError = null
+            )
+        }
+    }
+
+    fun createNewScheme(name: String, description: String, basedOnSchemeId: Long) {
+        viewModelScope.launch {
+            try {
+                // Validate name
+                if (name.isBlank()) {
+                    _uiState.update { it.copy(dialogError = "スキーム名を入力してください") }
+                    return@launch
+                }
+
+                // Check for duplicate name
+                if (repository.schemeNameExists(name)) {
+                    _uiState.update { it.copy(dialogError = "同じ名前のスキームがすでにあります") }
+                    return@launch
+                }
+
+                // Create the scheme
+                repository.createCustomScheme(name, description, basedOnSchemeId)
+
+                // Reload schemes and close dialog
+                loadSchemes()
+                hideNewSchemeDialog()
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(dialogError = e.message ?: "スキームを作成できませんでした")
+                }
+            }
+        }
+    }
+
+    fun deleteScheme(schemeId: Long) {
+        viewModelScope.launch {
+            try {
+                // Don't allow deleting built-in schemes
+                val scheme = _uiState.value.schemes.find { it.id == schemeId }
+                if (scheme?.isBuiltIn == true) {
+                    _uiState.update {
+                        it.copy(dialogError = "内蔵スキームは削除できません")
+                    }
+                    return@launch
+                }
+
+                val usageCount = profileRepository.getProfilesUsingColorScheme(schemeId)
+                if (usageCount > 0) {
+                    _uiState.update {
+                        it.copy(dialogError = "このカラースキームは $usageCount 件のプロファイルで使用中のため削除できません")
+                    }
+                    return@launch
+                }
+
+                // Delete the scheme
+                repository.deleteCustomScheme(schemeId)
+
+                // Reload schemes and close dialog
+                loadSchemes()
+                hideDeleteDialog()
+                _uiState.update { it.copy(selectedSchemeId = null) }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(dialogError = e.message ?: "スキームを削除できませんでした")
+                }
+            }
+        }
+    }
+
+    fun clearError() {
+        _uiState.update { it.copy(error = null) }
+    }
+
+    /**
+     * Refresh the scheme list (e.g., after importing a scheme externally).
+     */
+    fun refresh() {
+        loadSchemes()
+    }
+}

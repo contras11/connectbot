@@ -336,7 +336,7 @@
   <string name="dialog_title_edit_color">編輯顏色：%1$d</string>
   <string name="dialog_title_reset_all">重設所有顏色？</string>
   <string name="dialog_message_reset_all">這會將所有 256 種顏色重設為預設值。這個動作無法撤銷。</string>
-  <string name="app_is_running">ConnectBot 執行中</string>
+  <string name="app_is_running">ShellPilot 執行中</string>
   <string name="label_red">紅色</string>
   <string name="label_green">綠色</string>
   <string name="label_blue">藍色</string>
@@ -480,7 +480,7 @@
   <string name="logs_title">應用程式日誌</string>
   <string name="copy_logs">複製日誌</string>
   <string name="logs_copied">日誌已複製到剪貼簿</string>
-  <string name="logs_bug_report_info">若要回報錯誤，請複製這些記錄，然後在 https://connectbot.org/bug 上建立新的問題</string>
+  <string name="logs_bug_report_info">若要回報錯誤，請複製這些記錄，然後在 https://github.com/contras11/connectbot/issues 上建立新的問題</string>
   <string name="no_logs_available">沒有可用的日誌</string>
   <string name="help_section_about">關於</string>
   <string name="title_contact">聯絡與支援</string>
@@ -536,8 +536,8 @@
   <string name="pref_auth_on_launch_title">啟動時進行驗證</string>
   <string name="pref_auth_on_launch_summary">開啟應用程式時，請要求使用指紋、臉部辨識或裝置 PIN 碼</string>
   <string name="pref_security_category">安全性</string>
-  <string name="auth_screen_title">ConnectBot 已鎖定</string>
+  <string name="auth_screen_title">ShellPilot 已鎖定</string>
   <string name="auth_screen_unlock_button">點擊以解鎖</string>
-  <string name="auth_prompt_title">解鎖 ConnectBot</string>
+  <string name="auth_prompt_title">解鎖 ShellPilot</string>
   <string name="auth_prompt_subtitle">請驗證您的身分以繼續</string>
 </resources>

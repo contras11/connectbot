@@ -1,32 +1,20 @@
-[![Build Status](https://github.com/connectbot/connectbot/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/connectbot/connectbot/actions/workflows/ci.yml)
+# ShellPilot
 
-# ConnectBot
+ShellPilot is a [Secure Shell](https://en.wikipedia.org/wiki/Secure_Shell)
+client for Android with AI CLI tool support. It is a fork of ConnectBot,
+modernized with Kotlin, Compose, Room, and ShellPilot-specific package IDs.
 
-ConnectBot is a [Secure Shell](https://en.wikipedia.org/wiki/Secure_Shell)
-client for Android that lets you connect to remote servers over a
-cryptographically secure link.
+## Repository Root
 
+`connectbot/` checkout を Android project root として開いてください。親ディレクトリの `SSH_App/` は workspace container であり、Git root ではありません。
 
 ## How to Install
 
-### Google Play
+### Build locally
 
-[![Get it on Google Play][2]][1]
-
-  [1]: https://play.google.com/store/apps/details?id=org.connectbot
-  [2]: https://developer.android.com/images/brand/en_generic_rgb_wo_60.png
-
-The easiest way to get ConnectBot is to [install from Google Play Store][1].
-If you have installed from a downloaded APK, Google Play Store can upgrade
-your installed version to the latest version. However, once it has upgraded
-*you can't install a version from the releases on GitHub anymore.*
-
-
-### Download a release
-
-ConnectBot can be downloaded from [releases](
-https://github.com/connectbot/connectbot/releases) on GitHub. There are
-two versions:
+ShellPilot currently builds from this source checkout. Release distribution
+should use ShellPilot artifacts, not upstream ConnectBot package IDs. There
+are two Android flavors:
 
 -  "`google`" &mdash; for a version that uses Google Play Services
 to handle upgrading the cryptography provider
@@ -36,25 +24,34 @@ to handle upgrading the cryptography provider
 
 ### Android Studio
 
-ConnectBot is most easily developed in [Android Studio](
-https://developer.android.com/studio/). You can import this project
-directly from its project creation screen by importing from the GitHub URL.
+ShellPilot is most easily developed in [Android Studio](
+https://developer.android.com/studio/). Open this checkout's `connectbot/`
+directory as the Android project root.
 
 ### Command line
 
-To compile ConnectBot using `gradlew`, you must first specify where your
-Android SDK is via the `ANDROID_SDK_HOME` environment variable. Then
-you can invoke the Gradle wrapper to build:
+To compile ShellPilot using `gradlew`, use the Android Studio bundled JBR:
 
 ```sh
-./gradlew build
+cd /Users/contras11/codes/SSH_App/connectbot
+JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew :app:assembleOssDebug
+```
+
+広範囲の変更では、単体テストと lint も実行します。
+
+```sh
+JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew :app:testOssDebugUnitTest :app:lintOssDebug
+```
+
+計測テストは既存 AVD `OshiCue_Medium_Phone_API_36_1` を使います。
+
+```sh
+JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew connectedOssDebugAndroidTest
 ```
 
 ### Continuous Integration
 
-ConnectBot uses [GitHub Actions](https://github.com/connectbot/connectbot/actions)
-for continuous integration. The workflow is defined in
-`.github/workflows/ci.yml`.
+ShellPilot keeps the existing Android CI workflow in `.github/workflows/ci.yml`.
 
 #### Running Workflows Locally with act
 
@@ -72,6 +69,16 @@ act -W .github/workflows/ci.yml
 
 ## Translations
 
-If you'd like to correct or contribute new translations to ConnectBot,
-then head on over to [ConnectBot's translations project](
-https://translations.launchpad.net/connectbot/trunk/+pots/fortune)
+Translation files are inherited from the ConnectBot fork point. When changing
+ShellPilot-specific branding, update the default strings and brand tokens in
+localized resources without rewriting unrelated translations.
+
+## Repository Hygiene
+
+ローカルレビュー資産と認証情報は Git に含めません。主なルールは次のとおりです。
+
+- DB version を変更したら、Room schema export を `app/schemas/` にコミットします。
+- Android backup policy XML は `app/src/main/res/xml/` にコミットします。
+- `.claude/`、`review/`、`local.properties`、署名鍵、APK/AAB、logcat はコミットしません。
+
+詳細は [`docs/WORKTREE_HYGIENE.md`](docs/WORKTREE_HYGIENE.md) を参照してください。
