@@ -188,17 +188,17 @@ class ProfileDaoTest {
     }
 
     @Test
-    fun deleteByIdDeletesAnyProfile() = runTest {
+    fun deleteByIdKeepsDefaultProfile() = runTest {
         // Insert a profile with id = 1
         val profile = Profile(id = 1, name = "Default")
         profileDao.insert(profile)
 
-        // All profiles can now be deleted (no more built-in protection)
+        // 変更理由: hosts.profile_id のDB defaultが参照するDefault profileはDAO境界でも削除しない。
         val deletedCount = profileDao.deleteById(1)
-        assertThat(deletedCount).isEqualTo(1)
+        assertThat(deletedCount).isEqualTo(0)
 
         val retrieved = profileDao.getById(1)
-        assertThat(retrieved).isNull()
+        assertThat(retrieved).isNotNull()
     }
 
     @Test

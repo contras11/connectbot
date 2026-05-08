@@ -45,14 +45,14 @@ class ShellPilotDatabaseMigrationChainTest {
 
     @After
     fun tearDown() {
-        (1..8).forEach { version ->
+        (1..9).forEach { version ->
             context.deleteDatabase(dbName(version))
         }
     }
 
     @Test
     fun allExportedSchemasMigrateToLatest() {
-        (1..8).forEach { version ->
+        (1..9).forEach { version ->
             helper.createDatabase(dbName(version), version).close()
 
             helper.runMigrationsAndValidate(
@@ -61,7 +61,8 @@ class ShellPilotDatabaseMigrationChainTest {
                 true,
                 ShellPilotDatabase.MIGRATION_4_5,
                 ShellPilotDatabase.MIGRATION_7_8,
-                ShellPilotDatabase.MIGRATION_8_9
+                ShellPilotDatabase.MIGRATION_8_9,
+                ShellPilotDatabase.MIGRATION_9_10
             ).close()
         }
     }

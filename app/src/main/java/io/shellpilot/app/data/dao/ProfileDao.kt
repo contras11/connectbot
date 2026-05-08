@@ -90,7 +90,7 @@ interface ProfileDao {
     /**
      * Delete a profile by ID.
      */
-    @Query("DELETE FROM profiles WHERE id = :profileId")
+    @Query("DELETE FROM profiles WHERE id = :profileId AND id != 1")
     suspend fun deleteById(profileId: Long): Int
 
     /**

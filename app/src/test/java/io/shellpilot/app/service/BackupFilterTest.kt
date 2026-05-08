@@ -252,6 +252,21 @@ class BackupFilterTest {
     }
 
     @Test
+    fun filterBackupablePubkeys_RemovesKeystoreAliasFromExportableKey() {
+        val originalKey = createPubkey(
+            "exportable-with-alias",
+            allowBackup = true,
+            storageType = KeyStorageType.EXPORTABLE
+        ).copy(keystoreAlias = "stale-alias")
+
+        val result = backupFilter.filterBackupablePubkeys(listOf(originalKey))
+
+        assertEquals(1, result.size)
+        assertEquals(KeyStorageType.EXPORTABLE, result.single().storageType)
+        assertEquals(null, result.single().keystoreAlias)
+    }
+
+    @Test
     fun buildFilteredDatabase_WithBackupKeys_FiltersCorrectly() = runBlocking {
         // Prepare data for mocked repositories
         val host1 = Host(nickname = "test-host-1", protocol = "ssh", hostname = "example.com", pubkeyId = 10L)
@@ -274,7 +289,7 @@ class BackupFilterTest {
             allowBackup = true,
             storageType = KeyStorageType.ANDROID_KEYSTORE
         )
-        val colorScheme = ColorScheme(name = "test-scheme", isBuiltIn = false)
+        val colorScheme = ColorScheme(id = 5L, name = "test-scheme", isBuiltIn = false)
         val profile = Profile(id = 1, name = "Default")
 
         // Mock repository behavior
@@ -471,6 +486,48 @@ class BackupFilterTest {
                 val forwards = tempDb.portForwardDao().getByHost(host.id)
                 assertEquals(1, forwards.size)
                 assertEquals(HostConstants.PORTFORWARD_DYNAMIC5, forwards.single().type)
+            } finally {
+                tempDb.close()
+            }
+        } finally {
+            backupFilter.cleanupTempDatabase(tempDbFile)
+            assertFalse(tempDbFile.exists())
+        }
+    }
+
+    @Test
+    fun buildFilteredDatabase_AddsDefaultProfileWhenSourceProfilesDoNotContainIdOne() = runBlocking {
+        val host = Host(
+            id = 1L,
+            nickname = "orphan-profile-host",
+            protocol = "ssh",
+            hostname = "example.com",
+            profileId = 404L
+        )
+
+        whenever(mockProfileRepository.getAll()).thenReturn(listOf(Profile(id = 2L, name = "Work")))
+        whenever(mockHostRepository.getHosts()).thenReturn(listOf(host))
+        whenever(mockHostRepository.getPortForwardsForHost(host.id)).thenReturn(emptyList())
+        whenever(mockHostRepository.getKnownHostsForHost(host.id)).thenReturn(emptyList())
+        whenever(mockPubkeyRepository.getAll()).thenReturn(emptyList())
+        whenever(mockColorSchemeRepository.getAllSchemes()).thenReturn(emptyList())
+
+        val tempDbFile = File(context.cacheDir, "test_backup_default_profile.db")
+
+        try {
+            backupFilter.buildFilteredDatabase(tempDbFile, backupKeys = true)
+
+            val tempDb =
+                Room.databaseBuilder(context, ShellPilotDatabase::class.java, tempDbFile.absolutePath)
+                    .allowMainThreadQueries()
+                    .build()
+
+            try {
+                val profiles = tempDb.profileDao().getAll()
+                val savedHost = tempDb.hostDao().getById(host.id)!!
+
+                assertTrue(profiles.any { it.id == 1L && it.name == "Default" })
+                assertEquals(1L, savedHost.profileId)
             } finally {
                 tempDb.close()
             }

@@ -138,14 +138,21 @@ class HostRepository @Inject constructor(
      */
     suspend fun saveHost(host: Host): Host {
         val sanitizedHost = sanitizeHost(host)
-        return if (sanitizedHost.id <= 0L) {
-            // New or temporary host - insert (assigns new positive ID)
-            val newId = hostDao.insert(sanitizedHost)
-            sanitizedHost.copy(id = newId)
-        } else {
-            // Existing host - update
-            hostDao.update(sanitizedHost)
-            sanitizedHost
+        return database.withTransaction {
+            val savedHost = if (sanitizedHost.id <= 0L) {
+                // New or temporary host - insert (assigns new positive ID)
+                val newId = hostDao.insert(sanitizedHost)
+                sanitizedHost.copy(id = newId)
+            } else {
+                // Existing host - update
+                hostDao.update(sanitizedHost)
+                sanitizedHost
+            }
+
+            if (savedHost.protocol != "ssh" && savedHost.id > 0L) {
+                clearJumpHostReferences(savedHost.id)
+            }
+            savedHost
         }
     }
 
@@ -239,6 +246,14 @@ class HostRepository @Inject constructor(
         return knownHosts.map { it.hostKeyAlgo }.distinct()
     }
 
+    suspend fun getHostKeyAlgorithmsForEndpoint(hostId: Long, hostname: String, port: Int): List<String> {
+        val knownHosts = knownHostDao.getByHostId(hostId)
+        return knownHosts
+            .filter { it.hostname == hostname && it.port == port }
+            .map { it.hostKeyAlgo }
+            .distinct()
+    }
+
     /**
      * Save a known host key to the database.
      *
@@ -255,14 +270,15 @@ class HostRepository @Inject constructor(
         serverHostKeyAlgorithm: String,
         serverHostKey: ByteArray
     ) {
-        // Check if this exact key already exists for this host
-        val existing = knownHostDao.getByHostIdAlgoAndKey(
+        // Check if this exact key already exists for this endpoint.
+        val existing = knownHostDao.getByHostEndpointAlgoAndKey(
             host.id,
+            hostname,
+            port,
             serverHostKeyAlgorithm,
             serverHostKey
         )
-        // If it does not exist or exists but has a different hostname and port, add it.
-        if (existing == null || existing.hostname != hostname || existing.port != port) {
+        if (existing == null) {
             // Insert new key - this allows multiple keys per algorithm for key rotation
             val knownHost = KnownHost(
                 hostId = host.id,
@@ -309,10 +325,32 @@ class HostRepository @Inject constructor(
      */
     suspend fun removeKnownHost(
         hostId: Long,
+        hostname: String,
+        port: Int,
         serverHostKeyAlgorithm: String,
         serverHostKey: ByteArray
     ) {
-        // Find the exact key to remove
+        // Find the exact endpoint key to remove.
+        val knownHost = knownHostDao.getByHostEndpointAlgoAndKey(
+            hostId,
+            hostname,
+            port,
+            serverHostKeyAlgorithm,
+            serverHostKey
+        )
+        if (knownHost != null) {
+            knownHostDao.delete(knownHost)
+        }
+    }
+
+    /**
+     * Legacy removal entrypoint kept for older callers that do not provide endpoint data.
+     */
+    suspend fun removeKnownHost(
+        hostId: Long,
+        serverHostKeyAlgorithm: String,
+        serverHostKey: ByteArray
+    ) {
         val knownHost = knownHostDao.getByHostIdAlgoAndKey(
             hostId,
             serverHostKeyAlgorithm,
@@ -405,8 +443,25 @@ class HostRepository @Inject constructor(
         getHostKeyAlgorithmsForHost(hostId)
     }
 
+    fun getHostKeyAlgorithmsForEndpointBlocking(hostId: Long, hostname: String, port: Int): List<String> = runBlocking {
+        getHostKeyAlgorithmsForEndpoint(hostId, hostname, port)
+    }
+
     /**
      * Remove a known host key (blocking version for Java interop).
+     */
+    fun removeKnownHostBlocking(
+        hostId: Long,
+        hostname: String,
+        port: Int,
+        serverHostKeyAlgorithm: String,
+        serverHostKey: ByteArray
+    ) = runBlocking {
+        removeKnownHost(hostId, hostname, port, serverHostKeyAlgorithm, serverHostKey)
+    }
+
+    /**
+     * Remove a known host key (blocking legacy version for Java interop).
      */
     fun removeKnownHostBlocking(
         hostId: Long,
@@ -473,6 +528,13 @@ class HostRepository @Inject constructor(
         )
     }
 
+    private suspend fun clearJumpHostReferences(jumpHostId: Long) {
+        // 変更理由: 保存拒否より参照側だけを直す方が、既存ホスト編集のUXを壊さず不正なProxyJumpを残さない。
+        hostDao.getAll()
+            .filter { it.jumpHostId == jumpHostId }
+            .forEach { hostDao.update(it.copy(jumpHostId = null)) }
+    }
+
     private suspend fun sanitizeJumpHostId(host: Host): Long? {
         val jumpHostId = host.jumpHostId ?: return null
         if (jumpHostId <= 0L || jumpHostId == host.id) return null
@@ -503,7 +565,7 @@ class HostRepository @Inject constructor(
         return false
     }
 
-    private fun normalizePortForward(portForward: PortForward): PortForward {
+    private suspend fun normalizePortForward(portForward: PortForward): PortForward {
         val normalizedType = when (portForward.type) {
             HostConstants.PORTFORWARD_DYNAMIC4 -> HostConstants.PORTFORWARD_DYNAMIC5
             HostConstants.PORTFORWARD_LOCAL,
@@ -512,11 +574,36 @@ class HostRepository @Inject constructor(
             else -> throw IllegalArgumentException("Unsupported port forward type: ${portForward.type}")
         }
 
-        // 変更理由: 接続処理が扱えるtypeだけを永続化し、旧dynamic4はdynamic5へ統一する。
-        return portForward.copy(type = normalizedType)
+        val host = hostDao.getById(portForward.hostId)
+            ?: throw IllegalArgumentException("Port forward host does not exist: ${portForward.hostId}")
+        require(host.protocol == "ssh") { "Port forwarding is only supported for SSH hosts" }
+        require(portForward.sourcePort in PORT_RANGE) { "Source port must be 1..65535" }
+
+        val normalizedDestAddr = portForward.destAddr?.trim().orEmpty()
+        if (normalizedType == HostConstants.PORTFORWARD_LOCAL || normalizedType == HostConstants.PORTFORWARD_REMOTE) {
+            require(normalizedDestAddr.isNotEmpty()) { "Destination address is required" }
+            require(portForward.destPort in PORT_RANGE) { "Destination port must be 1..65535" }
+        }
+
+        val nickname = portForward.nickname.trim().ifEmpty {
+            when (normalizedType) {
+                HostConstants.PORTFORWARD_LOCAL -> "Local ${portForward.sourcePort}"
+                HostConstants.PORTFORWARD_REMOTE -> "Remote ${portForward.sourcePort}"
+                else -> "Dynamic ${portForward.sourcePort}"
+            }
+        }
+
+        // 変更理由: Repository境界で接続処理が扱える値だけを永続化し、dynamic転送の宛先は実行時に使わせない。
+        return portForward.copy(
+            nickname = nickname,
+            type = normalizedType,
+            destAddr = if (normalizedType == HostConstants.PORTFORWARD_DYNAMIC5) null else normalizedDestAddr,
+            destPort = if (normalizedType == HostConstants.PORTFORWARD_DYNAMIC5) 0 else portForward.destPort
+        )
     }
 
     private companion object {
         const val DEFAULT_PROFILE_ID = 1L
+        val PORT_RANGE = 1..65535
     }
 }

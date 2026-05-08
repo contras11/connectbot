@@ -313,6 +313,45 @@ class HostConfigJsonTest {
         assertThat(destinationForwards.single().nickname).isEqualTo("existing-forward")
     }
 
+    @Test
+    fun schemaBasedImporter_usesRoomDefaultValueForExcludedNotNullFields() = runTest {
+        val schema = DatabaseSchema.fromJsonForTesting(schemaWithExcludedHostDefaults())
+        val exporter = SchemaBasedExporter(destinationDb, schema)
+        val json = JSONObject()
+            .put("version", 9)
+            .put(
+                "hosts",
+                org.json.JSONArray().put(
+                    JSONObject()
+                        .put("id", 100L)
+                        .put("nickname", "schema-default-host")
+                        .put("protocol", "ssh")
+                        .put("username", "alice")
+                        .put("hostname", "schema.example.com")
+                        .put("port", 22)
+                        .put("color", JSONObject.NULL)
+                        .put("useKeys", 1)
+                        .put("useAuthAgent", "no")
+                        .put("postLogin", JSONObject.NULL)
+                        .put("pubkeyId", HostConstants.PUBKEYID_NEVER)
+                        .put("wantSession", 1)
+                        .put("compression", 0)
+                        .put("stayConnected", 0)
+                        .put("quickDisconnect", 0)
+                        .put("scrollbackLines", 140)
+                        .put("useCtrlAltAsMetaKey", 0)
+                        .put("jumpHostId", JSONObject.NULL)
+                        .put("profileId", 1L)
+                )
+            )
+
+        exporter.importFromJson(json.toString(), listOf("hosts"))
+
+        val imported = destinationDb.hostDao().getAll().first { it.nickname == "schema-default-host" }
+        assertThat(imported.lastConnect).isEqualTo(1234L)
+        assertThat(imported.ipVersion).isEqualTo("IPV6_ONLY")
+    }
+
     private fun host(
         nickname: String,
         hostname: String,
@@ -338,5 +377,70 @@ class HostConfigJsonTest {
             it.moveToFirst()
             it.getInt(0)
         }
+    }
+
+    private fun schemaWithExcludedHostDefaults(): JSONObject {
+        fun field(
+            fieldPath: String,
+            columnName: String,
+            affinity: String,
+            notNull: Boolean = false,
+            excluded: Boolean = false,
+            defaultValue: String? = null
+        ): JSONObject {
+            return JSONObject()
+                .put("fieldPath", fieldPath)
+                .put("columnName", columnName)
+                .put("affinity", affinity)
+                .apply {
+                    if (notNull) put("notNull", true)
+                    if (excluded) put("excluded", true)
+                    if (defaultValue != null) put("defaultValue", defaultValue)
+                }
+        }
+
+        val fields = org.json.JSONArray()
+            .put(field("id", "id", "INTEGER", notNull = true))
+            .put(field("nickname", "nickname", "TEXT", notNull = true))
+            .put(field("protocol", "protocol", "TEXT", notNull = true))
+            .put(field("username", "username", "TEXT", notNull = true))
+            .put(field("hostname", "hostname", "TEXT", notNull = true))
+            .put(field("port", "port", "INTEGER", notNull = true))
+            .put(field("hostKeyAlgo", "host_key_algo", "TEXT", excluded = true))
+            .put(field("lastConnect", "last_connect", "INTEGER", notNull = true, excluded = true, defaultValue = "1234"))
+            .put(field("color", "color", "TEXT"))
+            .put(field("useKeys", "use_keys", "INTEGER", notNull = true))
+            .put(field("useAuthAgent", "use_auth_agent", "TEXT"))
+            .put(field("postLogin", "post_login", "TEXT"))
+            .put(field("pubkeyId", "pubkey_id", "INTEGER", notNull = true))
+            .put(field("wantSession", "want_session", "INTEGER", notNull = true))
+            .put(field("compression", "compression", "INTEGER", notNull = true))
+            .put(field("stayConnected", "stay_connected", "INTEGER", notNull = true))
+            .put(field("quickDisconnect", "quick_disconnect", "INTEGER", notNull = true))
+            .put(field("scrollbackLines", "scrollback_lines", "INTEGER", notNull = true))
+            .put(field("useCtrlAltAsMetaKey", "use_ctrl_alt_as_meta_key", "INTEGER", notNull = true))
+            .put(field("jumpHostId", "jump_host_id", "INTEGER"))
+            .put(field("profileId", "profile_id", "INTEGER", notNull = true, defaultValue = "1"))
+            .put(field("ipVersion", "ip_version", "TEXT", notNull = true, excluded = true, defaultValue = "'IPV6_ONLY'"))
+
+        val hostsEntity = JSONObject()
+            .put("tableName", "hosts")
+            .put("fields", fields)
+            .put(
+                "primaryKey",
+                JSONObject()
+                    .put("autoGenerate", true)
+                    .put("columnNames", org.json.JSONArray().put("id"))
+            )
+            .put("foreignKeys", org.json.JSONArray())
+            .put("indices", org.json.JSONArray())
+
+        return JSONObject()
+            .put(
+                "database",
+                JSONObject()
+                    .put("version", 9)
+                    .put("entities", org.json.JSONArray().put(hostsEntity))
+            )
     }
 }

@@ -59,6 +59,7 @@ import io.shellpilot.app.data.entity.Pubkey
  * - Version 7: Added ip_version column to hosts for IP version preference (AutoMigration)
  * - Version 8: Normalized broken references and added core FK/index guards (manual migration)
  * - Version 9: Hardened profile/known-host invariants and repeated data sanitizers (manual migration)
+ * - Version 10: Repaired default profile and tightened remaining core data guards (manual migration)
  * - Future versions: Use Room AutoMigration when possible for simple schema changes
  *
  * Security Considerations:
@@ -75,7 +76,7 @@ import io.shellpilot.app.data.entity.Pubkey
         ColorPalette::class,
         Profile::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -99,7 +100,7 @@ abstract class ShellPilotDatabase : RoomDatabase() {
          * Current database schema version.
          * This is also used for JSON export/import versioning.
          */
-        const val SCHEMA_VERSION = 9
+        const val SCHEMA_VERSION = 10
 
         /**
          * Migration from version 4 to 5: Add profiles table and profile_id to hosts.
@@ -772,6 +773,259 @@ abstract class ShellPilotDatabase : RoomDatabase() {
                     """.trimIndent()
                 )
             }
+        }
+
+        /**
+         * Migration from version 9 to 10: keep the v9 schema shape but make the data
+         * invariants true at the database boundary as well as at repository boundaries.
+         */
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("PRAGMA foreign_keys=OFF")
+
+                ensureDefaultProfileInvariant(db)
+                normalizeColorSchemesForBackup(db)
+                normalizeProfilesForRuntime(db)
+                normalizePubkeysForRuntime(db)
+                normalizeHostsForRuntime(db)
+                normalizePortForwardsForRuntime(db)
+                normalizeKnownHostsForRuntime(db)
+                normalizeColorPaletteForRuntime(db)
+
+                db.execSQL("PRAGMA foreign_keys=ON")
+            }
+        }
+
+        /**
+         * Fresh DB creation and migrations both depend on profile id=1 being the stable default.
+         */
+        fun ensureDefaultProfileInvariant(db: SupportSQLiteDatabase) {
+            // 変更理由: id=1のDefaultを作る前に、同名の壊れた行がunique indexを塞がないよう退避する。
+            db.execSQL(
+                """
+                UPDATE `profiles`
+                SET `name` = 'Default (legacy ' || `id` || ')'
+                WHERE `id` != 1
+                  AND lower(`name`) = 'default'
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                INSERT OR IGNORE INTO `profiles` (
+                    `id`, `name`, `color_scheme_id`, `font_family`, `font_size`,
+                    `del_key`, `encoding`, `emulation`, `force_size_rows`, `force_size_columns`
+                )
+                VALUES (1, 'Default', -1, NULL, 10, 'del', 'UTF-8', 'xterm-256color', NULL, NULL)
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                UPDATE `profiles`
+                SET `name` = 'Default',
+                    `color_scheme_id` = CASE
+                        WHEN `color_scheme_id` > 0
+                         AND NOT EXISTS (
+                             SELECT 1 FROM `color_schemes`
+                             WHERE `color_schemes`.`id` = `profiles`.`color_scheme_id`
+                         )
+                        THEN -1
+                        ELSE `color_scheme_id`
+                    END,
+                    `font_size` = CASE WHEN `font_size` BETWEEN 6 AND 96 THEN `font_size` ELSE 10 END,
+                    `del_key` = CASE WHEN `del_key` IN ('del', 'backspace') THEN `del_key` ELSE 'del' END,
+                    `encoding` = CASE WHEN trim(`encoding`) != '' THEN `encoding` ELSE 'UTF-8' END,
+                    `emulation` = CASE WHEN trim(`emulation`) != '' THEN `emulation` ELSE 'xterm-256color' END
+                WHERE `id` = 1
+                """.trimIndent()
+            )
+        }
+
+        private fun normalizeColorSchemesForBackup(db: SupportSQLiteDatabase) {
+            // 変更理由: 旧ConnectBot由来の正ID配色はDB保存済みなので、built-inではなくcustomとして扱う。
+            db.execSQL("UPDATE `color_schemes` SET `is_built_in` = 0 WHERE `id` > 0 AND `is_built_in` = 1")
+        }
+
+        private fun normalizeProfilesForRuntime(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                UPDATE `profiles`
+                SET `color_scheme_id` = -1
+                WHERE `color_scheme_id` > 0
+                  AND NOT EXISTS (
+                      SELECT 1 FROM `color_schemes`
+                      WHERE `color_schemes`.`id` = `profiles`.`color_scheme_id`
+                  )
+                """.trimIndent()
+            )
+            db.execSQL("UPDATE `profiles` SET `font_size` = 10 WHERE `font_size` < 6 OR `font_size` > 96")
+            db.execSQL("UPDATE `profiles` SET `del_key` = 'del' WHERE `del_key` NOT IN ('del', 'backspace')")
+            db.execSQL("UPDATE `profiles` SET `encoding` = 'UTF-8' WHERE trim(`encoding`) = ''")
+            db.execSQL("UPDATE `profiles` SET `emulation` = 'xterm-256color' WHERE trim(`emulation`) = ''")
+            db.execSQL("UPDATE `profiles` SET `force_size_rows` = NULL WHERE `force_size_rows` IS NOT NULL AND (`force_size_rows` < 1 OR `force_size_rows` > 400)")
+            db.execSQL("UPDATE `profiles` SET `force_size_columns` = NULL WHERE `force_size_columns` IS NOT NULL AND (`force_size_columns` < 1 OR `force_size_columns` > 400)")
+        }
+
+        private fun normalizePubkeysForRuntime(db: SupportSQLiteDatabase) {
+            db.execSQL("UPDATE `pubkeys` SET `storage_type` = 'EXPORTABLE' WHERE `storage_type` NOT IN ('EXPORTABLE', 'ANDROID_KEYSTORE')")
+            db.execSQL(
+                """
+                UPDATE `pubkeys`
+                SET `startup` = 0,
+                    `allow_backup` = 0,
+                    `private_key` = NULL
+                WHERE `storage_type` = 'ANDROID_KEYSTORE'
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                UPDATE `pubkeys`
+                SET `startup` = 0
+                WHERE `storage_type` = 'EXPORTABLE'
+                  AND `private_key` IS NULL
+                """.trimIndent()
+            )
+        }
+
+        private fun normalizeHostsForRuntime(db: SupportSQLiteDatabase) {
+            db.execSQL("UPDATE `hosts` SET `protocol` = 'ssh' WHERE `protocol` NOT IN ('ssh', 'telnet', 'local')")
+            db.execSQL(
+                """
+                UPDATE `hosts`
+                SET `port` = CASE WHEN `protocol` = 'telnet' THEN 23 ELSE 22 END
+                WHERE `port` < 1 OR `port` > 65535
+                """.trimIndent()
+            )
+            db.execSQL("UPDATE `hosts` SET `use_auth_agent` = 'no' WHERE `use_auth_agent` NOT IN ('no', 'confirm', 'yes')")
+            db.execSQL("UPDATE `hosts` SET `scrollback_lines` = 140 WHERE `scrollback_lines` < 0 OR `scrollback_lines` > 100000")
+            db.execSQL("UPDATE `hosts` SET `ip_version` = 'IPV4_AND_IPV6' WHERE `ip_version` NOT IN ('IPV4_AND_IPV6', 'IPV4_ONLY', 'IPV6_ONLY')")
+            db.execSQL(
+                """
+                UPDATE `hosts`
+                SET `profile_id` = 1
+                WHERE `profile_id` <= 0
+                   OR NOT EXISTS (
+                       SELECT 1 FROM `profiles`
+                       WHERE `profiles`.`id` = `hosts`.`profile_id`
+                   )
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                UPDATE `hosts`
+                SET `pubkey_id` = -2
+                WHERE `pubkey_id` > 0
+                  AND NOT EXISTS (
+                      SELECT 1 FROM `pubkeys`
+                      WHERE `pubkeys`.`id` = `hosts`.`pubkey_id`
+                  )
+                """.trimIndent()
+            )
+            db.execSQL("UPDATE `hosts` SET `pubkey_id` = -2, `jump_host_id` = NULL WHERE `protocol` != 'ssh'")
+            db.execSQL(
+                """
+                UPDATE `hosts`
+                SET `jump_host_id` = NULL
+                WHERE `jump_host_id` IS NOT NULL
+                  AND (
+                      `jump_host_id` = `id`
+                      OR NOT EXISTS (
+                          SELECT 1 FROM `hosts` AS `jump`
+                          WHERE `jump`.`id` = `hosts`.`jump_host_id`
+                            AND `jump`.`protocol` = 'ssh'
+                      )
+                  )
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                WITH RECURSIVE `jump_chain`(`root_id`, `next_id`, `path`, `cycle`) AS (
+                    SELECT `id`, `jump_host_id`, ',' || `id` || ',', 0
+                    FROM `hosts`
+                    WHERE `jump_host_id` IS NOT NULL
+                    UNION ALL
+                    SELECT
+                        `jump_chain`.`root_id`,
+                        `hosts`.`jump_host_id`,
+                        `jump_chain`.`path` || `hosts`.`id` || ',',
+                        CASE
+                            WHEN instr(`jump_chain`.`path`, ',' || `hosts`.`id` || ',') > 0 THEN 1
+                            ELSE 0
+                        END
+                    FROM `jump_chain`
+                    JOIN `hosts` ON `hosts`.`id` = `jump_chain`.`next_id`
+                    WHERE `jump_chain`.`next_id` IS NOT NULL
+                      AND `jump_chain`.`cycle` = 0
+                )
+                UPDATE `hosts`
+                SET `jump_host_id` = NULL
+                WHERE `id` IN (
+                    SELECT DISTINCT `root_id`
+                    FROM `jump_chain`
+                    WHERE `cycle` = 1
+                )
+                """.trimIndent()
+            )
+        }
+
+        private fun normalizePortForwardsForRuntime(db: SupportSQLiteDatabase) {
+            db.execSQL("UPDATE `port_forwards` SET `type` = 'dynamic5' WHERE `type` = 'dynamic4'")
+            db.execSQL(
+                """
+                DELETE FROM `port_forwards`
+                WHERE `type` NOT IN ('local', 'remote', 'dynamic5')
+                   OR `source_port` < 1
+                   OR `source_port` > 65535
+                   OR (`type` IN ('local', 'remote') AND (`dest_port` < 1 OR `dest_port` > 65535 OR `dest_addr` IS NULL OR trim(`dest_addr`) = ''))
+                   OR NOT EXISTS (
+                       SELECT 1 FROM `hosts`
+                       WHERE `hosts`.`id` = `port_forwards`.`host_id`
+                         AND `hosts`.`protocol` = 'ssh'
+                   )
+                """.trimIndent()
+            )
+            db.execSQL("UPDATE `port_forwards` SET `dest_addr` = NULL, `dest_port` = 0 WHERE `type` = 'dynamic5'")
+        }
+
+        private fun normalizeKnownHostsForRuntime(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                DELETE FROM `known_hosts`
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM `hosts`
+                    WHERE `hosts`.`id` = `known_hosts`.`host_id`
+                      AND `hosts`.`protocol` = 'ssh'
+                )
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                DELETE FROM `known_hosts`
+                WHERE `id` NOT IN (
+                    SELECT MIN(`id`)
+                    FROM `known_hosts`
+                    GROUP BY
+                        `host_id`,
+                        `hostname`,
+                        `port`,
+                        `host_key_algo`,
+                        hex(`host_key`)
+                )
+                """.trimIndent()
+            )
+        }
+
+        private fun normalizeColorPaletteForRuntime(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                DELETE FROM `color_palette`
+                WHERE `color_index` < 0
+                   OR `color_index` > 15
+                   OR NOT EXISTS (
+                       SELECT 1 FROM `color_schemes`
+                       WHERE `color_schemes`.`id` = `color_palette`.`scheme_id`
+                   )
+                """.trimIndent()
+            )
         }
     }
 }

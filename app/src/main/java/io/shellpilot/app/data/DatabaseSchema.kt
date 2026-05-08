@@ -67,6 +67,8 @@ class DatabaseSchema private constructor(private val schemaJson: JSONObject) {
             val jsonString = context.assets.open(EXPORT_SCHEMA_PATH).bufferedReader().use { it.readText() }
             return DatabaseSchema(JSONObject(jsonString))
         }
+
+        internal fun fromJsonForTesting(json: JSONObject): DatabaseSchema = DatabaseSchema(json)
     }
 }
 
@@ -146,6 +148,7 @@ data class FieldSchema(
     val columnName: String,     // Database column name (e.g., "jump_host_id")
     val affinity: String,       // SQLite type affinity (INTEGER, TEXT, BLOB, REAL)
     val notNull: Boolean,
+    val defaultValue: String?,
     val excluded: Boolean       // True if field should be excluded from export (e.g., runtime state)
 ) {
     companion object {
@@ -155,6 +158,7 @@ data class FieldSchema(
                 columnName = json.getString("columnName"),
                 affinity = json.getString("affinity"),
                 notNull = json.optBoolean("notNull", false),
+                defaultValue = json.optString("defaultValue").takeUnless { it.isBlank() },
                 excluded = json.optBoolean("excluded", false)
             )
         }

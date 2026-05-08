@@ -454,6 +454,33 @@ class KnownHostDaoTest {
     }
 
     @Test
+    fun getByHostEndpointAlgoAndKey_matchesOnlyExactEndpoint() = runTest {
+        val hostId = hostDao.insert(createTestHost())
+        val sharedKey = "shared-key".toByteArray()
+        knownHostDao.insert(createTestKnownHost(hostId, "example.com", 22, "ssh-rsa", sharedKey))
+        knownHostDao.insert(createTestKnownHost(hostId, "example.com", 2222, "ssh-rsa", sharedKey))
+
+        val result = knownHostDao.getByHostEndpointAlgoAndKey(hostId, "example.com", 22, "ssh-rsa", sharedKey)
+
+        assertThat(result).isNotNull()
+        assertThat(result?.port).isEqualTo(22)
+    }
+
+    @Test
+    fun deleteByHostEndpointAlgoAndKey_deletesOnlyExactKey() = runTest {
+        val hostId = hostDao.insert(createTestHost())
+        val keyToDelete = "delete-me".toByteArray()
+        knownHostDao.insert(createTestKnownHost(hostId, "example.com", 22, "ssh-rsa", keyToDelete))
+        knownHostDao.insert(createTestKnownHost(hostId, "example.com", 22, "ssh-rsa", "keep-key".toByteArray()))
+        knownHostDao.insert(createTestKnownHost(hostId, "example.com", 2222, "ssh-rsa", keyToDelete))
+
+        knownHostDao.deleteByHostEndpointAlgoAndKey(hostId, "example.com", 22, "ssh-rsa", keyToDelete)
+
+        assertThat(knownHostDao.getByHostId(hostId).map { "${it.hostname}:${it.port}:${it.hostKey.decodeToString()}" })
+            .containsExactlyInAnyOrder("example.com:22:keep-key", "example.com:2222:delete-me")
+    }
+
+    @Test
     fun deleteByHostId_DeletesAllKnownHostsForHost() = runTest {
         val host1 = createTestHost(nickname = "host1")
         val host2 = createTestHost(nickname = "host2")

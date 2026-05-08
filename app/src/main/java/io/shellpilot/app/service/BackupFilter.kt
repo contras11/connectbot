@@ -61,7 +61,12 @@ class BackupFilter(
             ShellPilotDatabase::class.java,
             tempDbFile.absolutePath
         )
-            .addMigrations(ShellPilotDatabase.MIGRATION_4_5, ShellPilotDatabase.MIGRATION_7_8, ShellPilotDatabase.MIGRATION_8_9)
+            .addMigrations(
+                ShellPilotDatabase.MIGRATION_4_5,
+                ShellPilotDatabase.MIGRATION_7_8,
+                ShellPilotDatabase.MIGRATION_8_9,
+                ShellPilotDatabase.MIGRATION_9_10
+            )
             .setJournalMode(RoomDatabase.JournalMode.TRUNCATE)
             .allowMainThreadQueries() // Backup runs on backup thread
             .build()
@@ -75,14 +80,7 @@ class BackupFilter(
                 .filter { !it.isBuiltIn && it.id > 0L }
                 .map { it.id }
                 .toSet()
-            val backupProfiles = allProfiles.map { profile ->
-                if (profile.colorSchemeId > 0L && profile.colorSchemeId !in customColorSchemeIds) {
-                    // 変更理由: 復元先で存在しないカスタム配色IDへ誤接続しないようDefaultへ戻す。
-                    profile.copy(colorSchemeId = -1L)
-                } else {
-                    profile
-                }
-            }
+            val backupProfiles = normalizeProfiles(allProfiles, customColorSchemeIds)
 
             val backupablePubkeys = if (backupKeys) {
                 // Filter pubkeys - only keep backupable ones
@@ -118,7 +116,7 @@ class BackupFilter(
             backupHosts.forEach { host ->
                 // Also backup port forwards and known hosts for this host
                 val portForwards = hostRepository.getPortForwardsForHost(host.id)
-                portForwards.mapNotNull(::sanitizePortForward).forEach { tempDb.portForwardDao().insert(it) }
+                portForwards.mapNotNull { sanitizePortForward(it, host) }.forEach { tempDb.portForwardDao().insert(it) }
 
                 val knownHosts = hostRepository.getKnownHostsForHost(host.id)
                 knownHosts.forEach { tempDb.knownHostDao().insert(it) }
@@ -129,19 +127,18 @@ class BackupFilter(
             }
 
             allColorSchemes.forEach { scheme ->
-                if (!scheme.isBuiltIn) {
-                    tempDb.colorSchemeDao().insert(scheme)
-                    // Also backup color palette for this scheme
-                    val colors = colorSchemeRepository.getSchemeColors(scheme.id)
-                    colors.forEachIndexed { index, color ->
-                        tempDb.colorSchemeDao().insertColor(
-                            io.shellpilot.app.data.entity.ColorPalette(
-                                schemeId = scheme.id,
-                                colorIndex = index,
-                                color = color
-                            )
+                val normalizedScheme = sanitizeColorSchemeForBackup(scheme) ?: return@forEach
+                tempDb.colorSchemeDao().insert(normalizedScheme)
+                // Also backup color palette for this scheme
+                val colors = colorSchemeRepository.getSchemeColors(normalizedScheme.id)
+                colors.forEachIndexed { index, color ->
+                    tempDb.colorSchemeDao().insertColor(
+                        io.shellpilot.app.data.entity.ColorPalette(
+                            schemeId = normalizedScheme.id,
+                            colorIndex = index,
+                            color = color
                         )
-                    }
+                    )
                 }
             }
         } finally {
@@ -172,7 +169,56 @@ class BackupFilter(
             }
 
             isBackupable
+        }.map { pubkey ->
+            // 変更理由: exportable鍵にKeystore aliasが残っていても復元先の別aliasへ誤接続しないよう落とす。
+            pubkey.copy(
+                storageType = KeyStorageType.EXPORTABLE,
+                keystoreAlias = null,
+                startup = pubkey.startup && pubkey.privateKey != null
+            )
         }
+    }
+
+    private fun normalizeProfiles(
+        profiles: List<io.shellpilot.app.data.entity.Profile>,
+        customColorSchemeIds: Set<Long>
+    ): List<io.shellpilot.app.data.entity.Profile> {
+        val sanitizedProfiles = profiles
+            .filter { it.id > 0L }
+            .map { profile ->
+                if (profile.colorSchemeId > 0L && profile.colorSchemeId !in customColorSchemeIds) {
+                    // 変更理由: 復元先で存在しないカスタム配色IDへ誤接続しないようDefaultへ戻す。
+                    profile.copy(colorSchemeId = -1L)
+                } else {
+                    profile
+                }
+            }
+
+        val withDefault = if (sanitizedProfiles.any { it.id == DEFAULT_PROFILE_ID }) {
+            sanitizedProfiles
+        } else {
+            // 変更理由: hosts.profile_id はSET DEFAULT=1なので、temp DBにも必ずDefault profileを作る。
+            listOf(io.shellpilot.app.data.entity.Profile(id = DEFAULT_PROFILE_ID, name = DEFAULT_PROFILE_NAME)) + sanitizedProfiles
+        }
+
+        val seenNames = mutableSetOf<String>()
+        return withDefault.map { profile ->
+            var name = profile.name.ifBlank { "Profile ${profile.id}" }
+            val baseName = name
+            var suffix = 1
+            while (!seenNames.add(name.lowercase())) {
+                name = "$baseName ($suffix)"
+                suffix++
+            }
+            if (name == profile.name) profile else profile.copy(name = name)
+        }
+    }
+
+    private fun sanitizeColorSchemeForBackup(
+        scheme: io.shellpilot.app.data.entity.ColorScheme
+    ): io.shellpilot.app.data.entity.ColorScheme? {
+        if (scheme.isBuiltIn || scheme.id <= 0L) return null
+        return scheme.copy(isBuiltIn = false)
     }
 
     private fun sanitizeHostReference(
@@ -227,7 +273,12 @@ class BackupFilter(
         return false
     }
 
-    private fun sanitizePortForward(portForward: io.shellpilot.app.data.entity.PortForward): io.shellpilot.app.data.entity.PortForward? {
+    private fun sanitizePortForward(
+        portForward: io.shellpilot.app.data.entity.PortForward,
+        host: Host
+    ): io.shellpilot.app.data.entity.PortForward? {
+        if (host.protocol != "ssh" || portForward.sourcePort !in PORT_RANGE) return null
+
         val normalizedType = when (portForward.type) {
             HostConstants.PORTFORWARD_DYNAMIC4 -> HostConstants.PORTFORWARD_DYNAMIC5
             HostConstants.PORTFORWARD_LOCAL,
@@ -235,7 +286,19 @@ class BackupFilter(
             HostConstants.PORTFORWARD_DYNAMIC5 -> portForward.type
             else -> return null
         }
-        return portForward.copy(type = normalizedType)
+
+        val destAddr = portForward.destAddr?.trim().orEmpty()
+        if (normalizedType == HostConstants.PORTFORWARD_LOCAL || normalizedType == HostConstants.PORTFORWARD_REMOTE) {
+            if (destAddr.isEmpty() || portForward.destPort !in PORT_RANGE) return null
+        }
+
+        // 変更理由: バックアップ用DBにも実行時が扱える転送設定だけを書き出す。
+        return portForward.copy(
+            type = normalizedType,
+            nickname = portForward.nickname.trim().ifEmpty { "Forward ${portForward.sourcePort}" },
+            destAddr = if (normalizedType == HostConstants.PORTFORWARD_DYNAMIC5) null else destAddr,
+            destPort = if (normalizedType == HostConstants.PORTFORWARD_DYNAMIC5) 0 else portForward.destPort
+        )
     }
 
     /**
@@ -256,5 +319,7 @@ class BackupFilter(
 
     private companion object {
         const val DEFAULT_PROFILE_ID = 1L
+        const val DEFAULT_PROFILE_NAME = "Default"
+        val PORT_RANGE = 1..65535
     }
 }

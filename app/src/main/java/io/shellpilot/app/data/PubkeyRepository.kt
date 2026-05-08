@@ -17,12 +17,13 @@
 
 package io.shellpilot.app.data
 
-import android.content.Context
+import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.runBlocking
 import io.shellpilot.app.data.dao.PubkeyDao
 import io.shellpilot.app.data.entity.KeyStorageType
 import io.shellpilot.app.data.entity.Pubkey
+import io.shellpilot.app.util.HostConstants
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -36,6 +37,8 @@ import javax.inject.Singleton
 class PubkeyRepository @Inject constructor(
     private val pubkeyDao: PubkeyDao
 ) {
+    @Inject
+    lateinit var database: ShellPilotDatabase
 
     // ============================================================================
     // Pubkey Operations
@@ -155,7 +158,31 @@ class PubkeyRepository @Inject constructor(
      * @param pubkey The pubkey to delete
      */
     suspend fun delete(pubkey: Pubkey) {
-        pubkeyDao.delete(pubkey)
+        deleteById(pubkey.id, pubkey)
+    }
+
+    /**
+     * Delete a pubkey by ID.
+     */
+    suspend fun deleteById(pubkeyId: Long): Boolean = deleteById(pubkeyId, pubkeyDao.getById(pubkeyId))
+
+    private suspend fun deleteById(pubkeyId: Long, pubkey: Pubkey?): Boolean {
+        if (pubkey == null) return false
+
+        if (this::database.isInitialized) {
+            database.withTransaction {
+                // 変更理由: 鍵削除後にhosts.pubkeyIdが孤立すると接続時に誤った鍵選択になる。
+                database.hostDao().getAll()
+                    .filter { it.pubkeyId == pubkeyId }
+                    .forEach { host ->
+                        database.hostDao().update(host.copy(pubkeyId = HostConstants.PUBKEYID_NEVER))
+                    }
+                pubkeyDao.delete(pubkey)
+            }
+        } else {
+            pubkeyDao.delete(pubkey)
+        }
+        return true
     }
 
     /**

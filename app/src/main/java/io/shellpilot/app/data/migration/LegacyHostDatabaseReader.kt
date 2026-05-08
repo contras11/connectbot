@@ -365,7 +365,8 @@ class LegacyHostDatabaseReader(private val context: Context) {
         return ColorScheme(
             id = cursor.getLong(idIndex),
             name = cursor.getString(nameIndex),
-            isBuiltIn = true, // Legacy schemes are treated as built-in
+            // 変更理由: legacy DBの正のIDは端末固有の実体を持つため、仮想built-inではなくcustomとして移行する。
+            isBuiltIn = false,
             description = if (descriptionIndex >= 0) cursor.getString(descriptionIndex) ?: "" else ""
         )
     }

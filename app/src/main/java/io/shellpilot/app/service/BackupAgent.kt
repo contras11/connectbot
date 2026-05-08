@@ -22,6 +22,7 @@ import android.app.backup.BackupDataInputStream
 import android.app.backup.BackupDataOutput
 import android.app.backup.BackupHelper
 import android.app.backup.SharedPreferencesBackupHelper
+import android.database.sqlite.SQLiteDatabase
 import android.os.ParcelFileDescriptor
 import androidx.preference.PreferenceManager
 import androidx.room.Room
@@ -101,14 +102,14 @@ class BackupAgent : BackupAgentHelper() {
 
         override fun restoreEntity(data: BackupDataInputStream) {
             if (data.key != DATABASE_NAME) {
-                Timber.w("Unexpected backup entity for database helper: ${data.key}")
-                return
+                throw IllegalArgumentException("Unexpected backup entity for database helper: ${data.key}")
             }
 
             try {
                 restoreDatabase(data)
             } catch (e: Exception) {
                 Timber.e(e, "Failed to restore database")
+                throw e
             }
         }
 
@@ -123,8 +124,7 @@ class BackupAgent : BackupAgentHelper() {
     private fun backupDatabaseWithFiltering(data: BackupDataOutput, backupKeys: Boolean) {
         val dbFile = getDatabasePath(DATABASE_NAME)
         if (!dbFile.exists()) {
-            Timber.w("Database does not exist yet, skipping backup")
-            return
+            throw IllegalStateException("Database does not exist for backup: ${dbFile.path}")
         }
 
         val tempDbFile = getDatabasePath(TEMP_DATABASE_NAME)
@@ -134,7 +134,7 @@ class BackupAgent : BackupAgentHelper() {
         val dispatchers = CoroutineDispatchers(default = Dispatchers.Default, io = Dispatchers.IO, main = Dispatchers.Main)
         val securePasswordStorage = io.shellpilot.app.util.SecurePasswordStorage(applicationContext)
         val hostRepository = HostRepository(applicationContext, database, database.hostDao(), database.portForwardDao(), database.knownHostDao(), securePasswordStorage)
-        val profileRepository = ProfileRepository(database.profileDao(), dispatchers)
+        val profileRepository = ProfileRepository(database, database.profileDao(), dispatchers)
         val colorSchemeRepository = ColorSchemeRepository(database.colorSchemeDao(), dispatchers = dispatchers)
         val pubkeyRepository = PubkeyRepository(database.pubkeyDao())
 
@@ -166,17 +166,17 @@ class BackupAgent : BackupAgentHelper() {
             ShellPilotDatabase::class.java,
             DATABASE_NAME
         )
-            .addMigrations(ShellPilotDatabase.MIGRATION_4_5, ShellPilotDatabase.MIGRATION_7_8, ShellPilotDatabase.MIGRATION_8_9)
+            .addMigrations(
+                ShellPilotDatabase.MIGRATION_4_5,
+                ShellPilotDatabase.MIGRATION_7_8,
+                ShellPilotDatabase.MIGRATION_8_9,
+                ShellPilotDatabase.MIGRATION_9_10
+            )
             .addCallback(object : RoomDatabase.Callback() {
                 override fun onCreate(db: SupportSQLiteDatabase) {
                     super.onCreate(db)
-                    // 変更理由: DatabaseModuleと同じ初期プロファイルを作り、BackupAgent経由の新規DBでも前提を揃える。
-                    db.execSQL(
-                        """
-                        INSERT INTO profiles (name, color_scheme_id, font_size, del_key, encoding, emulation)
-                        VALUES ('Default', -1, 10, 'del', 'UTF-8', 'xterm-256color')
-                        """.trimIndent()
-                    )
+                    // 変更理由: DatabaseModuleと同じDefault profile不変条件をBackupAgent経由でも守る。
+                    ShellPilotDatabase.ensureDefaultProfileInvariant(db)
                 }
             })
             .build()
@@ -187,14 +187,12 @@ class BackupAgent : BackupAgentHelper() {
      */
     private fun backupFile(file: File, key: String, data: BackupDataOutput) {
         if (!file.exists()) {
-            Timber.w("File does not exist: ${file.path}")
-            return
+            throw IllegalStateException("File does not exist for backup: ${file.path}")
         }
 
         val fileSize = file.length()
         if (fileSize <= 0L || fileSize > Int.MAX_VALUE) {
-            Timber.w("Database file has unsupported size for backup: $fileSize")
-            return
+            throw IllegalStateException("Database file has unsupported size for backup: $fileSize")
         }
 
         FileInputStream(file).use { input ->
@@ -215,22 +213,30 @@ class BackupAgent : BackupAgentHelper() {
      * [backupFile] が書いたRoom DBエンティティを復元する。
      */
     private fun restoreDatabase(data: BackupDataInputStream) {
+        val entitySize = data.size()
+        if (entitySize <= 0) {
+            throw IllegalStateException("Database backup entity is empty: $entitySize bytes")
+        }
+
         val dbFile = getDatabasePath(DATABASE_NAME)
         val tempFile = File(dbFile.parentFile, "$DATABASE_NAME.restore")
         dbFile.parentFile?.mkdirs()
 
         FileOutputStream(tempFile).use { output ->
             val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-            var remaining = data.size()
+            var remaining = entitySize
             while (remaining > 0) {
                 val read = data.read(buffer, 0, minOf(buffer.size, remaining))
-                if (read <= 0) break
+                if (read <= 0) {
+                    throw IllegalStateException("Database backup entity ended early; $remaining bytes missing")
+                }
                 output.write(buffer, 0, read)
                 remaining -= read
             }
             output.fd.sync()
         }
 
+        validateDatabaseFile(tempFile, "restored temp database")
         deleteDatabaseSidecars(dbFile)
         if (dbFile.exists() && !dbFile.delete()) {
             throw IllegalStateException("Existing database could not be deleted before restore: ${dbFile.path}")
@@ -239,7 +245,50 @@ class BackupAgent : BackupAgentHelper() {
             tempFile.delete()
             throw IllegalStateException("Restored database could not be moved into place: ${dbFile.path}")
         }
+        validateDatabaseFile(dbFile, "restored database")
+        validateRestoredRoomDatabase()
         Timber.d("Restored database from backup (${dbFile.length()} bytes)")
+    }
+
+    private fun validateDatabaseFile(dbFile: File, label: String) {
+        if (!dbFile.exists() || dbFile.length() <= 0L) {
+            throw IllegalStateException("$label is missing or empty: ${dbFile.path}")
+        }
+
+        SQLiteDatabase.openDatabase(dbFile.absolutePath, null, SQLiteDatabase.OPEN_READONLY).use { db ->
+            val integrity = db.singlePragmaValue("PRAGMA integrity_check")
+            if (integrity != "ok") {
+                throw IllegalStateException("$label failed integrity_check: $integrity")
+            }
+
+            val quick = db.singlePragmaValue("PRAGMA quick_check")
+            if (quick != "ok") {
+                throw IllegalStateException("$label failed quick_check: $quick")
+            }
+        }
+    }
+
+    private fun SQLiteDatabase.singlePragmaValue(sql: String): String {
+        rawQuery(sql, null).use { cursor ->
+            if (!cursor.moveToFirst()) {
+                throw IllegalStateException("No result from $sql")
+            }
+            return cursor.getString(0)
+        }
+    }
+
+    private fun validateRestoredRoomDatabase() {
+        val database = buildMainDatabase()
+        try {
+            // 変更理由: raw SQLiteとして正常でもRoom migration/schema validationが失敗するDBを復元完了扱いしない。
+            database.openHelper.writableDatabase.query("PRAGMA foreign_key_check").use { cursor ->
+                if (cursor.moveToFirst()) {
+                    throw IllegalStateException("restored database failed foreign_key_check")
+                }
+            }
+        } finally {
+            database.close()
+        }
     }
 
     private fun deleteDatabaseSidecars(dbFile: File) {

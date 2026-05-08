@@ -18,6 +18,7 @@
 package io.shellpilot.app.data.migration
 
 import android.content.Context
+import android.database.sqlite.SQLiteDatabase
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -70,6 +71,7 @@ class DatabaseMigratorTest {
     fun tearDown() {
         database.close()
         migrator.resetMigrationState()
+        context.deleteDatabase("hosts")
     }
 
     @Test
@@ -263,6 +265,32 @@ class DatabaseMigratorTest {
         assertThat(synthesizedScheme7?.isBuiltIn).isFalse()
 
         assertThat(transformed.colorPalettes).hasSize(5)
+    }
+
+    @Test
+    fun legacyPositiveColorSchemesAreReadAsCustomSchemes() {
+        val dbFile = context.getDatabasePath("hosts")
+        dbFile.parentFile?.mkdirs()
+        SQLiteDatabase.openOrCreateDatabase(dbFile, null).use { db ->
+            db.execSQL(
+                """
+                CREATE TABLE colorSchemes (
+                    _id INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    description TEXT
+                )
+                """.trimIndent()
+            )
+            db.execSQL(
+                "INSERT INTO colorSchemes (_id, name, description) VALUES (5, 'Legacy Custom', 'legacy palette')"
+            )
+        }
+
+        val schemes = LegacyHostDatabaseReader(context).readColorSchemes()
+
+        assertThat(schemes).hasSize(1)
+        assertThat(schemes.single().id).isEqualTo(5L)
+        assertThat(schemes.single().isBuiltIn).isFalse()
     }
 
     @Test

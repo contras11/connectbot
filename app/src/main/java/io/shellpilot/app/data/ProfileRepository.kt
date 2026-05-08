@@ -17,6 +17,7 @@
 
 package io.shellpilot.app.data
 
+import java.nio.charset.Charset
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -34,6 +35,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class ProfileRepository @Inject constructor(
+    private val database: ShellPilotDatabase,
     private val profileDao: ProfileDao,
     private val dispatchers: CoroutineDispatchers
 ) {
@@ -65,7 +67,10 @@ class ProfileRepository @Inject constructor(
      * Get the default profile.
      */
     suspend fun getDefault(): Profile = withContext(dispatchers.io) {
-        profileDao.getDefault() ?: Profile.createDefault()
+        profileDao.getDefault() ?: Profile.createDefault().copy(id = DEFAULT_PROFILE_ID).also {
+            // 変更理由: hosts.profile_id のDB defaultが参照するDefault profile欠損をRepository境界でも修復する。
+            profileDao.insertOrUpdate(it)
+        }
     }
 
     /**
@@ -85,10 +90,13 @@ class ProfileRepository @Inject constructor(
             Profile.createDefault()
         }
 
-        val newProfile = baseProfile.copy(
-            id = 0, // Auto-generate
-            name = name
+        val newProfile = sanitizeProfile(
+            baseProfile.copy(
+                id = 0, // Auto-generate
+                name = name
+            )
         )
+        ensureNameIsAvailable(newProfile.name, excludeProfileId = null)
         profileDao.insert(newProfile)
     }
 
@@ -96,7 +104,9 @@ class ProfileRepository @Inject constructor(
      * Update an existing profile.
      */
     suspend fun update(profile: Profile) = withContext(dispatchers.io) {
-        profileDao.update(profile)
+        val sanitized = sanitizeProfile(profile)
+        ensureNameIsAvailable(sanitized.name, excludeProfileId = sanitized.id)
+        profileDao.update(sanitized)
     }
 
     /**
@@ -105,11 +115,13 @@ class ProfileRepository @Inject constructor(
      * @return The ID of the saved profile
      */
     suspend fun save(profile: Profile): Long = withContext(dispatchers.io) {
-        if (profile.id == 0L) {
-            profileDao.insert(profile)
+        val sanitized = sanitizeProfile(profile)
+        ensureNameIsAvailable(sanitized.name, excludeProfileId = sanitized.id.takeIf { it > 0L })
+        if (sanitized.id == 0L) {
+            profileDao.insert(sanitized)
         } else {
-            profileDao.update(profile)
-            profile.id
+            profileDao.update(sanitized)
+            sanitized.id
         }
     }
 
@@ -182,12 +194,51 @@ class ProfileRepository @Inject constructor(
     suspend fun duplicate(sourceProfileId: Long, newName: String): Long =
         withContext(dispatchers.io) {
             val source = profileDao.getById(sourceProfileId) ?: Profile.createDefault()
-            val newProfile = source.copy(
-                id = 0,
-                name = newName
+            val newProfile = sanitizeProfile(
+                source.copy(
+                    id = 0,
+                    name = newName
+                )
             )
+            ensureNameIsAvailable(newProfile.name, excludeProfileId = null)
             profileDao.insert(newProfile)
         }
+
+    private suspend fun sanitizeProfile(profile: Profile): Profile {
+        val name = profile.name.trim().ifEmpty { "Profile" }
+        val fontSize = profile.fontSize.coerceIn(6, 96)
+        val delKey = when (profile.delKey) {
+            "del", "backspace" -> profile.delKey
+            else -> "del"
+        }
+        val encoding = profile.encoding.trim().takeIf { it.isNotEmpty() && Charset.isSupported(it) } ?: "UTF-8"
+        val emulation = profile.emulation.trim().ifEmpty { "xterm-256color" }
+        val rows = profile.forceSizeRows?.takeIf { it in 1..400 }
+        val columns = profile.forceSizeColumns?.takeIf { it in 1..400 }
+        val colorSchemeId = if (profile.colorSchemeId > 0L && database.colorSchemeDao().getById(profile.colorSchemeId) == null) {
+            -1L
+        } else {
+            profile.colorSchemeId
+        }
+
+        // 変更理由: TerminalBridgeが直接使う値をRepository境界で安全な範囲へ揃える。
+        return profile.copy(
+            name = name,
+            colorSchemeId = colorSchemeId,
+            fontSize = fontSize,
+            delKey = delKey,
+            encoding = encoding,
+            emulation = emulation,
+            forceSizeRows = rows,
+            forceSizeColumns = columns
+        )
+    }
+
+    private suspend fun ensureNameIsAvailable(name: String, excludeProfileId: Long?) {
+        if (profileDao.nameExists(name, excludeProfileId)) {
+            throw IllegalArgumentException("Profile name already exists: $name")
+        }
+    }
 
     private companion object {
         const val DEFAULT_PROFILE_ID = 1L

@@ -432,12 +432,7 @@ class SchemaBasedExporter(
             // For excluded fields, provide default values if NOT NULL
             if (field.excluded) {
                 if (field.notNull) {
-                    when (field.affinity) {
-                        "INTEGER" -> values.put(field.columnName, 0L)
-                        "TEXT" -> values.put(field.columnName, "")
-                        "REAL" -> values.put(field.columnName, 0.0)
-                        "BLOB" -> values.put(field.columnName, ByteArray(0))
-                    }
+                    putSchemaDefault(values, field)
                 }
                 continue
             }
@@ -461,6 +456,32 @@ class SchemaBasedExporter(
         }
 
         return values
+    }
+
+    private fun putSchemaDefault(values: ContentValues, field: FieldSchema) {
+        val defaultValue = field.defaultValue
+        if (defaultValue != null && defaultValue.equals("NULL", ignoreCase = true)) {
+            values.putNull(field.columnName)
+            return
+        }
+
+        // 変更理由: export対象外のNOT NULL列はRoom schemaのdefaultValueを優先し、
+        // last_connect等にだけ互換fallbackを使う。
+        when (field.affinity) {
+            "INTEGER" -> values.put(field.columnName, defaultValue?.toLongOrNull() ?: 0L)
+            "TEXT" -> values.put(field.columnName, defaultValue?.toSqlTextLiteral() ?: "")
+            "REAL" -> values.put(field.columnName, defaultValue?.toDoubleOrNull() ?: 0.0)
+            "BLOB" -> values.put(field.columnName, ByteArray(0))
+        }
+    }
+
+    private fun String.toSqlTextLiteral(): String {
+        val trimmed = trim()
+        return if (trimmed.length >= 2 && trimmed.first() == '\'' && trimmed.last() == '\'') {
+            trimmed.substring(1, trimmed.length - 1).replace("''", "'")
+        } else {
+            trimmed
+        }
     }
 
     data class ImportReference(

@@ -305,12 +305,12 @@ class SSH :
         }
 
         override fun getKnownKeyAlgorithmsForHost(host: String, port: Int): List<String>? = verifyHost?.id?.let { hostId ->
-            manager?.hostRepository?.getHostKeyAlgorithmsForHostBlocking(hostId)
+            manager?.hostRepository?.getHostKeyAlgorithmsForEndpointBlocking(hostId, host, port)
         }
 
         override fun removeServerHostKey(host: String, port: Int, algorithm: String, hostKey: ByteArray) {
             verifyHost?.id?.let { hostId ->
-                manager?.hostRepository?.removeKnownHostBlocking(hostId, algorithm, hostKey)
+                manager?.hostRepository?.removeKnownHostBlocking(hostId, host, port, algorithm, hostKey)
             }
         }
 
@@ -1095,7 +1095,7 @@ class SSH :
             HostConstants.PORTFORWARD_LOCAL -> {
                 val lpf: LocalPortForwarder? = try {
                     connection?.createLocalPortForwarder(
-                        InetSocketAddress(InetAddress.getLocalHost(), portForward.sourcePort),
+                        InetSocketAddress(InetAddress.getLoopbackAddress(), portForward.sourcePort),
                         portForward.destAddr,
                         portForward.destPort
                     )
@@ -1129,7 +1129,7 @@ class SSH :
             HostConstants.PORTFORWARD_DYNAMIC5 -> {
                 val dpf: DynamicPortForwarder? = try {
                     connection?.createDynamicPortForwarder(
-                        InetSocketAddress(InetAddress.getLocalHost(), portForward.sourcePort)
+                        InetSocketAddress(InetAddress.getLoopbackAddress(), portForward.sourcePort)
                     )
                 } catch (e: Exception) {
                     Timber.e(e, "Could not create dynamic port forward")

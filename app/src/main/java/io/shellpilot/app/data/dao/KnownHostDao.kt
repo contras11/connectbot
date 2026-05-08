@@ -48,6 +48,22 @@ interface KnownHostDao {
     suspend fun getByHostIdAlgoAndKey(hostId: Long, algo: String, key: ByteArray): KnownHost?
 
     /**
+     * Get a specific known host by exact endpoint and key.
+     */
+    @Query(
+        "SELECT * FROM known_hosts " +
+            "WHERE host_id = :hostId AND hostname = :hostname AND port = :port " +
+            "AND host_key_algo = :algo AND host_key = :key LIMIT 1"
+    )
+    suspend fun getByHostEndpointAlgoAndKey(
+        hostId: Long,
+        hostname: String,
+        port: Int,
+        algo: String,
+        key: ByteArray
+    ): KnownHost?
+
+    /**
      * Delete keys for the same host endpoint and algorithm.
      */
     @Query(
@@ -55,6 +71,22 @@ interface KnownHostDao {
             "WHERE host_id = :hostId AND hostname = :hostname AND port = :port AND host_key_algo = :algo"
     )
     suspend fun deleteByHostEndpointAndAlgorithm(hostId: Long, hostname: String, port: Int, algo: String)
+
+    /**
+     * Delete only the exact endpoint key.
+     */
+    @Query(
+        "DELETE FROM known_hosts " +
+            "WHERE host_id = :hostId AND hostname = :hostname AND port = :port " +
+            "AND host_key_algo = :algo AND host_key = :key"
+    )
+    suspend fun deleteByHostEndpointAlgoAndKey(
+        hostId: Long,
+        hostname: String,
+        port: Int,
+        algo: String,
+        key: ByteArray
+    )
 
     /**
      * Get all known hosts.
@@ -83,6 +115,7 @@ interface KnownHostDao {
 
     /**
      * Delete a known host by hostname and port.
+     * Legacy compatibility only. Endpoint-aware callers must include hostId, algorithm, and key.
      */
     @Query("DELETE FROM known_hosts WHERE hostname = :hostname AND port = :port")
     suspend fun deleteByHostnameAndPort(hostname: String, port: Int)

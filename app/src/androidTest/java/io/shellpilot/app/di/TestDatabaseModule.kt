@@ -45,15 +45,17 @@ object TestDatabaseModule {
             ShellPilotDatabase::class.java,
             TEST_DATABASE_NAME
         )
-            .addMigrations(ShellPilotDatabase.MIGRATION_4_5, ShellPilotDatabase.MIGRATION_7_8, ShellPilotDatabase.MIGRATION_8_9)
+            .addMigrations(
+                ShellPilotDatabase.MIGRATION_4_5,
+                ShellPilotDatabase.MIGRATION_7_8,
+                ShellPilotDatabase.MIGRATION_8_9,
+                ShellPilotDatabase.MIGRATION_9_10
+            )
             .addCallback(object : RoomDatabase.Callback() {
                 override fun onCreate(db: SupportSQLiteDatabase) {
                     super.onCreate(db)
-                    // Create default profile on fresh database creation
-                    db.execSQL("""
-                        INSERT INTO profiles (name, color_scheme_id, font_size, del_key, encoding, emulation)
-                        VALUES ('Default', -1, 10, 'del', 'UTF-8', 'xterm-256color')
-                    """.trimIndent())
+                    // 変更理由: テストDBでも本番DBと同じDefault profile不変条件を使う。
+                    ShellPilotDatabase.ensureDefaultProfileInvariant(db)
                 }
             })
             .allowMainThreadQueries()
