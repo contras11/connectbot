@@ -386,6 +386,21 @@ class HostConfigJsonTest {
     }
 
     @Test
+    fun importFromJson_normalizesJumpHostAfterExistingHostRemap() = runTest {
+        val sourceJumpId = sourceDb.hostDao().insert(host(nickname = "shared-jump", hostname = "source-jump.example.com"))
+        sourceDb.hostDao().insert(host(nickname = "app", hostname = "app.example.com", jumpHostId = sourceJumpId))
+        destinationDb.hostDao().insert(
+            host(nickname = "shared-jump", hostname = "telnet-jump.example.com").copy(protocol = "telnet")
+        )
+
+        val (json, _) = HostConfigJson.exportToJson(context, sourceDb, pretty = false)
+        HostConfigJson.importFromJson(context, destinationDb, json)
+
+        val importedApp = destinationDb.hostDao().getAll().first { it.nickname == "app" }
+        assertThat(importedApp.jumpHostId).isNull()
+    }
+
+    @Test
     fun schemaBasedImporter_usesRoomDefaultValueForExcludedNotNullFields() = runTest {
         val schema = DatabaseSchema.fromJsonForTesting(schemaWithExcludedHostDefaults())
         val exporter = SchemaBasedExporter(destinationDb, schema)
@@ -430,18 +445,16 @@ class HostConfigJsonTest {
         profileId: Long = 1L,
         pubkeyId: Long = HostConstants.PUBKEYID_ANY,
         jumpHostId: Long? = null
-    ): Host {
-        return Host(
-            nickname = nickname,
-            protocol = "ssh",
-            username = "alice",
-            hostname = hostname,
-            port = 22,
-            profileId = profileId,
-            pubkeyId = pubkeyId,
-            jumpHostId = jumpHostId
-        )
-    }
+    ): Host = Host(
+        nickname = nickname,
+        protocol = "ssh",
+        username = "alice",
+        hostname = hostname,
+        port = 22,
+        profileId = profileId,
+        pubkeyId = pubkeyId,
+        jumpHostId = jumpHostId
+    )
 
     private fun countRows(tableName: String): Int {
         val cursor = destinationDb.openHelper.readableDatabase.query("SELECT COUNT(*) FROM $tableName")
@@ -459,17 +472,15 @@ class HostConfigJsonTest {
             notNull: Boolean = false,
             excluded: Boolean = false,
             defaultValue: String? = null
-        ): JSONObject {
-            return JSONObject()
-                .put("fieldPath", fieldPath)
-                .put("columnName", columnName)
-                .put("affinity", affinity)
-                .apply {
-                    if (notNull) put("notNull", true)
-                    if (excluded) put("excluded", true)
-                    if (defaultValue != null) put("defaultValue", defaultValue)
-                }
-        }
+        ): JSONObject = JSONObject()
+            .put("fieldPath", fieldPath)
+            .put("columnName", columnName)
+            .put("affinity", affinity)
+            .apply {
+                if (notNull) put("notNull", true)
+                if (excluded) put("excluded", true)
+                if (defaultValue != null) put("defaultValue", defaultValue)
+            }
 
         val fields = org.json.JSONArray()
             .put(field("id", "id", "INTEGER", notNull = true))

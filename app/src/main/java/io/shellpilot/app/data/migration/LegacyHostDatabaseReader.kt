@@ -20,12 +20,12 @@ package io.shellpilot.app.data.migration
 import android.content.Context
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
-import timber.log.Timber
 import io.shellpilot.app.data.entity.ColorPalette
 import io.shellpilot.app.data.entity.ColorScheme
 import io.shellpilot.app.data.entity.KnownHost
 import io.shellpilot.app.data.entity.PortForward
 import io.shellpilot.app.util.HostConstants
+import timber.log.Timber
 
 /**
  * Data class for hosts from the legacy database that includes
@@ -238,25 +238,30 @@ class LegacyHostDatabaseReader(private val context: Context) {
     fun readColorPalettes(): List<ColorPalette> {
         val palettes = mutableListOf<ColorPalette>()
 
-        withReadableDatabase { db ->
-            db.query(
-                "colors",
-                null,
-                null,
-                null,
-                null,
-                null,
-                "scheme ASC, number ASC"
-            ).use { cursor ->
-                while (cursor.moveToNext()) {
-                    try {
-                        val palette = cursorToColorPalette(cursor)
-                        palettes.add(palette)
-                    } catch (e: Exception) {
-                        Timber.e(e, "Error reading color palette from cursor")
+        try {
+            withReadableDatabase { db ->
+                db.query(
+                    "colors",
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    "scheme ASC, number ASC"
+                ).use { cursor ->
+                    while (cursor.moveToNext()) {
+                        try {
+                            val palette = cursorToColorPalette(cursor)
+                            palettes.add(palette)
+                        } catch (e: Exception) {
+                            Timber.e(e, "Error reading color palette from cursor")
+                        }
                     }
                 }
             }
+        } catch (e: Exception) {
+            // 変更理由: 古いConnectBot DBで補助colorsテーブルだけ欠損しても、ホスト/鍵移行は継続する。
+            Timber.w(e, "Error reading color palettes from legacy database; skipping")
         }
 
         Timber.d("Read ${palettes.size} color palette entries from legacy database")
@@ -416,9 +421,7 @@ class LegacyHostDatabaseReader(private val context: Context) {
         return value.equals("true", ignoreCase = true)
     }
 
-    private fun Cursor.getStringOrNull(columnIndex: Int): String? {
-        return if (isNull(columnIndex)) null else getString(columnIndex)
-    }
+    private fun Cursor.getStringOrNull(columnIndex: Int): String? = if (isNull(columnIndex)) null else getString(columnIndex)
 
     private fun SQLiteDatabase.tableColumns(tableName: String): Set<String> {
         val columns = mutableSetOf<String>()
@@ -433,9 +436,11 @@ class LegacyHostDatabaseReader(private val context: Context) {
 
     private fun String.normalizePortForwardType(): String = when (this) {
         HostConstants.PORTFORWARD_DYNAMIC4 -> HostConstants.PORTFORWARD_DYNAMIC5
+
         HostConstants.PORTFORWARD_LOCAL,
         HostConstants.PORTFORWARD_REMOTE,
         HostConstants.PORTFORWARD_DYNAMIC5 -> this
+
         else -> this
     }
 }

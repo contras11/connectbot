@@ -19,6 +19,11 @@ package io.shellpilot.app.ui.screens.hosteditor
 
 import android.content.SharedPreferences
 import androidx.lifecycle.SavedStateHandle
+import io.shellpilot.app.data.HostRepository
+import io.shellpilot.app.data.ProfileRepository
+import io.shellpilot.app.data.PubkeyRepository
+import io.shellpilot.app.data.entity.Host
+import io.shellpilot.app.util.SecurePasswordStorage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -26,11 +31,6 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import io.shellpilot.app.data.HostRepository
-import io.shellpilot.app.data.ProfileRepository
-import io.shellpilot.app.data.PubkeyRepository
-import io.shellpilot.app.data.entity.Host
-import io.shellpilot.app.util.SecurePasswordStorage
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -155,6 +155,7 @@ class HostEditorViewModelTest {
         assertEquals("パスワードを安全に保存できませんでした。端末の認証情報ストレージを確認してください", viewModel.uiState.value.error)
         assertFalse(viewModel.uiState.value.saveSucceeded)
         assertFalse(viewModel.uiState.value.isSaving)
+        verify(repository).deleteHost(any())
     }
 
     @Test
@@ -220,14 +221,12 @@ class HostEditorViewModelTest {
         verify(repository, never()).saveHost(any())
     }
 
-    private fun createViewModel(hostId: Long = -1L): HostEditorViewModel {
-        return HostEditorViewModel(
-            savedStateHandle = SavedStateHandle(mapOf("hostId" to hostId)),
-            repository = repository,
-            pubkeyRepository = pubkeyRepository,
-            profileRepository = profileRepository,
-            prefs = prefs,
-            securePasswordStorage = securePasswordStorage
-        )
-    }
+    private fun createViewModel(hostId: Long = -1L): HostEditorViewModel = HostEditorViewModel(
+        savedStateHandle = SavedStateHandle(mapOf("hostId" to hostId)),
+        repository = repository,
+        pubkeyRepository = pubkeyRepository,
+        profileRepository = profileRepository,
+        prefs = prefs,
+        securePasswordStorage = securePasswordStorage
+    )
 }

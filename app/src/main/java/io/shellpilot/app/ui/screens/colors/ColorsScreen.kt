@@ -75,10 +75,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import kotlinx.coroutines.launch
 import io.shellpilot.app.R
 import io.shellpilot.app.data.entity.ColorScheme
 import io.shellpilot.app.ui.ScreenPreviews
@@ -89,6 +89,7 @@ import io.shellpilot.app.ui.components.ShellPilotActionDialog
 import io.shellpilot.app.ui.components.ShellPilotScaffold
 import io.shellpilot.app.ui.components.StatusChip
 import io.shellpilot.app.ui.theme.ShellPilotTheme
+import kotlinx.coroutines.launch
 
 /**
  * Screen for managing color schemes (create, duplicate, delete).
@@ -102,6 +103,7 @@ fun ColorsScreen(
     viewModel: ColorSchemeManagerViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val uiState by viewModel.uiState.collectAsState()
     val repository = viewModel.repository
     val scope = rememberCoroutineScope()
@@ -120,7 +122,7 @@ fun ColorsScreen(
                     }
                     Toast.makeText(
                         context,
-                        context.getString(
+                        resources.getString(
                             R.string.message_export_success,
                             schemeJson.name
                         ),
@@ -129,7 +131,7 @@ fun ColorsScreen(
                 } catch (e: Exception) {
                     Toast.makeText(
                         context,
-                        context.getString(
+                        resources.getString(
                             R.string.error_export_failed,
                             e.message
                         ),
@@ -160,7 +162,7 @@ fun ColorsScreen(
 
                     Toast.makeText(
                         context,
-                        context.getString(
+                        resources.getString(
                             R.string.message_import_success,
                             importedScheme?.name ?: "scheme"
                         ),
@@ -169,13 +171,13 @@ fun ColorsScreen(
                 } catch (e: org.json.JSONException) {
                     Toast.makeText(
                         context,
-                        context.getString(R.string.error_invalid_json),
+                        resources.getString(R.string.error_invalid_json),
                         Toast.LENGTH_LONG
                     ).show()
                 } catch (e: Exception) {
                     Toast.makeText(
                         context,
-                        context.getString(
+                        resources.getString(
                             R.string.error_import_failed,
                             e.message
                         ),
@@ -201,7 +203,7 @@ fun ColorsScreen(
                 } catch (e: Exception) {
                     Toast.makeText(
                         context,
-                        context.getString(
+                        resources.getString(
                             R.string.error_export_failed,
                             e.message
                         ),

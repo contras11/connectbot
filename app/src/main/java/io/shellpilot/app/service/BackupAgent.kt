@@ -23,6 +23,7 @@ import android.app.backup.BackupDataOutput
 import android.app.backup.BackupHelper
 import android.app.backup.SharedPreferencesBackupHelper
 import android.database.sqlite.SQLiteDatabase
+import android.os.Build
 import android.os.ParcelFileDescriptor
 import androidx.preference.PreferenceManager
 import androidx.room.Room
@@ -87,10 +88,15 @@ class BackupAgent : BackupAgentHelper() {
             newState: ParcelFileDescriptor?
         ) {
             val prefs = PreferenceManager.getDefaultSharedPreferences(this@BackupAgent)
-            val backupKeys = prefs.getBoolean(
+            val requestedBackupKeys = prefs.getBoolean(
                 PreferenceConstants.BACKUP_KEYS,
                 PreferenceConstants.BACKUP_KEYS_DEFAULT
             )
+            val backupKeys = requestedBackupKeys && canBackupKeysWithTransport(data)
+            if (requestedBackupKeys && !backupKeys) {
+                // 変更理由: 秘密鍵を暗号化なしのクラウドバックアップへ載せない。
+                Timber.w("Skipping private-key backup because the active transport is not encrypted or device-to-device")
+            }
 
             try {
                 backupDatabaseWithFiltering(data, backupKeys)
@@ -162,34 +168,39 @@ class BackupAgent : BackupAgentHelper() {
 
     private fun buildMainDatabase(): ShellPilotDatabase = buildDatabase(DATABASE_NAME)
 
-    private fun buildDatabase(databaseName: String): ShellPilotDatabase {
-        return Room.databaseBuilder(
-            applicationContext,
-            ShellPilotDatabase::class.java,
-            databaseName
-        )
-            .addMigrations(
-                ShellPilotDatabase.MIGRATION_4_5,
-                ShellPilotDatabase.MIGRATION_7_8,
-                ShellPilotDatabase.MIGRATION_8_9,
-                ShellPilotDatabase.MIGRATION_9_10,
-                ShellPilotDatabase.MIGRATION_10_11
-            )
-            .addCallback(object : RoomDatabase.Callback() {
-                override fun onCreate(db: SupportSQLiteDatabase) {
-                    super.onCreate(db)
-                    // 変更理由: DatabaseModuleと同じDefault profile不変条件をBackupAgent経由でも守る。
-                    ShellPilotDatabase.ensureDefaultProfileInvariant(db)
-                }
-
-                override fun onOpen(db: SupportSQLiteDatabase) {
-                    super.onOpen(db)
-                    // 変更理由: 復元DBでも通常起動時と同じ不変条件を検証する。
-                    ShellPilotDatabase.normalizeRuntimeInvariants(db)
-                }
-            })
-            .build()
+    private fun canBackupKeysWithTransport(data: BackupDataOutput): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return false
+        val flags = data.transportFlags
+        return flags and android.app.backup.BackupAgent.FLAG_CLIENT_SIDE_ENCRYPTION_ENABLED != 0 ||
+            flags and android.app.backup.BackupAgent.FLAG_DEVICE_TO_DEVICE_TRANSFER != 0
     }
+
+    private fun buildDatabase(databaseName: String): ShellPilotDatabase = Room.databaseBuilder(
+        applicationContext,
+        ShellPilotDatabase::class.java,
+        databaseName
+    )
+        .addMigrations(
+            ShellPilotDatabase.MIGRATION_4_5,
+            ShellPilotDatabase.MIGRATION_7_8,
+            ShellPilotDatabase.MIGRATION_8_9,
+            ShellPilotDatabase.MIGRATION_9_10,
+            ShellPilotDatabase.MIGRATION_10_11
+        )
+        .addCallback(object : RoomDatabase.Callback() {
+            override fun onCreate(db: SupportSQLiteDatabase) {
+                super.onCreate(db)
+                // 変更理由: DatabaseModuleと同じDefault profile不変条件をBackupAgent経由でも守る。
+                ShellPilotDatabase.ensureDefaultProfileInvariant(db)
+            }
+
+            override fun onOpen(db: SupportSQLiteDatabase) {
+                super.onOpen(db)
+                // 変更理由: 復元DBでも通常起動時と同じ不変条件を検証する。
+                ShellPilotDatabase.normalizeRuntimeInvariants(db)
+            }
+        })
+        .build()
 
     /**
      * ファイル全体をBackupDataOutputへ書き出す。

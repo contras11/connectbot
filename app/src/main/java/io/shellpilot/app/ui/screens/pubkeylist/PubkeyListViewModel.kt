@@ -31,12 +31,6 @@ import com.trilead.ssh2.crypto.PEMEncoder
 import com.trilead.ssh2.crypto.PublicKeyUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import io.shellpilot.app.data.HostRepository
 import io.shellpilot.app.data.PubkeyRepository
 import io.shellpilot.app.data.entity.Pubkey
@@ -44,6 +38,12 @@ import io.shellpilot.app.di.CoroutineDispatchers
 import io.shellpilot.app.service.TerminalManager
 import io.shellpilot.app.util.BiometricKeyManager
 import io.shellpilot.app.util.PubkeyUtils
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.io.BufferedReader
 import java.io.ByteArrayInputStream
@@ -142,6 +142,24 @@ class PubkeyListViewModel @Inject constructor(
 
     fun clearError() {
         _uiState.update { it.copy(error = null) }
+    }
+
+    fun updateBackupPermission(pubkey: Pubkey, allowBackup: Boolean) {
+        viewModelScope.launch {
+            try {
+                val applied = repository.updateBackupPermission(pubkey.id, allowBackup)
+                if (!applied && allowBackup) {
+                    _uiState.update {
+                        it.copy(error = "この鍵は秘密鍵データがないか、Android Keystoreで保護されているためバックアップ対象にできません")
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to update pubkey backup permission")
+                _uiState.update {
+                    it.copy(error = "鍵のバックアップ設定を変更できませんでした: ${e.message}")
+                }
+            }
+        }
     }
 
     fun deletePubkey(pubkey: Pubkey) {

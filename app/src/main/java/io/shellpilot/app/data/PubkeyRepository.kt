@@ -18,13 +18,13 @@
 package io.shellpilot.app.data
 
 import androidx.room.withTransaction
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.runBlocking
 import io.shellpilot.app.data.dao.PubkeyDao
 import io.shellpilot.app.data.entity.KeyStorageType
 import io.shellpilot.app.data.entity.Pubkey
 import io.shellpilot.app.util.HostConstants
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -60,10 +60,9 @@ class PubkeyRepository @Inject constructor(
      * @param type The storage type (EXPORTABLE or ANDROID_KEYSTORE)
      * @return Flow of pubkey list filtered by type
      */
-    fun observeByStorageType(type: KeyStorageType): Flow<List<Pubkey>> =
-        pubkeyDao.observeByStorageType(type).map { pubkeys ->
-            pubkeys.map(CoreDataSanitizer::sanitizePubkey)
-        }
+    fun observeByStorageType(type: KeyStorageType): Flow<List<Pubkey>> = pubkeyDao.observeByStorageType(type).map { pubkeys ->
+        pubkeys.map(CoreDataSanitizer::sanitizePubkey)
+    }
 
     /**
      * Observe a specific pubkey reactively.
@@ -107,8 +106,7 @@ class PubkeyRepository @Inject constructor(
      * @param nickname The pubkey nickname
      * @return The pubkey, or null if not found
      */
-    suspend fun getByNickname(nickname: String): Pubkey? =
-        pubkeyDao.getByNickname(nickname)?.let(CoreDataSanitizer::sanitizePubkey)
+    suspend fun getByNickname(nickname: String): Pubkey? = pubkeyDao.getByNickname(nickname)?.let(CoreDataSanitizer::sanitizePubkey)
 
     /**
      * Get all pubkeys that allow backup.
@@ -201,7 +199,10 @@ class PubkeyRepository @Inject constructor(
      * @param pubkeyId The pubkey ID
      * @param allowBackup Whether to allow backup
      */
-    suspend fun updateBackupPermission(pubkeyId: Long, allowBackup: Boolean) {
-        pubkeyDao.updateBackupPermission(pubkeyId, allowBackup)
+    suspend fun updateBackupPermission(pubkeyId: Long, allowBackup: Boolean): Boolean {
+        val pubkey = pubkeyDao.getById(pubkeyId) ?: return false
+        val sanitized = CoreDataSanitizer.sanitizePubkey(pubkey.copy(allowBackup = allowBackup))
+        pubkeyDao.update(sanitized)
+        return sanitized.allowBackup == allowBackup
     }
 }

@@ -20,9 +20,6 @@ package io.shellpilot.app.data
 import android.content.Context
 import androidx.room.withTransaction
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.runBlocking
 import io.shellpilot.app.data.dao.HostDao
 import io.shellpilot.app.data.dao.KnownHostDao
 import io.shellpilot.app.data.dao.PortForwardDao
@@ -30,6 +27,9 @@ import io.shellpilot.app.data.entity.Host
 import io.shellpilot.app.data.entity.KnownHost
 import io.shellpilot.app.data.entity.PortForward
 import io.shellpilot.app.util.SecurePasswordStorage
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -289,6 +289,10 @@ class HostRepository @Inject constructor(
         serverHostKey: ByteArray
     ) {
         require(host.protocol == "ssh") { "Known hosts are only supported for SSH hosts" }
+        if (host.id <= 0L) {
+            // 変更理由: URI直指定などの未保存ホストはFK先が無いため、known_hostsへ永続化しない。
+            return
+        }
         val knownHost = CoreDataSanitizer.sanitizeKnownHost(
             KnownHost(
                 hostId = host.id,
@@ -325,6 +329,10 @@ class HostRepository @Inject constructor(
         serverHostKey: ByteArray
     ) {
         require(host.protocol == "ssh") { "Known hosts are only supported for SSH hosts" }
+        if (host.id <= 0L) {
+            // 変更理由: 一時ホストはDB上の親行が無く、ホスト鍵置換の永続化対象にできない。
+            return
+        }
         val knownHost = CoreDataSanitizer.sanitizeKnownHost(
             KnownHost(
                 hostId = host.id,
@@ -541,9 +549,7 @@ class HostRepository @Inject constructor(
         return null
     }
 
-    private suspend fun sanitizeHost(host: Host): Host {
-        return sanitizeHosts(listOf(host)).first()
-    }
+    private suspend fun sanitizeHost(host: Host): Host = sanitizeHosts(listOf(host)).first()
 
     private suspend fun sanitizeHosts(hosts: List<Host>): List<Host> {
         val profileIds = database.profileDao().getAll().map { it.id }.toSet()
@@ -576,5 +582,4 @@ class HostRepository @Inject constructor(
         return CoreDataSanitizer.sanitizePortForward(portForward, host)
             ?: throw IllegalArgumentException("Invalid port forward for host ${host.nickname}")
     }
-
 }

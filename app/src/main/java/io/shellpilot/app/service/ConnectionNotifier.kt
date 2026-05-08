@@ -33,7 +33,6 @@ import io.shellpilot.app.R
 import io.shellpilot.app.data.entity.Host
 import io.shellpilot.app.ui.MainActivity
 import io.shellpilot.app.util.HostConstants
-
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -52,8 +51,7 @@ class ConnectionNotifier @Inject constructor() {
         PendingIntent.FLAG_UPDATE_CURRENT
     }
 
-    private fun getNotificationManager(context: Context): NotificationManager =
-        context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    private fun getNotificationManager(context: Context): NotificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
     private fun newNotificationBuilder(context: Context, id: String): NotificationCompat.Builder {
         val builder = NotificationCompat.Builder(context, id)
@@ -170,7 +168,7 @@ class ConnectionNotifier @Inject constructor() {
         context.startForeground(
             ONLINE_NOTIFICATION,
             newRunningNotification(context),
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
         )
     }
 

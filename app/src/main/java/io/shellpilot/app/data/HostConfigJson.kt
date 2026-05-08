@@ -20,9 +20,9 @@ package io.shellpilot.app.data
 import android.content.Context
 import androidx.room.RoomDatabase
 import io.shellpilot.app.util.HostConstants
-import java.nio.charset.Charset
 import org.json.JSONArray
 import org.json.JSONObject
+import java.nio.charset.Charset
 
 /**
  * Result of exporting host configurations.
@@ -106,6 +106,8 @@ object HostConfigJson {
         val schema = DatabaseSchema.load(context)
         val exporter = createExporter(database, schema)
         val results = exporter.importFromJson(sanitizeJsonForImport(jsonString), EXPORT_TABLES)
+        // 変更理由: 既存ホストとの衝突再マップ後もjump hostやport forwardの不変条件を守る。
+        ShellPilotDatabase.normalizeRuntimeInvariants(database.openHelper.writableDatabase)
 
         val hostCounts = results["hosts"] ?: Pair(0, 0)
         val profileCounts = results["profiles"] ?: Pair(0, 0)
@@ -124,45 +126,43 @@ object HostConfigJson {
      * 変更理由: pubkeyId はsentinel値を保持し、profileId / jumpHostId は
      * export/import単位で安全に再採番する必要があるため。
      */
-    private fun createExporter(database: RoomDatabase, schema: DatabaseSchema): SchemaBasedExporter {
-        return SchemaBasedExporter(
-            database = database,
-            schema = schema,
-            importReferences = listOf(
-                SchemaBasedExporter.ImportReference(
-                    tableName = "hosts",
-                    fieldPath = "profileId",
-                    referencedTableName = "profiles",
-                    missingValue = 1L
-                ),
-                SchemaBasedExporter.ImportReference(
-                    tableName = "hosts",
-                    fieldPath = "jumpHostId",
-                    referencedTableName = "hosts",
-                    missingValue = JSONObject.NULL
-                )
+    private fun createExporter(database: RoomDatabase, schema: DatabaseSchema): SchemaBasedExporter = SchemaBasedExporter(
+        database = database,
+        schema = schema,
+        importReferences = listOf(
+            SchemaBasedExporter.ImportReference(
+                tableName = "hosts",
+                fieldPath = "profileId",
+                referencedTableName = "profiles",
+                missingValue = 1L
             ),
-            droppedReferences = listOf(
-                SchemaBasedExporter.DroppedReference(
-                    tableName = "hosts",
-                    fieldPath = "pubkeyId",
-                    replacementValue = HostConstants.PUBKEYID_NEVER
-                ),
-                SchemaBasedExporter.DroppedReference(
-                    tableName = "profiles",
-                    fieldPath = "colorSchemeId",
-                    replacementValue = -1L
-                )
+            SchemaBasedExporter.ImportReference(
+                tableName = "hosts",
+                fieldPath = "jumpHostId",
+                referencedTableName = "hosts",
+                missingValue = JSONObject.NULL
+            )
+        ),
+        droppedReferences = listOf(
+            SchemaBasedExporter.DroppedReference(
+                tableName = "hosts",
+                fieldPath = "pubkeyId",
+                replacementValue = HostConstants.PUBKEYID_NEVER
             ),
-            skipRowsWhenParentSkipped = listOf(
-                SchemaBasedExporter.ImportReference(
-                    tableName = "port_forwards",
-                    fieldPath = "hostId",
-                    referencedTableName = "hosts"
-                )
+            SchemaBasedExporter.DroppedReference(
+                tableName = "profiles",
+                fieldPath = "colorSchemeId",
+                replacementValue = -1L
+            )
+        ),
+        skipRowsWhenParentSkipped = listOf(
+            SchemaBasedExporter.ImportReference(
+                tableName = "port_forwards",
+                fieldPath = "hostId",
+                referencedTableName = "hosts"
             )
         )
-    }
+    )
 
     /**
      * JSON import前に、export対象外テーブルや旧値に由来する危険な参照を落とす。
@@ -320,9 +320,11 @@ object HostConfigJson {
             val host = hostById[portForward.optLong("hostId", 0L)]
             val normalizedType = when (portForward.optString("type")) {
                 HostConstants.PORTFORWARD_DYNAMIC4 -> HostConstants.PORTFORWARD_DYNAMIC5
+
                 HostConstants.PORTFORWARD_LOCAL,
                 HostConstants.PORTFORWARD_REMOTE,
                 HostConstants.PORTFORWARD_DYNAMIC5 -> portForward.optString("type")
+
                 else -> continue
             }
             if (host?.optString("protocol") != "ssh") continue

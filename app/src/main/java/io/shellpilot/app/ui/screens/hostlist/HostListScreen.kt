@@ -37,8 +37,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -46,12 +46,12 @@ import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.Button
@@ -80,12 +80,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toColorInt
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import kotlinx.coroutines.launch
 import io.shellpilot.app.R
 import io.shellpilot.app.data.entity.Host
 import io.shellpilot.app.ui.LocalTerminalManager
@@ -100,6 +100,7 @@ import io.shellpilot.app.ui.components.ShortcutCustomizationDialog
 import io.shellpilot.app.ui.components.StatusChip
 import io.shellpilot.app.ui.theme.ShellPilotTheme
 import io.shellpilot.app.util.IconStyle
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -117,6 +118,7 @@ fun HostListScreen(
     viewModel: HostListViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val terminalManager = LocalTerminalManager.current
 
     LaunchedEffect(terminalManager) {
@@ -140,7 +142,7 @@ fun HostListScreen(
                     if (exportResult != null) {
                         Toast.makeText(
                             context,
-                            context.getString(
+                            resources.getString(
                                 R.string.export_hosts_success,
                                 exportResult.hostCount,
                                 exportResult.profileCount
@@ -151,7 +153,7 @@ fun HostListScreen(
                 } catch (e: Exception) {
                     Toast.makeText(
                         context,
-                        context.getString(R.string.export_hosts_failed, e.message),
+                        resources.getString(R.string.export_hosts_failed, e.message),
                         Toast.LENGTH_LONG
                     ).show()
                 }
@@ -178,7 +180,7 @@ fun HostListScreen(
                 } catch (e: Exception) {
                     Toast.makeText(
                         context,
-                        context.getString(R.string.import_hosts_failed, e.message),
+                        resources.getString(R.string.import_hosts_failed, e.message),
                         Toast.LENGTH_LONG
                     ).show()
                 }
@@ -197,7 +199,7 @@ fun HostListScreen(
     // Handle export result - launch file picker when JSON is ready
     LaunchedEffect(uiState.exportedJson) {
         if (uiState.exportedJson != null) {
-            exportLauncher.launch(context.getString(R.string.export_hosts_filename))
+            exportLauncher.launch(resources.getString(R.string.export_hosts_filename))
         }
     }
 
@@ -937,7 +939,6 @@ private fun HostListItem(
                 StatusChip(label = "踏み台")
             }
         }
-
     }
 
     if (showDeleteDialog) {
@@ -1052,18 +1053,18 @@ private fun EmptyCommandCenterCard(
     }
 }
 
-private fun Host.displayEndpoint(): String {
-    return when (protocol) {
-        "local" -> {
-            val label = nickname.ifBlank { "device" }
-            if (label.startsWith("local:", ignoreCase = true)) label else "local://$label"
-        }
-        "ssh" -> {
-            val userPart = if (username.isNotBlank()) "$username@" else ""
-            "$userPart$hostname:$port"
-        }
-        else -> "$protocol://$hostname:$port"
+private fun Host.displayEndpoint(): String = when (protocol) {
+    "local" -> {
+        val label = nickname.ifBlank { "device" }
+        if (label.startsWith("local:", ignoreCase = true)) label else "local://$label"
     }
+
+    "ssh" -> {
+        val userPart = if (username.isNotBlank()) "$username@" else ""
+        "$userPart$hostname:$port"
+    }
+
+    else -> "$protocol://$hostname:$port"
 }
 
 @Composable
@@ -1076,12 +1077,10 @@ private fun hostAccentIndicatorColor(colorString: String?): Color {
 }
 
 @Composable
-private fun connectionStatusColor(connectionState: ConnectionState): Color {
-    return when (connectionState) {
-        ConnectionState.CONNECTED -> Color(0xFF4F7C5C)
-        ConnectionState.DISCONNECTED -> MaterialTheme.colorScheme.error
-        ConnectionState.UNKNOWN -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
-    }
+private fun connectionStatusColor(connectionState: ConnectionState): Color = when (connectionState) {
+    ConnectionState.CONNECTED -> Color(0xFF4F7C5C)
+    ConnectionState.DISCONNECTED -> MaterialTheme.colorScheme.error
+    ConnectionState.UNKNOWN -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
 }
 
 @Composable

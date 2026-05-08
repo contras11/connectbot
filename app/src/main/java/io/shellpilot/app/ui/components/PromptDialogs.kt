@@ -23,7 +23,9 @@ import androidx.biometric.BiometricPrompt
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import io.shellpilot.app.R
@@ -41,12 +43,14 @@ fun BiometricPromptHandler(
     onResponse: (PromptResponse.BiometricResponse) -> Unit
 ) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val activity = remember(context) { context.findFragmentActivity() }
+    val latestOnResponse = rememberUpdatedState(onResponse)
 
     LaunchedEffect(prompt) {
         if (activity == null) {
             Timber.e("Cannot show BiometricPrompt: FragmentActivity not found")
-            onResponse(PromptResponse.BiometricResponse(false))
+            latestOnResponse.value(PromptResponse.BiometricResponse(false))
             return@LaunchedEffect
         }
 
@@ -55,12 +59,12 @@ fun BiometricPromptHandler(
         val callback = object : BiometricPrompt.AuthenticationCallback() {
             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                 Timber.d("Biometric authentication succeeded")
-                onResponse(PromptResponse.BiometricResponse(true))
+                latestOnResponse.value(PromptResponse.BiometricResponse(true))
             }
 
             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                 Timber.e("Biometric authentication error: $errorCode - $errString")
-                onResponse(PromptResponse.BiometricResponse(false))
+                latestOnResponse.value(PromptResponse.BiometricResponse(false))
             }
 
             override fun onAuthenticationFailed() {
@@ -72,9 +76,9 @@ fun BiometricPromptHandler(
         val biometricPrompt = BiometricPrompt(activity, executor, callback)
 
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
-            .setTitle(context.getString(R.string.pubkey_biometric_prompt_title))
-            .setSubtitle(context.getString(R.string.pubkey_biometric_prompt_subtitle, prompt.keyNickname))
-            .setNegativeButtonText(context.getString(R.string.delete_neg))
+            .setTitle(resources.getString(R.string.pubkey_biometric_prompt_title))
+            .setSubtitle(resources.getString(R.string.pubkey_biometric_prompt_subtitle, prompt.keyNickname))
+            .setNegativeButtonText(resources.getString(R.string.delete_neg))
             .build()
 
         biometricPrompt.authenticate(promptInfo)
@@ -94,4 +98,3 @@ private fun Context.findFragmentActivity(): FragmentActivity? {
     }
     return null
 }
-

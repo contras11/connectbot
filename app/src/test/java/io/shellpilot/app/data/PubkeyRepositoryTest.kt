@@ -91,6 +91,37 @@ class PubkeyRepositoryTest {
         assertThat(brokenExportable.allowBackup).isFalse()
     }
 
+    @Test
+    fun updateBackupPermission_respectsSanitizer() = runTest {
+        val exportable = repository.save(pubkey("exportable").copy(allowBackup = false))
+        val keystore = repository.save(
+            pubkey("keystore").copy(
+                storageType = KeyStorageType.ANDROID_KEYSTORE,
+                privateKey = "private".toByteArray(),
+                allowBackup = false
+            )
+        )
+        val broken = repository.save(
+            pubkey("broken").copy(
+                privateKey = null,
+                allowBackup = false
+            )
+        )
+
+        assertThat(repository.updateBackupPermission(exportable.id, true)).isTrue()
+        assertThat(repository.updateBackupPermission(keystore.id, true)).isFalse()
+        assertThat(repository.updateBackupPermission(broken.id, true)).isFalse()
+
+        assertThat(database.pubkeyDao().getById(exportable.id)?.allowBackup).isTrue()
+        assertThat(database.pubkeyDao().getById(keystore.id)?.allowBackup).isFalse()
+        assertThat(database.pubkeyDao().getById(broken.id)?.allowBackup).isFalse()
+    }
+
+    @Test
+    fun updateBackupPermission_returnsFalseForMissingPubkey() = runTest {
+        assertThat(repository.updateBackupPermission(9999L, true)).isFalse()
+    }
+
     private fun pubkey(nickname: String) = Pubkey(
         nickname = nickname,
         type = "ssh-rsa",

@@ -21,11 +21,6 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import io.shellpilot.app.data.HostRepository
 import io.shellpilot.app.data.ProfileRepository
 import io.shellpilot.app.data.PubkeyRepository
@@ -34,6 +29,12 @@ import io.shellpilot.app.data.entity.Profile
 import io.shellpilot.app.data.entity.Pubkey
 import io.shellpilot.app.util.HostConstants
 import io.shellpilot.app.util.SecurePasswordStorage
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 data class HostEditorUiState(
@@ -302,7 +303,7 @@ class HostEditorViewModel @Inject constructor(
     private fun parseNetworkUriQuickConnect(value: String, protocol: String): QuickConnectParseResult {
         val match = Regex("^[a-zA-Z][a-zA-Z0-9+.-]*://(?:([^@/?#]+)@)?([^:/?#]+)(?::(\\d+))?(?:/[^#?]*)?(?:\\?[^#]*)?(?:#(.+))?$")
             .find(value)
-            ?: return QuickConnectParseResult.Invalid("${protocol}://host[:port] 形式で入力してください")
+            ?: return QuickConnectParseResult.Invalid("$protocol://host[:port] 形式で入力してください")
 
         val username = match.groupValues[1]
         val hostname = match.groupValues[2]
@@ -524,6 +525,7 @@ class HostEditorViewModel @Inject constructor(
                         // 変更理由: Keystore保存に失敗した状態を成功扱いにしない。
                         val passwordSaved = securePasswordStorage.savePassword(savedHost.id, state.password)
                         if (!passwordSaved) {
+                            rollbackHostSaveAfterPasswordFailure(savedHost, existingHost)
                             _uiState.update {
                                 it.copy(
                                     isSaving = false,
@@ -554,6 +556,18 @@ class HostEditorViewModel @Inject constructor(
                     )
                 }
             }
+        }
+    }
+
+    private suspend fun rollbackHostSaveAfterPasswordFailure(savedHost: Host, previousHost: Host?) {
+        runCatching {
+            if (previousHost == null) {
+                repository.deleteHost(savedHost)
+            } else {
+                repository.saveHost(previousHost)
+            }
+        }.onFailure {
+            Timber.w(it, "Failed to rollback host after password storage failure")
         }
     }
 

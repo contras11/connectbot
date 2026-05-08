@@ -20,7 +20,6 @@ package io.shellpilot.app
 import android.Manifest
 import android.content.Context
 import android.content.Intent
-import android.content.pm.ShortcutInfo
 import android.os.Build
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.core.app.ActivityScenario
@@ -29,11 +28,11 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.rule.GrantPermissionRule
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
-import kotlinx.coroutines.runBlocking
 import io.shellpilot.app.ui.MainActivity
 import io.shellpilot.app.util.TestUriBuilder
 import io.shellpilot.app.util.waitForBridgeByNickname
 import io.shellpilot.app.util.waitUntilServiceBound
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -71,7 +70,7 @@ class MainActivityTest {
                 val state = runBlocking {
                     activity.waitUntilServiceBound()
                 }
-                val manager = state.terminalManager
+                assertNotNull("TerminalManager should be bound before disconnect action is handled", state.terminalManager)
             }
         }
     }
@@ -110,19 +109,11 @@ class MainActivityTest {
         }
 
         ActivityScenario.launch<MainActivity>(createShortcutIntent).use { scenario ->
-            var resultIntent: Intent? = null
             scenario.onActivity { activity ->
                 runBlocking {
                     activity.waitUntilServiceBound()
                 }
-                if (activity.isFinishing) {
-                    resultIntent = activity.intent
-                }
-            }
-
-            if (resultIntent != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val shortcutInfo = resultIntent?.getParcelableExtra(Intent.EXTRA_SHORTCUT_INTENT, ShortcutInfo::class.java)
-                assertNotNull("Result should contain ShortcutInfo for modern Android versions", shortcutInfo)
+                assertTrue("ACTION_CREATE_SHORTCUT should enter shortcut creation mode", activity.makingShortcut)
             }
         }
     }

@@ -91,6 +91,27 @@ class HostRepositoryTest {
     }
 
     @Test
+    fun saveKnownHost_skipsTemporaryHostWithoutForeignKeyParent() = runTest {
+        val temporaryHost = Host(
+            id = -1L,
+            nickname = "ssh://example.com",
+            protocol = "ssh",
+            hostname = "example.com",
+            port = 22
+        )
+
+        repository.saveKnownHost(
+            temporaryHost,
+            hostname = "example.com",
+            port = 22,
+            serverHostKeyAlgorithm = "ssh-ed25519",
+            serverHostKey = "key".toByteArray()
+        )
+
+        assertThat(knownHostDao.getAll()).isEmpty()
+    }
+
+    @Test
     fun saveHost_whenExistingJumpHostBecomesNonSsh_clearsReferencingHosts() = runTest {
         val jumpHostId = hostDao.insert(Host(nickname = "jump", protocol = "ssh", hostname = "jump.example.com"))
         val appHostId = hostDao.insert(
