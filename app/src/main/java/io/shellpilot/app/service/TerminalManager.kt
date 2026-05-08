@@ -34,6 +34,7 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.security.keystore.UserNotAuthenticatedException
+import androidx.annotation.VisibleForTesting
 import com.trilead.ssh2.crypto.PublicKeyUtils
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -86,7 +87,7 @@ class TerminalManager :
     private val _bridgesFlow = MutableStateFlow<List<TerminalBridge>>(emptyList())
     val bridgesFlow: StateFlow<List<TerminalBridge>> = _bridgesFlow.asStateFlow()
 
-    private val hostBridgeMap: MutableMap<Host, WeakReference<TerminalBridge>> = HashMap()
+    private val hostBridgeMap: MutableMap<String, WeakReference<TerminalBridge>> = HashMap()
     private val nicknameBridgeMap: MutableMap<String, WeakReference<TerminalBridge>> = HashMap()
 
     private val _disconnected = ArrayList<Host>()
@@ -324,7 +325,7 @@ class TerminalManager :
         synchronized(_bridges) {
             _bridges.add(bridge)
             val wr = WeakReference(bridge)
-            hostBridgeMap[bridge.host] = wr
+            hostBridgeMap[bridgeKey(bridge.host)] = wr
             nicknameBridgeMap[bridge.host.nickname] = wr
             _bridgesFlow.value = _bridges.toList()
         }
@@ -414,7 +415,7 @@ class TerminalManager :
      * @return TerminalBridge that uses the Host
      */
     fun getConnectedBridge(host: Host): TerminalBridge? {
-        val wr = hostBridgeMap[host]
+        val wr = hostBridgeMap[bridgeKey(host)]
         return wr?.get()
     }
 
@@ -434,13 +435,14 @@ class TerminalManager :
      */
     override fun onDisconnected(bridge: TerminalBridge) {
         var shouldHideRunningNotification = false
+        var shouldScheduleStop = false
         Timber.d("Bridge Disconnected. Removing it.")
 
         synchronized(_bridges) {
             val removed = _bridges.remove(bridge)
 
             // remove this bridge from our list
-            hostBridgeMap.remove(bridge.host)
+            hostBridgeMap.remove(bridgeKey(bridge.host))
             nicknameBridgeMap.remove(bridge.host.nickname)
 
             if (removed && bridge.isUsingNetwork()) {
@@ -449,6 +451,7 @@ class TerminalManager :
 
             if (_bridges.isEmpty() && pendingReconnect.isEmpty()) {
                 shouldHideRunningNotification = true
+                shouldScheduleStop = !isUiBound
             }
 
             // pass notification back up to gui
@@ -465,6 +468,10 @@ class TerminalManager :
 
         if (shouldHideRunningNotification) {
             connectionNotifier.hideRunningNotification(this)
+        }
+        if (shouldScheduleStop) {
+            // 変更理由: UI unbind後に最後のbridgeが消えたら常駐serviceを停止予約する。
+            stopWithDelay()
         }
     }
 
@@ -965,5 +972,12 @@ class TerminalManager :
 
         // Must match AUTH_VALIDITY_DURATION_SECONDS in BiometricKeyManager
         const val BIOMETRIC_AUTH_VALIDITY_SECONDS = 30
+
+        @VisibleForTesting
+        internal fun bridgeKey(host: Host): String = when {
+            host.id > 0L -> "host:${host.id}"
+            host.id < 0L -> "temporary:${host.id}"
+            else -> "nickname:${host.nickname}"
+        }
     }
 }

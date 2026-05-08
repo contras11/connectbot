@@ -418,17 +418,9 @@ private fun TerminalContent(
         SHORTCUT_BAR_HEIGHT_DP
     }
     val composerTemplates = remember(customShortcuts, selectedProfileId, bridge.host) {
-        if (selectedProfileId == null) {
-            customShortcuts.map { shortcut ->
-                ShortcutExpander.expand(shortcut.command, bridge.host)
-                    .trim()
-            }
-        } else {
-            CliCommandRegistry.findCategory(selectedProfileId)
-                ?.commands
-                ?.map { it.command.trim() }
-                ?: emptyList()
-        }
+        // 変更理由: Command Composer候補も保存済みショートカット一覧から作り、
+        // 設定画面での削除・編集・非表示がセッション復帰後すぐ反映されるようにする。
+        buildComposerTemplateCommands(customShortcuts, selectedProfileId, bridge.host)
     }
 
     LaunchedEffect(Unit) {
@@ -527,6 +519,25 @@ private fun TerminalContent(
                 .padding(bottom = (shortcutBarHeightDp + TERMINAL_KEYBOARD_HEIGHT_DP).dp)
         )
     }
+}
+
+internal fun buildComposerTemplateCommands(
+    shortcuts: List<Shortcut>,
+    selectedProfileId: String?,
+    host: io.shellpilot.app.data.entity.Host
+): List<String> {
+    return shortcuts
+        .filter { shortcut ->
+            if (selectedProfileId == null) {
+                shortcut.category == null
+            } else {
+                shortcut.category == selectedProfileId
+            }
+        }
+        .sortedWith(compareBy<Shortcut> { it.hostId != null }.thenBy { it.order }.thenBy { it.label })
+        .map { shortcut ->
+            ShortcutExpander.expand(shortcut.command, host).trim()
+        }
 }
 
 /**

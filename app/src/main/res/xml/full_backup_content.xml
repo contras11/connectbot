@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+	<!-- 変更理由: Room DB本体とKeystore依存の保存パスワードはOS標準バックアップから除外し、BackupAgentのフィルタ済み経路だけを使う。 -->
+	<exclude
+		domain="database"
+		path="connectbot.db" />
+	<exclude
+		domain="database"
+		path="connectbot.db-wal" />
+	<exclude
+		domain="database"
+		path="connectbot.db-shm" />
+	<exclude
+		domain="sharedpref"
+		path="secure_host_passwords.xml" />
+</full-backup-content>

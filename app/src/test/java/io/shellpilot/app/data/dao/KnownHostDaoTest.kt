@@ -21,11 +21,13 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
 import io.shellpilot.app.data.ShellPilotDatabase
 import io.shellpilot.app.data.entity.Host
 import io.shellpilot.app.data.entity.KnownHost
+import io.shellpilot.app.data.entity.Profile
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -46,6 +48,9 @@ class KnownHostDaoTest {
             .build()
         knownHostDao = database.knownHostDao()
         hostDao = database.hostDao()
+        runBlocking {
+            database.profileDao().insert(Profile(id = 1, name = "Default"))
+        }
     }
 
     @After
@@ -423,6 +428,29 @@ class KnownHostDaoTest {
 
         val allKeysForHost = knownHostDao.getByHostId(hostId)
         assertThat(allKeysForHost).hasSize(3)
+    }
+
+    @Test
+    fun deleteByHostEndpointAndAlgorithm_keepsOtherHostsPortsAndAlgorithms() = runTest {
+        val host1 = createTestHost(nickname = "host1")
+        val host2 = createTestHost(nickname = "host2")
+        val hostId1 = hostDao.insert(host1)
+        val hostId2 = hostDao.insert(host2)
+
+        knownHostDao.insert(createTestKnownHost(hostId1, "example.com", 22, "ssh-rsa", "old-rsa".toByteArray()))
+        knownHostDao.insert(createTestKnownHost(hostId1, "example.com", 22, "ssh-ed25519", "old-ed".toByteArray()))
+        knownHostDao.insert(createTestKnownHost(hostId1, "example.com", 2222, "ssh-rsa", "other-port".toByteArray()))
+        knownHostDao.insert(createTestKnownHost(hostId2, "example.com", 22, "ssh-rsa", "other-host".toByteArray()))
+
+        knownHostDao.deleteByHostEndpointAndAlgorithm(hostId1, "example.com", 22, "ssh-rsa")
+
+        val host1KnownHosts = knownHostDao.getByHostId(hostId1)
+        assertThat(host1KnownHosts.map { it.hostKey.decodeToString() })
+            .containsExactlyInAnyOrder("old-ed", "other-port")
+
+        val host2KnownHosts = knownHostDao.getByHostId(hostId2)
+        assertThat(host2KnownHosts).hasSize(1)
+        assertThat(host2KnownHosts[0].hostKey.decodeToString()).isEqualTo("other-host")
     }
 
     @Test

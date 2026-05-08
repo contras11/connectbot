@@ -281,9 +281,15 @@ class SSH :
                         manager?.res?.getString(R.string.prompt_continue_connecting) ?: ""
                     )
                     if (result != null && result) {
-                        // save this key in known database
+                        // 変更理由: 変更承認時は同じendpoint/algorithmの旧鍵を置換して警告を残さない。
                         verifyHost.let {
-                            manager?.hostRepository?.saveKnownHostBlocking(it, hostname, port, serverHostKeyAlgorithm, serverHostKey)
+                            manager?.hostRepository?.replaceKnownHostForEndpointBlocking(
+                                it,
+                                hostname,
+                                port,
+                                serverHostKeyAlgorithm,
+                                serverHostKey
+                            )
                         }
                         true
                     } else {
@@ -412,7 +418,11 @@ class SSH :
                     manager?.res?.getString(R.string.prompt_password),
                     true
                 )
-                if (password != null && connection?.authenticateWithPassword(currentHost.username, password) == true) {
+                if (password == null) {
+                    cancelAuthentication()
+                    return
+                }
+                if (connection?.authenticateWithPassword(currentHost.username, password) == true) {
                     finishConnection()
                 } else {
                     bridge?.outputLine(manager?.res?.getString(R.string.terminal_auth_pass_fail))
@@ -665,10 +675,20 @@ class SSH :
      * @param jumpHost The jump host configuration
      * @return The authenticated Connection, or null if connection/authentication failed
      */
-    private fun connectToJumpHost(jumpHost: Host): Connection? {
+    private fun connectToJumpHost(jumpHost: Host, visitedHostIds: Set<Long> = emptySet()): Connection? {
+        if (jumpHost.protocol != "ssh") {
+            bridge?.outputLine(manager?.res?.getString(R.string.terminal_jump_invalid_protocol, jumpHost.nickname))
+            return null
+        }
+        if (jumpHost.id > 0L && jumpHost.id in visitedHostIds) {
+            bridge?.outputLine(manager?.res?.getString(R.string.terminal_jump_cycle_detected, jumpHost.nickname))
+            return null
+        }
+
         bridge?.outputLine(manager?.res?.getString(R.string.terminal_connecting_via_jump, jumpHost.nickname))
 
         val jc = Connection(jumpHost.hostname, jumpHost.port)
+        val nextVisited = if (jumpHost.id > 0L) visitedHostIds + jumpHost.id else visitedHostIds
 
         try {
             // Check if this jump host itself requires a jump host (chained ProxyJump)
@@ -676,7 +696,7 @@ class SSH :
             if (nestedJumpHostId != null && nestedJumpHostId > 0) {
                 val nestedJumpHost = manager?.hostRepository?.findHostByIdBlocking(nestedJumpHostId)
                 if (nestedJumpHost != null) {
-                    val nestedConnection = connectToJumpHost(nestedJumpHost) ?: return null
+                    val nestedConnection = connectToJumpHost(nestedJumpHost, nextVisited) ?: return null
                     // Use the nested jump host connection as proxy for this jump host
                     jc.setProxyData(JumpHostProxyData(nestedConnection))
                 } else {
@@ -837,7 +857,8 @@ class SSH :
         if (jumpHostId != null && jumpHostId > 0) {
             val jumpHost = manager?.hostRepository?.findHostByIdBlocking(jumpHostId)
             if (jumpHost != null) {
-                directJumpConnection = connectToJumpHost(jumpHost)
+                val visited = if (currentHost.id > 0L) setOf(currentHost.id) else emptySet()
+                directJumpConnection = connectToJumpHost(jumpHost, visited)
                 if (directJumpConnection == null) {
                     onDisconnect()
                     return
@@ -969,6 +990,13 @@ class SSH :
 
     private fun onDisconnect() {
         bridge?.dispatchDisconnect(false)
+    }
+
+    private fun cancelAuthentication() {
+        // 変更理由: パスワードpromptのキャンセルを認証失敗として20回再試行しない。
+        bridge?.outputLine(manager?.res?.getString(R.string.terminal_auth_fail))
+        close()
+        onDisconnect()
     }
 
     @Throws(IOException::class)
@@ -1213,7 +1241,12 @@ class SSH :
         echo: BooleanArray
     ): Array<String> {
         interactiveCanContinue = true
+        var promptCanceled = false
         val responses = Array(numPrompts) { i ->
+            if (promptCanceled) {
+                return@Array ""
+            }
+
             // request response from user for each prompt
             val isPassword = i < echo.size && !echo[i]
 
@@ -1230,14 +1263,18 @@ class SSH :
                 }
             }
 
-            bridge?.requestStringPrompt(instruction, prompt[i], isPassword) ?: ""
+            bridge?.requestStringPrompt(instruction, prompt[i], isPassword) ?: run {
+                promptCanceled = true
+                cancelAuthentication()
+                ""
+            }
         }
         return responses
     }
 
     override fun createHost(uri: Uri): Host {
         val hostname = uri.host
-        val username = uri.userInfo
+        val username = usernameFromUserInfo(uri.userInfo)
         var port = uri.port
         if (port < 0) {
             port = DEFAULT_PORT
@@ -1262,7 +1299,7 @@ class SSH :
             port = DEFAULT_PORT
         }
         selection[HostConstants.FIELD_HOST_PORT] = port.toString()
-        selection[HostConstants.FIELD_HOST_USERNAME] = uri.userInfo ?: ""
+        selection[HostConstants.FIELD_HOST_USERNAME] = usernameFromUserInfo(uri.userInfo) ?: ""
     }
 
     override fun setCompression(compression: Boolean) {
@@ -1332,33 +1369,25 @@ class SSH :
         return result ?: false
     }
 
+    private fun usernameFromUserInfo(userInfo: String?): String? {
+        // 変更理由: ssh://user:password@host のpasswordを保存・表示・nickname化しない。
+        return userInfo?.substringBefore(':')?.takeIf { it.isNotEmpty() }
+    }
+
     override fun addIdentity(pair: KeyPair, comment: String, confirmUse: Boolean, lifetime: Int): Boolean {
-        // Create a temporary pubkey for in-memory storage (not persisted to database)
-        // Note: lifetime functionality is not yet implemented in Pubkey entity
-        val pubkey = Pubkey(
-            id = 0L, // temporary, not saved to database
-            nickname = comment,
-            type = "IMPORTED",
-            privateKey = byteArrayOf(), // not needed for agent forwarding
-            publicKey = pair.public.encoded,
-            encrypted = false,
-            startup = false,
-            confirmation = confirmUse,
-            createdDate = System.currentTimeMillis(),
-            storageType = KeyStorageType.EXPORTABLE,
-            allowBackup = true,
-            keystoreAlias = null
-        )
-        manager?.addKey(pubkey, pair)
-        return true
+        // 変更理由: 転送先からのagent mutating opでローカルのloaded keysを変更させない。
+        return false
     }
 
     override fun removeAllIdentities(): Boolean {
-        manager?.loadedKeypairs?.clear()
-        return true
+        // 変更理由: 転送先から既存identityを消せないようimmutableとして扱う。
+        return false
     }
 
-    override fun removeIdentity(publicKey: ByteArray): Boolean = manager?.removeKey(publicKey) ?: false
+    override fun removeIdentity(publicKey: ByteArray): Boolean {
+        // 変更理由: 転送先から既存identityを消せないようimmutableとして扱う。
+        return false
+    }
 
     override fun isAgentLocked(): Boolean = agentLockPassphrase != null
 

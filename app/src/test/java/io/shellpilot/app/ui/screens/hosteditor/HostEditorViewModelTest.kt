@@ -33,6 +33,7 @@ import io.shellpilot.app.data.entity.Host
 import io.shellpilot.app.util.SecurePasswordStorage
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Before
 import org.junit.Test
@@ -131,6 +132,92 @@ class HostEditorViewModelTest {
         advanceUntilIdle()
 
         verify(securePasswordStorage).deletePassword(5L)
+    }
+
+    @Test
+    fun saveHost_WhenPasswordStorageFails_ShowsError() = runTest {
+        whenever(repository.saveHost(any())).thenAnswer { invocation ->
+            invocation.getArgument<Host>(0).copy(id = 9L)
+        }
+        whenever(securePasswordStorage.savePassword(eq(9L), eq("secret"))).thenReturn(false)
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.updateNickname("app")
+        viewModel.updateUsername("user")
+        viewModel.updateHostname("example.com")
+        viewModel.updatePort("22")
+        viewModel.updatePassword("secret")
+        viewModel.saveHost(useExpandedMode = true)
+        advanceUntilIdle()
+
+        assertEquals("パスワードを安全に保存できませんでした。端末の認証情報ストレージを確認してください", viewModel.uiState.value.error)
+        assertFalse(viewModel.uiState.value.saveSucceeded)
+        assertFalse(viewModel.uiState.value.isSaving)
+    }
+
+    @Test
+    fun loadJumpHosts_ExcludesCandidatesThatPointBackToCurrentHost() = runTest {
+        val current = Host(
+            id = 1L,
+            nickname = "app",
+            hostname = "app.example.com",
+            port = 22
+        )
+        val cyclicCandidate = Host(
+            id = 2L,
+            nickname = "jump-to-app",
+            hostname = "jump.example.com",
+            port = 22,
+            jumpHostId = 1L
+        )
+        val validCandidate = Host(
+            id = 3L,
+            nickname = "bastion",
+            hostname = "bastion.example.com",
+            port = 22
+        )
+        whenever(repository.findHostById(1L)).thenReturn(current)
+        whenever(repository.getSshHosts()).thenReturn(listOf(current, cyclicCandidate, validCandidate))
+
+        val viewModel = createViewModel(hostId = 1L)
+        advanceUntilIdle()
+
+        val candidateIds = viewModel.uiState.value.availableJumpHosts.map { it.id }
+        assertFalse(candidateIds.contains(1L))
+        assertFalse(candidateIds.contains(2L))
+        assertEquals(listOf(3L), candidateIds)
+    }
+
+    @Test
+    fun saveHost_RejectsJumpHostCycle() = runTest {
+        val current = Host(
+            id = 1L,
+            nickname = "app",
+            hostname = "app.example.com",
+            port = 22
+        )
+        val cyclicCandidate = Host(
+            id = 2L,
+            nickname = "jump-to-app",
+            hostname = "jump.example.com",
+            port = 22,
+            jumpHostId = 1L
+        )
+        whenever(repository.findHostById(1L)).thenReturn(current)
+        whenever(repository.getSshHosts()).thenReturn(listOf(current, cyclicCandidate))
+
+        val viewModel = createViewModel(hostId = 1L)
+        advanceUntilIdle()
+
+        viewModel.updateJumpHostId(2L)
+        viewModel.saveHost(useExpandedMode = true)
+        advanceUntilIdle()
+
+        assertEquals("Jump Host が循環参照になるため保存できません", viewModel.uiState.value.error)
+        assertFalse(viewModel.uiState.value.isSaving)
+        verify(repository, never()).saveHost(any())
     }
 
     private fun createViewModel(hostId: Long = -1L): HostEditorViewModel {

@@ -25,6 +25,8 @@ import android.app.backup.SharedPreferencesBackupHelper
 import android.os.ParcelFileDescriptor
 import androidx.preference.PreferenceManager
 import androidx.room.Room
+import androidx.room.RoomDatabase
+import androidx.sqlite.db.SupportSQLiteDatabase
 import io.shellpilot.app.data.ColorSchemeRepository
 import io.shellpilot.app.data.HostRepository
 import io.shellpilot.app.data.ProfileRepository
@@ -126,12 +128,8 @@ class BackupAgent : BackupAgentHelper() {
 
         val tempDbFile = getDatabasePath(TEMP_DATABASE_NAME)
 
-        // 変更理由: 通常のアプリ起動経路を使わず、バックアップ専用に最小限のRepositoryを組み立てる。
-        val database = Room.databaseBuilder(
-            applicationContext,
-            ShellPilotDatabase::class.java,
-            DATABASE_NAME
-        ).build()
+        // 変更理由: 復元直後の旧DBでも通常経路と同じmigration/callbackで開く。
+        val database = buildMainDatabase()
         val dispatchers = CoroutineDispatchers(default = Dispatchers.Default, io = Dispatchers.IO, main = Dispatchers.Main)
         val securePasswordStorage = io.shellpilot.app.util.SecurePasswordStorage(applicationContext)
         val hostRepository = HostRepository(applicationContext, database, database.hostDao(), database.portForwardDao(), database.knownHostDao(), securePasswordStorage)
@@ -143,6 +141,7 @@ class BackupAgent : BackupAgentHelper() {
         try {
             // 1. バックアップ対象だけを含む一時DBを作る。
             Timber.d("Building temporary database with backupable data")
+            filter.cleanupTempDatabase(tempDbFile)
             kotlinx.coroutines.runBlocking {
                 filter.buildFilteredDatabase(tempDbFile, backupKeys)
             }
@@ -158,6 +157,28 @@ class BackupAgent : BackupAgentHelper() {
             filter.cleanupTempDatabase(tempDbFile)
             database.close()
         }
+    }
+
+    private fun buildMainDatabase(): ShellPilotDatabase {
+        return Room.databaseBuilder(
+            applicationContext,
+            ShellPilotDatabase::class.java,
+            DATABASE_NAME
+        )
+            .addMigrations(ShellPilotDatabase.MIGRATION_4_5, ShellPilotDatabase.MIGRATION_7_8)
+            .addCallback(object : RoomDatabase.Callback() {
+                override fun onCreate(db: SupportSQLiteDatabase) {
+                    super.onCreate(db)
+                    // 変更理由: DatabaseModuleと同じ初期プロファイルを作り、BackupAgent経由の新規DBでも前提を揃える。
+                    db.execSQL(
+                        """
+                        INSERT INTO profiles (name, color_scheme_id, font_size, del_key, encoding, emulation)
+                        VALUES ('Default', -1, 10, 'del', 'UTF-8', 'xterm-256color')
+                        """.trimIndent()
+                    )
+                }
+            })
+            .build()
     }
 
     /**
@@ -224,7 +245,8 @@ class BackupAgent : BackupAgentHelper() {
         listOf(
             dbFile,
             File("${dbFile.path}-wal"),
-            File("${dbFile.path}-shm")
+            File("${dbFile.path}-shm"),
+            File("${dbFile.path}-journal")
         ).forEach { file ->
             if (file != dbFile && file.exists() && !file.delete()) {
                 Timber.w("Could not delete database sidecar before restore: ${file.path}")

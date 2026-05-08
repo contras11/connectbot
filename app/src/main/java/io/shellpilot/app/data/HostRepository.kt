@@ -18,6 +18,7 @@
 package io.shellpilot.app.data
 
 import android.content.Context
+import androidx.room.withTransaction
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.runBlocking
@@ -268,6 +269,31 @@ class HostRepository @Inject constructor(
     }
 
     /**
+     * Replace keys for the same host endpoint and algorithm, then save the accepted key.
+     */
+    suspend fun replaceKnownHostForEndpoint(
+        host: Host,
+        hostname: String,
+        port: Int,
+        serverHostKeyAlgorithm: String,
+        serverHostKey: ByteArray
+    ) {
+        database.withTransaction {
+            // 変更理由: ホスト鍵変更承認時に旧鍵を残すと、次回以降も変更警告が残る。
+            knownHostDao.deleteByHostEndpointAndAlgorithm(host.id, hostname, port, serverHostKeyAlgorithm)
+            knownHostDao.insert(
+                KnownHost(
+                    hostId = host.id,
+                    hostname = hostname,
+                    port = port,
+                    hostKeyAlgo = serverHostKeyAlgorithm,
+                    hostKey = serverHostKey
+                )
+            )
+        }
+    }
+
+    /**
      * Remove a known host key from the database.
      *
      * @param hostId The host ID
@@ -343,6 +369,19 @@ class HostRepository @Inject constructor(
         serverHostKey: ByteArray
     ) = runBlocking {
         saveKnownHost(host, hostname, port, serverHostKeyAlgorithm, serverHostKey)
+    }
+
+    /**
+     * Replace a known host key (blocking version for Java interop).
+     */
+    fun replaceKnownHostForEndpointBlocking(
+        host: Host,
+        hostname: String,
+        port: Int,
+        serverHostKeyAlgorithm: String,
+        serverHostKey: ByteArray
+    ) = runBlocking {
+        replaceKnownHostForEndpoint(host, hostname, port, serverHostKeyAlgorithm, serverHostKey)
     }
 
     /**

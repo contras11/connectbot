@@ -252,7 +252,7 @@ fun SettingsScreenContent(
     // 変更理由: ボタンに見えるカテゴリカードを実際の詳細画面切替に接続し、
     // モック由来の押せない装飾カードを残さない。
     var selectedCategoryName by rememberSaveable { mutableStateOf<String?>(null) }
-    val selectedCategory = selectedCategoryName?.let { SettingsCategory.valueOf(it) }
+    val selectedCategory = selectedSettingsCategoryFromSavedName(selectedCategoryName)
 
     ShellPilotScaffold(
         title = selectedCategory?.title ?: stringResource(R.string.title_settings),
@@ -721,7 +721,13 @@ private fun buildAvailableLanguageList(context: android.content.Context): List<P
         .sortedBy { it.second.lowercase() }
 }
 
-private enum class SettingsCategory {
+internal fun selectedSettingsCategoryFromSavedName(name: String?): SettingsCategory? {
+    // 変更理由: 古いsaved stateに存在しないenum名が残っていてもクラッシュせず、
+    // 設定トップへ戻して通常操作を続けられるようにする。
+    return name?.let { runCatching { SettingsCategory.valueOf(it) }.getOrNull() }
+}
+
+internal enum class SettingsCategory {
     CONNECTION,
     TERMINAL,
     SHORTCUTS,

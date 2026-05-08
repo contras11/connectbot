@@ -80,12 +80,16 @@ class ColorSchemeRepository @Inject constructor(
             schemeId < 0 -> {
                 val presetIndexUnbounded = -(schemeId + 1).toInt()
                 val presetIndex = presetIndexUnbounded.coerceIn(0, ColorSchemePresets.builtInSchemes.size - 1)
-                ColorSchemePresets.builtInSchemes[presetIndex].colors
+                // 変更理由: 組み込みパレットの配列参照を外へ返すと、呼び出し側の変更で
+                // Defaultなどのプリセット定義が汚染されるため必ずコピーする。
+                ColorSchemePresets.builtInSchemes[presetIndex].colors.copyOf()
             }
 
             // Non-negative ID represents a scheme stored in the database.
             else -> {
-                val colors = ColorSchemePresets.default.colors
+                // 変更理由: カスタム未設定色の土台もDefaultのコピーにし、
+                // DAOから読み込んだ色の反映で組み込みDefaultを変更しない。
+                val colors = ColorSchemePresets.default.colors.copyOf()
                 colorSchemeDao.getColors(schemeId).map { colors[it.colorIndex] = it.color }
                 colors
             }

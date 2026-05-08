@@ -31,9 +31,11 @@ import io.shellpilot.app.data.entity.ColorPalette
 import io.shellpilot.app.data.entity.ColorScheme
 import io.shellpilot.app.data.entity.Host
 import io.shellpilot.app.data.entity.KeyStorageType
+import io.shellpilot.app.data.entity.PortForward
 import io.shellpilot.app.data.entity.Profile
 import io.shellpilot.app.data.entity.Pubkey
 import io.shellpilot.app.di.CoroutineDispatchers
+import io.shellpilot.app.util.HostConstants
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -263,6 +265,28 @@ class DatabaseMigratorTest {
         assertThat(transformed.colorPalettes).hasSize(5)
     }
 
+    @Test
+    fun unsupportedPortForwardTypesAreSkippedDuringTransform() = runTest {
+        val host = createTestHost(id = 1, nickname = "server")
+        val valid = createTestPortForward(id = 1, hostId = 1, type = HostConstants.PORTFORWARD_LOCAL)
+        val dynamic5 = createTestPortForward(id = 2, hostId = 1, type = HostConstants.PORTFORWARD_DYNAMIC5)
+        val unsupported = createTestPortForward(id = 3, hostId = 1, type = "dynamic4")
+        val missingHost = createTestPortForward(id = 4, hostId = 999, type = HostConstants.PORTFORWARD_REMOTE)
+
+        val legacyData = LegacyData(
+            hosts = listOf(host),
+            portForwards = listOf(valid, dynamic5, unsupported, missingHost),
+            knownHosts = emptyList(),
+            colorSchemes = emptyList(),
+            colorPalettes = emptyList(),
+            pubkeys = emptyList()
+        )
+
+        val transformed = migrator.transformToRoomEntitiesForTesting(legacyData)
+
+        assertThat(transformed.portForwards.map { it.id }).containsExactly(1L, 2L)
+    }
+
     private fun createTestHost(
         id: Long,
         nickname: String
@@ -328,5 +352,19 @@ class DatabaseMigratorTest {
         schemeId = schemeId.toLong(),
         colorIndex = colorIndex,
         color = color
+    )
+
+    private fun createTestPortForward(
+        id: Long,
+        hostId: Long,
+        type: String
+    ) = PortForward(
+        id = id,
+        hostId = hostId,
+        nickname = "pf-$id",
+        type = type,
+        sourcePort = 1000 + id.toInt(),
+        destAddr = "127.0.0.1",
+        destPort = 22
     )
 }

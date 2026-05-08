@@ -20,6 +20,9 @@ package io.shellpilot.app.data
 import android.content.Context
 import androidx.preference.PreferenceManager
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import io.shellpilot.app.session.CliCommandRegistry
 import org.json.JSONArray
 import javax.inject.Inject
@@ -39,6 +42,15 @@ class ProfileOrderRepository @Inject constructor(
     @ApplicationContext context: Context
 ) {
     private val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+    private val _order = MutableStateFlow(readOrder())
+
+    /** プロファイルタブ順序の変更通知。 */
+    val order: StateFlow<List<String?>> = _order.asStateFlow()
+
+    private val _hiddenProfileIds = MutableStateFlow(readHiddenProfileIds())
+
+    /** 非表示プロファイルIDの変更通知。 */
+    val hiddenProfileIds: StateFlow<Set<String>> = _hiddenProfileIds.asStateFlow()
 
     /**
      * 保存されたプロファイルタブ順序を取得する。
@@ -47,6 +59,10 @@ class ProfileOrderRepository @Inject constructor(
      * @return プロファイルIDのリスト (nullはカスタムタブ)
      */
     fun getOrder(): List<String?> {
+        return _order.value
+    }
+
+    private fun readOrder(): List<String?> {
         val json = prefs.getString(PREF_KEY, null) ?: return defaultOrder()
         return try {
             val array = JSONArray(json)
@@ -54,11 +70,7 @@ class ProfileOrderRepository @Inject constructor(
                 val value = array.getString(i)
                 if (value == NULL_MARKER) null else value
             }
-            normalizeOrder(savedOrder).also { normalized ->
-                if (normalized != savedOrder) {
-                    saveOrder(normalized)
-                }
-            }
+            normalizeOrder(savedOrder)
         } catch (_: Exception) {
             defaultOrder()
         }
@@ -70,9 +82,11 @@ class ProfileOrderRepository @Inject constructor(
      * @param order プロファイルIDのリスト (nullはカスタムタブ)
      */
     fun saveOrder(order: List<String?>) {
+        val normalized = normalizeOrder(order)
         val array = JSONArray()
-        order.forEach { array.put(it ?: NULL_MARKER) }
+        normalized.forEach { array.put(it ?: NULL_MARKER) }
         prefs.edit().putString(PREF_KEY, array.toString()).apply()
+        _order.value = normalized
     }
 
     /**
@@ -82,6 +96,10 @@ class ProfileOrderRepository @Inject constructor(
      * ユーザが使うカテゴリだけをセッション画面へ表示できるようにする。
      */
     fun getHiddenProfileIds(): Set<String> {
+        return _hiddenProfileIds.value
+    }
+
+    private fun readHiddenProfileIds(): Set<String> {
         val json = prefs.getString(PREF_HIDDEN_KEY, null) ?: return emptySet()
         return try {
             val array = JSONArray(json)
@@ -96,6 +114,7 @@ class ProfileOrderRepository @Inject constructor(
         val array = JSONArray()
         hiddenIds.sorted().forEach { array.put(it) }
         prefs.edit().putString(PREF_HIDDEN_KEY, array.toString()).apply()
+        _hiddenProfileIds.value = hiddenIds
     }
 
     /** 指定プロファイルタブの表示/非表示を切り替える。 */

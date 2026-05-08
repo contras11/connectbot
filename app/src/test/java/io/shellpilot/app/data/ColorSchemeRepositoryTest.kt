@@ -250,10 +250,36 @@ class ColorSchemeRepositoryTest {
     }
 
     @Test
+    fun getSchemeColors_BuiltIn_ReturnsDefensiveCopy() = runBlocking {
+        val originalDefaultBlack = ColorSchemePresets.default.colors[0]
+        val palette = repository.getSchemeColors(-1)
+
+        palette[0] = 0x12345678
+
+        assertEquals("Default preset should not be mutated", originalDefaultBlack, ColorSchemePresets.default.colors[0])
+        assertEquals(
+            "Reloaded palette should come from the clean preset",
+            originalDefaultBlack,
+            repository.getSchemeColors(-1)[0]
+        )
+    }
+
+    @Test
     fun getSchemeColors_Preset_Returns16Colors() = runBlocking {
         val palette = repository.getSchemeColors(-2) // Solarized Dark (ID -2)
 
         assertEquals("Should have 16 colors", 16, palette.size)
+    }
+
+    @Test
+    fun getSchemeColors_Custom_DoesNotMutateDefaultPreset() = runBlocking {
+        val originalDefaultBlack = ColorSchemePresets.default.colors[0]
+        val schemeId = repository.createCustomScheme("Custom", "", -1)
+
+        repository.setColorForScheme(schemeId, 0, 0x12345678)
+        repository.getSchemeColors(schemeId)
+
+        assertEquals("Custom palette merge should not dirty Default", originalDefaultBlack, ColorSchemePresets.default.colors[0])
     }
 
     @Test

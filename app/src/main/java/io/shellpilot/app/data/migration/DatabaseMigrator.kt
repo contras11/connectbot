@@ -534,11 +534,19 @@ class DatabaseMigrator @Inject constructor(
 
         // Filter out invalid port forwards
         val validPortForwards = legacy.portForwards.filter { portForward ->
-            if (portForward.hostId !in hostIds) {
-                logDebug("Skipping invalid port forward (host ID ${portForward.hostId})")
-                false
-            } else {
-                true
+            when {
+                portForward.hostId !in hostIds -> {
+                    logDebug("Skipping invalid port forward (host ID ${portForward.hostId})")
+                    false
+                }
+
+                portForward.type !in setOf("local", "remote", "dynamic5") -> {
+                    // 変更理由: 未対応typeは接続時に失敗するため、旧DB取り込み時点で除外する。
+                    logDebug("Skipping unsupported port forward type '${portForward.type}'")
+                    false
+                }
+
+                else -> true
             }
         }
 
@@ -759,15 +767,27 @@ class DatabaseMigrator @Inject constructor(
     }
 
     private fun markLegacyDatabasesAsMigrated() {
-        val hostsDb = getLegacyDatabaseFile(LEGACY_HOSTS_DB)
-        val pubkeysDb = getLegacyDatabaseFile(LEGACY_PUBKEYS_DB)
+        markLegacyDatabaseAsMigrated(LEGACY_HOSTS_DB)
+        markLegacyDatabaseAsMigrated(LEGACY_PUBKEYS_DB)
+    }
 
-        if (hostsDb.exists()) {
-            hostsDb.renameTo(getLegacyDatabaseFile("$LEGACY_HOSTS_DB$MIGRATED_SUFFIX"))
+    private fun markLegacyDatabaseAsMigrated(name: String) {
+        val dbFile = getLegacyDatabaseFile(name)
+        if (!dbFile.exists()) return
+
+        val migratedFile = getLegacyDatabaseFile("$name$MIGRATED_SUFFIX")
+        if (!dbFile.renameTo(migratedFile)) {
+            throw MigrationException("Failed to mark legacy database as migrated: ${dbFile.path}")
         }
 
-        if (pubkeysDb.exists()) {
-            pubkeysDb.renameTo(getLegacyDatabaseFile("$LEGACY_PUBKEYS_DB$MIGRATED_SUFFIX"))
+        listOf("-wal", "-shm", "-journal").forEach { suffix ->
+            val sidecar = getLegacyDatabaseFile("$name$suffix")
+            if (sidecar.exists()) {
+                val migratedSidecar = getLegacyDatabaseFile("$name$MIGRATED_SUFFIX$suffix")
+                if (!sidecar.renameTo(migratedSidecar)) {
+                    logWarning("Could not mark legacy sidecar as migrated: ${sidecar.path}")
+                }
+            }
         }
     }
 

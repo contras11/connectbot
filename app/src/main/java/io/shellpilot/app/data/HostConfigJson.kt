@@ -19,6 +19,7 @@ package io.shellpilot.app.data
 
 import android.content.Context
 import androidx.room.RoomDatabase
+import io.shellpilot.app.util.HostConstants
 import org.json.JSONObject
 
 /**
@@ -118,8 +119,8 @@ object HostConfigJson {
     /**
      * Host import/export用の参照定義を明示する。
      *
-     * 変更理由: Room schemaにFKが無い host.profileId / pubkeyId / jumpHostId を
-     * 汎用推定で処理すると、別IDへ誤って紐づくため。
+     * 変更理由: pubkeyId はsentinel値を保持し、profileId / jumpHostId は
+     * export/import単位で安全に再採番する必要があるため。
      */
     private fun createExporter(database: RoomDatabase, schema: DatabaseSchema): SchemaBasedExporter {
         return SchemaBasedExporter(
@@ -143,7 +144,7 @@ object HostConfigJson {
                 SchemaBasedExporter.DroppedReference(
                     tableName = "hosts",
                     fieldPath = "pubkeyId",
-                    replacementValue = -1L
+                    replacementValue = HostConstants.PUBKEYID_NEVER
                 )
             )
         )

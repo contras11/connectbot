@@ -216,38 +216,50 @@ class ProfileEditorViewModel @Inject constructor(
     fun save(onSuccess: () -> Unit) {
         viewModelScope.launch {
             val state = _uiState.value
+            val trimmedName = state.name.trim()
 
-            if (state.name.isBlank()) {
+            if (trimmedName.isBlank()) {
                 _uiState.update { it.copy(saveError = "プロファイル名を入力してください") }
-                return@launch
-            }
-
-            // Check for duplicate name (excluding current profile)
-            val excludeId = if (profileId != -1L) profileId else null
-            if (profileRepository.nameExists(state.name, excludeId)) {
-                _uiState.update { it.copy(saveError = "同じ名前のプロファイルがすでにあります") }
                 return@launch
             }
 
             _uiState.update { it.copy(isSaving = true) }
 
-            val profile = Profile(
-                id = if (profileId != -1L) profileId else 0,
-                name = state.name,
-                iconColor = state.iconColor,
-                colorSchemeId = state.colorSchemeId,
-                fontFamily = state.fontFamily,
-                fontSize = state.fontSize,
-                delKey = state.delKey,
-                encoding = state.encoding,
-                emulation = state.emulation,
-                forceSizeRows = if (state.forceSizeEnabled) state.forceSizeRows else null,
-                forceSizeColumns = if (state.forceSizeEnabled) state.forceSizeColumns else null
-            )
+            try {
+                // Check for duplicate name (excluding current profile)
+                val excludeId = if (profileId != -1L) profileId else null
+                if (profileRepository.nameExists(trimmedName, excludeId)) {
+                    _uiState.update {
+                        it.copy(isSaving = false, saveError = "同じ名前のプロファイルがすでにあります")
+                    }
+                    return@launch
+                }
 
-            profileRepository.save(profile)
-            _uiState.update { it.copy(isSaving = false) }
-            onSuccess()
+                val profile = Profile(
+                    id = if (profileId != -1L) profileId else 0,
+                    name = trimmedName,
+                    iconColor = state.iconColor,
+                    colorSchemeId = state.colorSchemeId,
+                    fontFamily = state.fontFamily,
+                    fontSize = state.fontSize,
+                    delKey = state.delKey,
+                    encoding = state.encoding,
+                    emulation = state.emulation,
+                    forceSizeRows = if (state.forceSizeEnabled) state.forceSizeRows else null,
+                    forceSizeColumns = if (state.forceSizeEnabled) state.forceSizeColumns else null
+                )
+
+                profileRepository.save(profile)
+                _uiState.update { it.copy(isSaving = false, saveError = null) }
+                onSuccess()
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isSaving = false,
+                        saveError = e.message ?: "プロファイルを保存できませんでした"
+                    )
+                }
+            }
         }
     }
 }

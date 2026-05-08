@@ -22,12 +22,14 @@ import androidx.room.Room
 import androidx.room.withTransaction
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
 import io.shellpilot.app.data.ShellPilotDatabase
 import io.shellpilot.app.data.entity.ColorScheme
 import io.shellpilot.app.data.entity.Host
 import io.shellpilot.app.data.entity.KeyStorageType
+import io.shellpilot.app.data.entity.Profile
 import io.shellpilot.app.data.entity.Pubkey
 import org.junit.After
 import org.junit.Before
@@ -50,6 +52,9 @@ class DatabaseMigrationRollbackTest {
         database = Room.inMemoryDatabaseBuilder(context, ShellPilotDatabase::class.java)
             .allowMainThreadQueries()
             .build()
+        runBlocking {
+            database.profileDao().insert(Profile(id = 1, name = "Default"))
+        }
     }
 
     @After

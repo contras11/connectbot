@@ -123,10 +123,10 @@ class SchemaBasedExporter(
                 val uniqueFields = entitySchema.uniqueIndices
                     .firstOrNull()
                     ?.columnNames
-                    ?: listOf("id")
 
                 // Find foreign keys that need remapping
                 val foreignKeys = entitySchema.foreignKeys
+                val insertedIdMapping = mutableMapOf<Long, Long>()
 
                 for (i in 0 until rows.length()) {
                     val row = rows.getJSONObject(i)
@@ -138,7 +138,9 @@ class SchemaBasedExporter(
                         .let { applyDroppedReferences(tableName, it) }
 
                     // Check for existing row by unique constraint
-                    val existingId = findExistingId(db, tableName, remappedRow, uniqueFields, entitySchema)
+                    val existingId = uniqueFields?.let {
+                        findExistingId(db, tableName, remappedRow, it, entitySchema)
+                    }
 
                     val newId = if (existingId != null) {
                         // Skip existing row - do not update
@@ -148,6 +150,7 @@ class SchemaBasedExporter(
                         // Insert new row
                         val id = insertRow(db, tableName, remappedRow, entitySchema)
                         insertedCount++
+                        insertedIdMapping[oldId] = id
                         id
                     }
 
@@ -155,7 +158,7 @@ class SchemaBasedExporter(
                 }
 
                 // Second pass: update explicitly configured self-referencing keys.
-                updateSelfReferences(db, tableName, entitySchema, idMapping, rows)
+                updateSelfReferences(db, tableName, entitySchema, idMapping, insertedIdMapping, rows)
 
                 results[tableName] = Pair(insertedCount, skippedCount)
             }
@@ -287,6 +290,7 @@ class SchemaBasedExporter(
         tableName: String,
         entitySchema: EntitySchema,
         idMapping: Map<Long, Long>,
+        insertedIdMapping: Map<Long, Long>,
         originalRows: JSONArray
     ) {
         val explicitSelfRefs = importReferences
@@ -301,7 +305,7 @@ class SchemaBasedExporter(
         for (i in 0 until originalRows.length()) {
             val row = originalRows.getJSONObject(i)
             val oldId = row.optLong("id", 0)
-            val newId = idMapping[oldId] ?: continue
+            val newId = insertedIdMapping[oldId] ?: continue
 
             for (field in explicitSelfRefs) {
                 if (!row.has(field.fieldPath)) continue
@@ -321,8 +325,8 @@ class SchemaBasedExporter(
     /**
      * Room schemaだけでは表現されていない参照を明示的に変換する。
      *
-     * 変更理由: hosts.profileId / pubkeyId / jumpHostId は Room FK ではないため、
-     * fieldPath の接尾辞だけで推定すると別テーブル参照を自己参照として誤変換する。
+     * 変更理由: hosts.pubkeyId はsentinel値を持ち、profileId / jumpHostId は
+     * import時のID再採番を明示制御しないと誤変換されるため。
      */
     private fun applyExplicitReferences(
         tableName: String,
@@ -368,7 +372,10 @@ class SchemaBasedExporter(
             .filter { it.tableName == tableName }
             .forEach { reference ->
                 if (remapped.has(reference.fieldPath) && !remapped.isNull(reference.fieldPath)) {
-                    remapped.put(reference.fieldPath, reference.replacementValue)
+                    val oldValue = remapped.optLong(reference.fieldPath, 0L)
+                    if (oldValue > 0L) {
+                        remapped.put(reference.fieldPath, reference.replacementValue)
+                    }
                 }
             }
         return remapped

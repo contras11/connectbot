@@ -48,6 +48,15 @@ interface KnownHostDao {
     suspend fun getByHostIdAlgoAndKey(hostId: Long, algo: String, key: ByteArray): KnownHost?
 
     /**
+     * Delete keys for the same host endpoint and algorithm.
+     */
+    @Query(
+        "DELETE FROM known_hosts " +
+            "WHERE host_id = :hostId AND hostname = :hostname AND port = :port AND host_key_algo = :algo"
+    )
+    suspend fun deleteByHostEndpointAndAlgorithm(hostId: Long, hostname: String, port: Int, algo: String)
+
+    /**
      * Get all known hosts.
      */
     @Query("SELECT * FROM known_hosts ORDER BY hostname, port")

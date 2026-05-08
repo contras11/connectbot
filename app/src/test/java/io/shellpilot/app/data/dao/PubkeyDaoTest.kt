@@ -247,6 +247,30 @@ class PubkeyDaoTest {
     }
 
     @Test
+    fun getStartupKeysIgnoresKeystoreAndMissingPrivateKeyRows() = runTest {
+        val valid = createTestPubkey(nickname = "valid-startup", startup = true)
+        val missingPrivateKey = createTestPubkey(
+            nickname = "missing-private",
+            privateKey = null,
+            startup = true
+        )
+        val keystore = createTestPubkey(
+            nickname = "keystore-startup",
+            startup = true,
+            storageType = KeyStorageType.ANDROID_KEYSTORE,
+            keystoreAlias = "alias"
+        )
+
+        pubkeyDao.insert(valid)
+        pubkeyDao.insert(missingPrivateKey)
+        pubkeyDao.insert(keystore)
+
+        val startupKeys = pubkeyDao.getStartupKeys()
+
+        assertThat(startupKeys.map { it.nickname }).containsExactly("valid-startup")
+    }
+
+    @Test
     fun createdDateIsStored() = runTest {
         val now = System.currentTimeMillis()
         val pubkey = createTestPubkey(nickname = "dated", createdDate = now)

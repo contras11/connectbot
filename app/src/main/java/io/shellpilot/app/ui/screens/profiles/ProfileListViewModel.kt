@@ -70,18 +70,25 @@ class ProfileListViewModel @Inject constructor(
 
     fun createProfile(name: String) {
         viewModelScope.launch {
-            if (name.isBlank()) {
-                _uiState.update { it.copy(createError = "プロファイル名を入力してください") }
-                return@launch
-            }
+            val trimmedName = name.trim()
+            try {
+                if (trimmedName.isBlank()) {
+                    _uiState.update { it.copy(createError = "プロファイル名を入力してください") }
+                    return@launch
+                }
 
-            if (profileRepository.nameExists(name)) {
-                _uiState.update { it.copy(createError = "同じ名前のプロファイルがすでにあります") }
-                return@launch
-            }
+                if (profileRepository.nameExists(trimmedName)) {
+                    _uiState.update { it.copy(createError = "同じ名前のプロファイルがすでにあります") }
+                    return@launch
+                }
 
-            profileRepository.create(name)
-            _uiState.update { it.copy(showCreateDialog = false, createError = null) }
+                profileRepository.create(trimmedName)
+                _uiState.update { it.copy(showCreateDialog = false, createError = null) }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(createError = e.message ?: "プロファイルを作成できませんでした")
+                }
+            }
         }
     }
 

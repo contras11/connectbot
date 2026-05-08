@@ -1243,6 +1243,10 @@
 	<string name="terminal_jump_auth_failed">ジャンプホストの認証に失敗しました: %s</string>
 	<!-- Terminal message when jump host is not found in database -->
 	<string name="terminal_jump_not_found">保存済みホストに踏み台ホストが見つかりません</string>
+	<!-- Terminal message when jump host is not an SSH host -->
+	<string name="terminal_jump_invalid_protocol">ジャンプホスト %s はSSHホストではありません</string>
+	<!-- Terminal message when a jump host cycle is detected -->
+	<string name="terminal_jump_cycle_detected">ジャンプホスト %s の循環参照を検出しました</string>
 	<!-- Password prompt prefix for jump host -->
 	<string name="terminal_jump_password">ジャンプホスト %s のパスワード:</string>
 

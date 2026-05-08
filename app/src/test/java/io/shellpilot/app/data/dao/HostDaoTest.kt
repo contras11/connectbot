@@ -22,10 +22,12 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
 import io.shellpilot.app.data.ShellPilotDatabase
 import io.shellpilot.app.data.entity.Host
+import io.shellpilot.app.data.entity.Profile
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -44,6 +46,9 @@ class HostDaoTest {
             .allowMainThreadQueries()
             .build()
         hostDao = database.hostDao()
+        runBlocking {
+            database.profileDao().insert(Profile(id = 1, name = "Default"))
+        }
     }
 
     @After
@@ -236,6 +241,7 @@ class HostDaoTest {
 
     @Test
     fun profileIdStored() = runTest {
+        database.profileDao().insert(Profile(id = 5, name = "Work"))
         val host = createTestHost(nickname = "profiled", profileId = 5)
         val id = hostDao.insert(host)
 

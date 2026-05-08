@@ -24,6 +24,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.shellpilot.app.data.entity.Host
 import io.shellpilot.app.data.entity.PortForward
 import io.shellpilot.app.data.entity.Profile
+import io.shellpilot.app.util.HostConstants
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.After
@@ -53,6 +55,10 @@ class HostConfigJsonTest {
         destinationDb = Room.inMemoryDatabaseBuilder(context, ShellPilotDatabase::class.java)
             .allowMainThreadQueries()
             .build()
+        runBlocking {
+            sourceDb.profileDao().insert(Profile(id = 1, name = "Default"))
+            destinationDb.profileDao().insert(Profile(id = 1, name = "Default"))
+        }
     }
 
     @After
@@ -106,21 +112,102 @@ class HostConfigJsonTest {
         val forwards = destinationDb.portForwardDao().getByHost(importedApp.id)
 
         assertThat(counts.hostsImported).isEqualTo(2)
-        assertThat(counts.profilesSkipped).isEqualTo(1)
+        assertThat(counts.profilesSkipped).isEqualTo(2)
         assertThat(importedJump.profileId).isEqualTo(existingProfileId)
         assertThat(importedApp.profileId).isEqualTo(existingProfileId)
-        assertThat(importedJump.pubkeyId).isEqualTo(-1L)
-        assertThat(importedApp.pubkeyId).isEqualTo(-1L)
+        assertThat(importedJump.pubkeyId).isEqualTo(HostConstants.PUBKEYID_NEVER)
+        assertThat(importedApp.pubkeyId).isEqualTo(HostConstants.PUBKEYID_NEVER)
         assertThat(importedApp.jumpHostId).isEqualTo(importedJump.id)
         assertThat(forwards).hasSize(1)
         assertThat(forwards.single().hostId).isEqualTo(importedApp.id)
+    }
+
+    @Test
+    fun importFromJson_keepsSpecialPubkeyValuesButDropsPositivePubkeyToNever() = runTest {
+        sourceDb.hostDao().insert(host(nickname = "any-key", hostname = "any.example.com", pubkeyId = HostConstants.PUBKEYID_ANY))
+        sourceDb.hostDao().insert(host(nickname = "never-key", hostname = "never.example.com", pubkeyId = HostConstants.PUBKEYID_NEVER))
+        sourceDb.hostDao().insert(host(nickname = "specific-key", hostname = "specific.example.com", pubkeyId = 77L))
+
+        val (json, _) = HostConfigJson.exportToJson(context, sourceDb, pretty = false)
+        HostConfigJson.importFromJson(context, destinationDb, json)
+
+        val importedHosts = destinationDb.hostDao().getAll()
+        assertThat(importedHosts.first { it.nickname == "any-key" }.pubkeyId).isEqualTo(HostConstants.PUBKEYID_ANY)
+        assertThat(importedHosts.first { it.nickname == "never-key" }.pubkeyId).isEqualTo(HostConstants.PUBKEYID_NEVER)
+        assertThat(importedHosts.first { it.nickname == "specific-key" }.pubkeyId).isEqualTo(HostConstants.PUBKEYID_NEVER)
+    }
+
+    @Test
+    fun importFromJson_selfReferenceSecondPassDoesNotUpdateSkippedExistingHost() = runTest {
+        val profileId = sourceDb.profileDao().insert(Profile(name = "Shared"))
+        val sourceJumpId = sourceDb.hostDao().insert(host(nickname = "jump", hostname = "jump.example.com", profileId = profileId))
+        sourceDb.hostDao().insert(
+            host(
+                nickname = "app",
+                hostname = "source-app.example.com",
+                profileId = profileId,
+                jumpHostId = sourceJumpId
+            )
+        )
+
+        destinationDb.profileDao().insert(Profile(name = "Shared"))
+        val existingAppId = destinationDb.hostDao().insert(
+            host(nickname = "app", hostname = "existing-app.example.com", jumpHostId = null)
+        )
+
+        val (json, _) = HostConfigJson.exportToJson(context, sourceDb, pretty = false)
+        val counts = HostConfigJson.importFromJson(context, destinationDb, json)
+
+        val existingApp = destinationDb.hostDao().getById(existingAppId)
+        assertThat(counts.hostsImported).isEqualTo(1)
+        assertThat(counts.hostsSkipped).isEqualTo(1)
+        assertThat(existingApp?.jumpHostId).isNull()
+    }
+
+    @Test
+    fun importFromJson_portForwardsWithCollidingSourceIdAreInsertedWhenNoUniqueIndexExists() = runTest {
+        val sourceProfileId = sourceDb.profileDao().insert(Profile(name = "Source profile"))
+        val sourceHostId = sourceDb.hostDao().insert(host(nickname = "source-host", hostname = "source.example.com", profileId = sourceProfileId))
+        sourceDb.portForwardDao().insert(
+            PortForward(
+                hostId = sourceHostId,
+                nickname = "source-forward",
+                type = "local",
+                sourcePort = 10022,
+                destAddr = "127.0.0.1",
+                destPort = 22
+            )
+        )
+
+        val destinationHostId = destinationDb.hostDao().insert(host(nickname = "existing-host", hostname = "existing.example.com"))
+        destinationDb.portForwardDao().insert(
+            PortForward(
+                hostId = destinationHostId,
+                nickname = "existing-forward",
+                type = "local",
+                sourcePort = 20022,
+                destAddr = "127.0.0.1",
+                destPort = 22
+            )
+        )
+
+        val (json, _) = HostConfigJson.exportToJson(context, sourceDb, pretty = false)
+        HostConfigJson.importFromJson(context, destinationDb, json)
+
+        val importedHost = destinationDb.hostDao().getAll().first { it.nickname == "source-host" }
+        val importedForwards = destinationDb.portForwardDao().getByHost(importedHost.id)
+        val totalForwards = countRows("port_forwards")
+
+        assertThat(importedForwards).hasSize(1)
+        assertThat(importedForwards.single().nickname).isEqualTo("source-forward")
+        assertThat(totalForwards).isEqualTo(2)
     }
 
     private fun host(
         nickname: String,
         hostname: String,
         profileId: Long? = 1L,
-        pubkeyId: Long = -1L,
+        pubkeyId: Long = HostConstants.PUBKEYID_ANY,
         jumpHostId: Long? = null
     ): Host {
         return Host(
@@ -133,5 +220,13 @@ class HostConfigJsonTest {
             pubkeyId = pubkeyId,
             jumpHostId = jumpHostId
         )
+    }
+
+    private fun countRows(tableName: String): Int {
+        val cursor = destinationDb.openHelper.readableDatabase.query("SELECT COUNT(*) FROM $tableName")
+        return cursor.use {
+            it.moveToFirst()
+            it.getInt(0)
+        }
     }
 }

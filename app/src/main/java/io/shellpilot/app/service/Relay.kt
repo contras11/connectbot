@@ -176,6 +176,10 @@ class Relay(
             }
         } catch (e: IOException) {
             Timber.e(e, "Problem while handling incoming data in relay")
+            if (!bridge.isDisconnected) {
+                // 変更理由: read失敗後に未切断bridgeを残すと接続状態がUI/通知に残留する。
+                bridge.dispatchDisconnect(false)
+            }
         }
     }
 

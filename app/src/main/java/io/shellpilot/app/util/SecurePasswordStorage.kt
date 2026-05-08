@@ -118,17 +118,21 @@ class SecurePasswordStorage @Inject constructor(
      *
      * @param hostId The unique host ID
      * @param password The password to save (null or empty to clear)
+     * @return 保存または削除が完了した場合は true
      */
-    fun savePassword(hostId: Long, password: String?) {
+    fun savePassword(hostId: Long, password: String?): Boolean {
         val key = getPasswordKey(hostId)
         if (password.isNullOrEmpty()) {
             prefs.edit().remove(key).apply()
+            return true
         } else {
             val encrypted = encrypt(password)
             if (encrypted != null) {
                 prefs.edit().putString(key, encrypted).apply()
+                return true
             }
         }
+        return false
     }
 
     /**

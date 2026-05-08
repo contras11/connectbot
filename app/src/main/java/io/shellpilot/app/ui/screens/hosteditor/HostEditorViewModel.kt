@@ -112,9 +112,9 @@ class HostEditorViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 // Get all SSH hosts that can be used as jump hosts
-                // Exclude the current host being edited to prevent circular references
-                val sshHosts = repository.getSshHosts()
-                    .filter { it.id != hostId }
+                // 変更理由: 現在編集中ホストへ戻る経路を持つ候補を除外し、
+                // ProxyJumpの循環参照をUI選択時点で防ぐ。
+                val sshHosts = filterValidJumpHostCandidates(repository.getSshHosts())
                 _uiState.update { it.copy(availableJumpHosts = sshHosts) }
             } catch (e: Exception) {
                 // Don't fail the whole screen if jump hosts can't be loaded
@@ -464,7 +464,26 @@ class HostEditorViewModel @Inject constructor(
 
                 // Only SSH hosts can have a jump host
                 val isSsh = state.protocol == "ssh"
-                val jumpHostId = if (isSsh) state.jumpHostId else null
+                val requestedJumpHostId = if (isSsh) state.jumpHostId else null
+                val sshHostsById = if (requestedJumpHostId != null && requestedJumpHostId > 0L) {
+                    repository.getSshHosts().associateBy { it.id }
+                } else {
+                    emptyMap()
+                }
+                if (requestedJumpHostId != null &&
+                    requestedJumpHostId > 0L &&
+                    wouldCreateJumpHostCycle(
+                        currentHostId = existingHost?.id ?: hostId,
+                        selectedJumpHostId = requestedJumpHostId,
+                        hostsById = sshHostsById
+                    )
+                ) {
+                    _uiState.update {
+                        it.copy(isSaving = false, error = "Jump Host が循環参照になるため保存できません")
+                    }
+                    return@launch
+                }
+                val jumpHostId = requestedJumpHostId
                 val isLocal = state.protocol == "local"
                 val nickname = if (isLocal) {
                     parseLocalQuickConnect(rawNickname) ?: rawNickname.ifBlank { "Local" }
@@ -502,8 +521,18 @@ class HostEditorViewModel @Inject constructor(
                 // Handle password storage (only for SSH protocol)
                 if (isSsh) {
                     if (state.password.isNotEmpty()) {
-                        // Save or update the password
-                        securePasswordStorage.savePassword(savedHost.id, state.password)
+                        // 変更理由: Keystore保存に失敗した状態を成功扱いにしない。
+                        val passwordSaved = securePasswordStorage.savePassword(savedHost.id, state.password)
+                        if (!passwordSaved) {
+                            _uiState.update {
+                                it.copy(
+                                    isSaving = false,
+                                    saveSucceeded = false,
+                                    error = "パスワードを安全に保存できませんでした。端末の認証情報ストレージを確認してください"
+                                )
+                            }
+                            return@launch
+                        }
                     } else if (!state.hasExistingPassword) {
                         // No password entered and no existing password - ensure it's cleared
                         securePasswordStorage.deletePassword(savedHost.id)
@@ -530,5 +559,32 @@ class HostEditorViewModel @Inject constructor(
 
     fun consumeSaveSucceeded() {
         _uiState.update { it.copy(saveSucceeded = false) }
+    }
+
+    private fun filterValidJumpHostCandidates(hosts: List<Host>): List<Host> {
+        val hostsById = hosts.associateBy { it.id }
+        return hosts.filter { candidate ->
+            candidate.id != hostId &&
+                !wouldCreateJumpHostCycle(
+                    currentHostId = hostId,
+                    selectedJumpHostId = candidate.id,
+                    hostsById = hostsById
+                )
+        }
+    }
+
+    private fun wouldCreateJumpHostCycle(
+        currentHostId: Long,
+        selectedJumpHostId: Long,
+        hostsById: Map<Long, Host>
+    ): Boolean {
+        val visited = mutableSetOf<Long>()
+        var nextId: Long? = selectedJumpHostId
+        while (nextId != null && nextId > 0L) {
+            if (nextId == currentHostId) return true
+            if (!visited.add(nextId)) return true
+            nextId = hostsById[nextId]?.jumpHostId
+        }
+        return false
     }
 }

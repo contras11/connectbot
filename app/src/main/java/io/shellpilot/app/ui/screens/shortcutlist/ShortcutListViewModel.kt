@@ -75,6 +75,16 @@ class ShortcutListViewModel @Inject constructor(
     private fun loadProfileOrder() {
         _profileOrder.value = profileOrderRepository.getOrder()
         _hiddenProfileIds.value = profileOrderRepository.getHiddenProfileIds()
+        viewModelScope.launch {
+            profileOrderRepository.order.collect { order ->
+                _profileOrder.value = order
+            }
+        }
+        viewModelScope.launch {
+            profileOrderRepository.hiddenProfileIds.collect { hiddenIds ->
+                _hiddenProfileIds.value = hiddenIds
+            }
+        }
     }
 
     private fun loadShortcuts() {
@@ -186,7 +196,6 @@ class ShortcutListViewModel @Inject constructor(
             order[index] = order[index - 1]
             order[index - 1] = profileId
             profileOrderRepository.saveOrder(order)
-            _profileOrder.value = order
         }
     }
 
@@ -202,7 +211,6 @@ class ShortcutListViewModel @Inject constructor(
             order[index] = order[index + 1]
             order[index + 1] = profileId
             profileOrderRepository.saveOrder(order)
-            _profileOrder.value = order
         }
     }
 
@@ -210,7 +218,6 @@ class ShortcutListViewModel @Inject constructor(
         // カスタムタブはユーザ作成ショートカットの入口として常に表示する。
         val id = profileId ?: return
         profileOrderRepository.setProfileVisible(id, visible)
-        _hiddenProfileIds.value = profileOrderRepository.getHiddenProfileIds()
     }
 
     fun importCategory(categoryId: String) {

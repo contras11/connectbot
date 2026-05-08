@@ -22,11 +22,13 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
 import io.shellpilot.app.data.ShellPilotDatabase
 import io.shellpilot.app.data.entity.Host
 import io.shellpilot.app.data.entity.PortForward
+import io.shellpilot.app.data.entity.Profile
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -47,6 +49,9 @@ class PortForwardDaoTest {
             .build()
         portForwardDao = database.portForwardDao()
         hostDao = database.hostDao()
+        runBlocking {
+            database.profileDao().insert(Profile(id = 1, name = "Default"))
+        }
     }
 
     @After

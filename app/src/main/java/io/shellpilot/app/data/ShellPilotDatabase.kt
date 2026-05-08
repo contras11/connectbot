@@ -57,6 +57,7 @@ import io.shellpilot.app.data.entity.Pubkey
  * - Version 5: Added profiles table and profile_id column to hosts (manual migration)
  * - Version 6: Added force_size_rows and force_size_columns to profiles (AutoMigration)
  * - Version 7: Added ip_version column to hosts for IP version preference (AutoMigration)
+ * - Version 8: Normalized broken references and added core FK/index guards (manual migration)
  * - Future versions: Use Room AutoMigration when possible for simple schema changes
  *
  * Security Considerations:
@@ -73,7 +74,7 @@ import io.shellpilot.app.data.entity.Pubkey
         ColorPalette::class,
         Profile::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -97,7 +98,7 @@ abstract class ShellPilotDatabase : RoomDatabase() {
          * Current database schema version.
          * This is also used for JSON export/import versioning.
          */
-        const val SCHEMA_VERSION = 7
+        const val SCHEMA_VERSION = 8
 
         /**
          * Migration from version 4 to 5: Add profiles table and profile_id to hosts.
@@ -232,6 +233,240 @@ abstract class ShellPilotDatabase : RoomDatabase() {
                 // Recreate indices
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_hosts_nickname` ON `hosts` (`nickname`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_hosts_protocol_username_hostname_port` ON `hosts` (`protocol`, `username`, `hostname`, `port`)")
+            }
+        }
+
+        /**
+         * Migration from version 7 to 8: normalize legacy/corrupted references and
+         * add the minimum FK/index constraints needed to keep core data consistent.
+         */
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("PRAGMA foreign_keys=OFF")
+
+                // 変更理由: hosts.profile_id の FK 追加前に、Default profile(id=1) を必ず用意する。
+                db.execSQL(
+                    """
+                    INSERT OR IGNORE INTO `profiles` (
+                        `id`, `name`, `color_scheme_id`, `font_family`, `font_size`,
+                        `del_key`, `encoding`, `emulation`, `force_size_rows`, `force_size_columns`
+                    )
+                    VALUES (1, 'Default', -1, NULL, 10, 'del', 'UTF-8', 'xterm-256color', NULL, NULL)
+                    """.trimIndent()
+                )
+
+                db.execSQL(
+                    """
+                    UPDATE `profiles`
+                    SET `color_scheme_id` = -1
+                    WHERE `color_scheme_id` > 0
+                      AND NOT EXISTS (
+                          SELECT 1 FROM `color_schemes`
+                          WHERE `color_schemes`.`id` = `profiles`.`color_scheme_id`
+                      )
+                    """.trimIndent()
+                )
+
+                // 変更理由: Keystore鍵や壊れたexportable鍵が起動時ロードやバックアップに混ざらないよう正規化する。
+                db.execSQL(
+                    """
+                    UPDATE `pubkeys`
+                    SET `startup` = 0,
+                        `allow_backup` = 0,
+                        `private_key` = NULL
+                    WHERE `storage_type` = 'ANDROID_KEYSTORE'
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    UPDATE `pubkeys`
+                    SET `startup` = 0
+                    WHERE `storage_type` = 'EXPORTABLE'
+                      AND `private_key` IS NULL
+                    """.trimIndent()
+                )
+
+                // 変更理由: 旧dynamic4は現SSH実装ではdynamic5相当として扱い、不明typeは接続時事故を避けて落とす。
+                db.execSQL("UPDATE `port_forwards` SET `type` = 'dynamic5' WHERE `type` = 'dynamic4'")
+                db.execSQL("DELETE FROM `port_forwards` WHERE `type` NOT IN ('local', 'remote', 'dynamic5')")
+
+                db.execSQL(
+                    """
+                    UPDATE `hosts`
+                    SET `profile_id` = 1
+                    WHERE `profile_id` IS NULL
+                       OR `profile_id` <= 0
+                       OR NOT EXISTS (
+                           SELECT 1 FROM `profiles`
+                           WHERE `profiles`.`id` = `hosts`.`profile_id`
+                       )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    UPDATE `hosts`
+                    SET `pubkey_id` = -2
+                    WHERE `pubkey_id` > 0
+                      AND NOT EXISTS (
+                          SELECT 1 FROM `pubkeys`
+                          WHERE `pubkeys`.`id` = `hosts`.`pubkey_id`
+                      )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    UPDATE `hosts`
+                    SET `jump_host_id` = NULL
+                    WHERE `jump_host_id` IS NOT NULL
+                      AND (
+                          `jump_host_id` = `id`
+                          OR NOT EXISTS (
+                              SELECT 1 FROM `hosts` AS `jump`
+                              WHERE `jump`.`id` = `hosts`.`jump_host_id`
+                                AND `jump`.`protocol` = 'ssh'
+                          )
+                      )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    WITH RECURSIVE `jump_chain`(`root_id`, `next_id`, `path`, `cycle`) AS (
+                        SELECT `id`, `jump_host_id`, ',' || `id` || ',', 0
+                        FROM `hosts`
+                        WHERE `jump_host_id` IS NOT NULL
+                        UNION ALL
+                        SELECT
+                            `jump_chain`.`root_id`,
+                            `hosts`.`jump_host_id`,
+                            `jump_chain`.`path` || `hosts`.`id` || ',',
+                            CASE
+                                WHEN instr(`jump_chain`.`path`, ',' || `hosts`.`id` || ',') > 0 THEN 1
+                                ELSE 0
+                            END
+                        FROM `jump_chain`
+                        JOIN `hosts` ON `hosts`.`id` = `jump_chain`.`next_id`
+                        WHERE `jump_chain`.`next_id` IS NOT NULL
+                          AND `jump_chain`.`cycle` = 0
+                    )
+                    UPDATE `hosts`
+                    SET `jump_host_id` = NULL
+                    WHERE `id` IN (
+                        SELECT DISTINCT `root_id`
+                        FROM `jump_chain`
+                        WHERE `cycle` = 1
+                    )
+                    """.trimIndent()
+                )
+
+                recreateHostsTable(db)
+                normalizeKnownHosts(db)
+
+                db.execSQL("PRAGMA foreign_keys=ON")
+            }
+
+            private fun recreateHostsTable(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `hosts_new` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `nickname` TEXT NOT NULL,
+                        `protocol` TEXT NOT NULL,
+                        `username` TEXT NOT NULL,
+                        `hostname` TEXT NOT NULL,
+                        `port` INTEGER NOT NULL,
+                        `host_key_algo` TEXT,
+                        `last_connect` INTEGER NOT NULL,
+                        `color` TEXT,
+                        `use_keys` INTEGER NOT NULL,
+                        `use_auth_agent` TEXT,
+                        `post_login` TEXT,
+                        `pubkey_id` INTEGER NOT NULL,
+                        `want_session` INTEGER NOT NULL,
+                        `compression` INTEGER NOT NULL,
+                        `stay_connected` INTEGER NOT NULL,
+                        `quick_disconnect` INTEGER NOT NULL,
+                        `scrollback_lines` INTEGER NOT NULL,
+                        `use_ctrl_alt_as_meta_key` INTEGER NOT NULL,
+                        `jump_host_id` INTEGER,
+                        `profile_id` INTEGER DEFAULT 1,
+                        `ip_version` TEXT NOT NULL DEFAULT 'IPV4_AND_IPV6',
+                        FOREIGN KEY(`profile_id`) REFERENCES `profiles`(`id`) ON UPDATE NO ACTION ON DELETE SET DEFAULT,
+                        FOREIGN KEY(`jump_host_id`) REFERENCES `hosts`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    INSERT INTO `hosts_new` (
+                        `id`, `nickname`, `protocol`, `username`, `hostname`, `port`,
+                        `host_key_algo`, `last_connect`, `color`, `use_keys`, `use_auth_agent`,
+                        `post_login`, `pubkey_id`, `want_session`, `compression`, `stay_connected`,
+                        `quick_disconnect`, `scrollback_lines`, `use_ctrl_alt_as_meta_key`,
+                        `jump_host_id`, `profile_id`, `ip_version`
+                    )
+                    SELECT
+                        `id`, `nickname`, `protocol`, `username`, `hostname`, `port`,
+                        `host_key_algo`, `last_connect`, `color`, `use_keys`, `use_auth_agent`,
+                        `post_login`, `pubkey_id`, `want_session`, `compression`, `stay_connected`,
+                        `quick_disconnect`, `scrollback_lines`, `use_ctrl_alt_as_meta_key`,
+                        NULL, `profile_id`, `ip_version`
+                    FROM `hosts`
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    UPDATE `hosts_new`
+                    SET `jump_host_id` = (
+                        SELECT `hosts`.`jump_host_id`
+                        FROM `hosts`
+                        WHERE `hosts`.`id` = `hosts_new`.`id`
+                    )
+                    WHERE EXISTS (
+                        SELECT 1
+                        FROM `hosts`
+                        WHERE `hosts`.`id` = `hosts_new`.`id`
+                          AND `hosts`.`jump_host_id` IS NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("DROP TABLE `hosts`")
+                db.execSQL("ALTER TABLE `hosts_new` RENAME TO `hosts`")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_hosts_nickname` ON `hosts` (`nickname`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_hosts_protocol_username_hostname_port` ON `hosts` (`protocol`, `username`, `hostname`, `port`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_hosts_profile_id` ON `hosts` (`profile_id`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_hosts_jump_host_id` ON `hosts` (`jump_host_id`)")
+            }
+
+            private fun normalizeKnownHosts(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    DELETE FROM `known_hosts`
+                    WHERE `id` NOT IN (
+                        SELECT MIN(`id`)
+                        FROM `known_hosts`
+                        GROUP BY
+                            COALESCE(`host_id`, -1),
+                            `hostname`,
+                            `port`,
+                            `host_key_algo`,
+                            hex(`host_key`)
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("DROP INDEX IF EXISTS `index_known_hosts_host_id_host_key`")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_known_hosts_host_id` ON `known_hosts` (`host_id`)")
+                db.execSQL(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS `index_known_hosts_host_id_hostname_port_host_key_algo_host_key`
+                    ON `known_hosts` (`host_id`, `hostname`, `port`, `host_key_algo`, `host_key`)
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE INDEX IF NOT EXISTS `index_known_hosts_host_id_hostname_port_host_key_algo`
+                    ON `known_hosts` (`host_id`, `hostname`, `port`, `host_key_algo`)
+                    """.trimIndent()
+                )
             }
         }
     }

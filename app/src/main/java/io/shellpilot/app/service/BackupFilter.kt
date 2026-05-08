@@ -19,12 +19,15 @@ package io.shellpilot.app.service
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.RoomDatabase
 import io.shellpilot.app.data.ColorSchemeRepository
 import io.shellpilot.app.data.ShellPilotDatabase
 import io.shellpilot.app.data.HostRepository
 import io.shellpilot.app.data.ProfileRepository
 import io.shellpilot.app.data.PubkeyRepository
+import io.shellpilot.app.data.entity.Host
 import io.shellpilot.app.data.entity.KeyStorageType
+import io.shellpilot.app.util.HostConstants
 import timber.log.Timber
 import java.io.File
 
@@ -50,12 +53,16 @@ class BackupFilter(
      * @param tempDbFile The temporary database file to create
      */
     suspend fun buildFilteredDatabase(tempDbFile: File, backupKeys: Boolean) {
+        cleanupTempDatabase(tempDbFile)
+
         // Create a new temporary database
         val tempDb = Room.databaseBuilder(
             context,
             ShellPilotDatabase::class.java,
             tempDbFile.name
         )
+            .addMigrations(ShellPilotDatabase.MIGRATION_4_5, ShellPilotDatabase.MIGRATION_7_8)
+            .setJournalMode(RoomDatabase.JournalMode.TRUNCATE)
             .allowMainThreadQueries() // Backup runs on backup thread
             .build()
 
@@ -80,8 +87,21 @@ class BackupFilter(
                 tempDb.profileDao().insert(profile)
             }
 
-            allHosts.forEach { host ->
-                tempDb.hostDao().insert(host)
+            val backupablePubkeyIds = backupablePubkeys.map { it.id }.toSet()
+            val hostIds = allHosts.map { it.id }.toSet()
+            val backupHosts = allHosts.map { host ->
+                sanitizeHostReference(host, backupablePubkeyIds, hostIds)
+            }
+
+            backupHosts.forEach { host ->
+                // 変更理由: self FKを追加したため、全ホスト挿入後にjump_host_idを戻す。
+                tempDb.hostDao().insert(host.copy(jumpHostId = null))
+            }
+            backupHosts.filter { it.jumpHostId != null }.forEach { host ->
+                tempDb.hostDao().update(host)
+            }
+
+            backupHosts.forEach { host ->
                 // Also backup port forwards and known hosts for this host
                 val portForwards = hostRepository.getPortForwardsForHost(host.id)
                 portForwards.forEach { tempDb.portForwardDao().insert(it) }
@@ -141,6 +161,22 @@ class BackupFilter(
         }
     }
 
+    private fun sanitizeHostReference(
+        host: Host,
+        backupablePubkeyIds: Set<Long>,
+        hostIds: Set<Long>
+    ): Host {
+        val sanitizedPubkeyId = when {
+            host.pubkeyId <= 0L -> host.pubkeyId
+            host.pubkeyId in backupablePubkeyIds -> host.pubkeyId
+            else -> HostConstants.PUBKEYID_NEVER
+        }
+        val sanitizedJumpHostId = host.jumpHostId?.takeIf { it in hostIds && it != host.id }
+
+        // 変更理由: バックアップから落とした鍵や壊れた踏み台参照を復元先へ持ち込まない。
+        return host.copy(pubkeyId = sanitizedPubkeyId, jumpHostId = sanitizedJumpHostId)
+    }
+
     /**
      * Clean up temporary database files.
      *
@@ -153,6 +189,7 @@ class BackupFilter(
         // Also delete temp database files (WAL, SHM)
         File(tempDbFile.path + "-wal").delete()
         File(tempDbFile.path + "-shm").delete()
+        File(tempDbFile.path + "-journal").delete()
         Timber.d("Deleted temporary database files")
     }
 }

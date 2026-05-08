@@ -254,6 +254,7 @@ class Telnet : AbsTransport {
     companion object {
         private const val PROTOCOL = "telnet"
         private const val DEFAULT_PORT = 23
+        private const val CONNECT_TIMEOUT_MS = 15_000
 
         private val hostmask: Pattern = Pattern.compile(
             "^((?:[0-9a-z._-]+)|(?:\\[[a-f:0-9]+(?:%[-_.a-z0-9]+)?\\]))(?::(\\d+))?\$",
@@ -278,7 +279,8 @@ class Telnet : AbsTransport {
             }
             for (addr in addresses) {
                 try {
-                    sock.connect(InetSocketAddress(addr, port))
+                    // 変更理由: 到達不能なTelnet先でconnectが無期限に待たないようにする。
+                    sock.connect(InetSocketAddress(addr, port), CONNECT_TIMEOUT_MS)
                     return
                 } catch (ignored: SocketTimeoutException) {
                 }

@@ -241,11 +241,21 @@ class SessionViewModel @Inject constructor(
         if (shortcutCollectionStarted) return
         shortcutCollectionStarted = true
         viewModelScope.launch {
-            // 変更理由: 公式テンプレートを最新化しつつ、以後はRepositoryのFlowを
-            // 購読してショートカット設定画面の編集・削除・並び替えを即時反映する。
-            shortcutRepository.syncOfficialTemplates()
+            // 変更理由: セッション開始時は保存済みショートカットの読込だけに限定し、
+            // 公式テンプレート同期はショートカット設定画面の明示操作に任せる。
+            _shortcuts.value = filterShortcutsForHost(shortcutRepository.loadAll())
             shortcutRepository.shortcuts.collect { list ->
                 _shortcuts.value = filterShortcutsForHost(list)
+            }
+        }
+        viewModelScope.launch {
+            profileOrderRepository.order.collect { order ->
+                _profileOrder.value = order
+            }
+        }
+        viewModelScope.launch {
+            profileOrderRepository.hiddenProfileIds.collect { hiddenIds ->
+                _hiddenProfileIds.value = hiddenIds
             }
         }
     }

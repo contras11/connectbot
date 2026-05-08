@@ -32,6 +32,7 @@ import io.shellpilot.app.data.entity.Host
 import io.shellpilot.app.data.entity.KeyStorageType
 import io.shellpilot.app.data.entity.Profile
 import io.shellpilot.app.data.entity.Pubkey
+import io.shellpilot.app.util.HostConstants
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -252,20 +253,23 @@ class BackupFilterTest {
     @Test
     fun buildFilteredDatabase_WithBackupKeys_FiltersCorrectly() = runBlocking {
         // Prepare data for mocked repositories
-        val host1 = Host(nickname = "test-host-1", protocol = "ssh", hostname = "example.com")
-        val host2 = Host(nickname = "test-host-2", protocol = "ssh", hostname = "test.com")
+        val host1 = Host(nickname = "test-host-1", protocol = "ssh", hostname = "example.com", pubkeyId = 10L)
+        val host2 = Host(nickname = "test-host-2", protocol = "ssh", hostname = "test.com", pubkeyId = 20L)
         val backupableKey = createPubkey(
             "backupable-key",
+            id = 10L,
             allowBackup = true,
             storageType = KeyStorageType.EXPORTABLE
         )
         val nonBackupableKey = createPubkey(
             "non-backupable-key",
+            id = 20L,
             allowBackup = false,
             storageType = KeyStorageType.EXPORTABLE
         )
         val keystoreKey = createPubkey(
             "keystore-key",
+            id = 30L,
             allowBackup = true,
             storageType = KeyStorageType.ANDROID_KEYSTORE
         )
@@ -309,6 +313,8 @@ class BackupFilterTest {
                 assertEquals(2, hosts.size)
                 assertTrue(hosts.any { it.nickname == "test-host-1" })
                 assertTrue(hosts.any { it.nickname == "test-host-2" })
+                assertEquals(10L, hosts.first { it.nickname == "test-host-1" }.pubkeyId)
+                assertEquals(HostConstants.PUBKEYID_NEVER, hosts.first { it.nickname == "test-host-2" }.pubkeyId)
 
                 // Verify only backupable key was copied
                 val pubkeys = tempDb.pubkeyDao().getAll()
@@ -343,7 +349,7 @@ class BackupFilterTest {
     @Test
     fun buildFilteredDatabase_WithoutBackupKeys_ExcludesAllKeys() = runBlocking {
         // Add test host
-        val host = Host(nickname = "test-host", protocol = "ssh", hostname = "example.com")
+        val host = Host(nickname = "test-host", protocol = "ssh", hostname = "example.com", pubkeyId = 1L)
 
         // Add test pubkeys
         val key1 =
@@ -380,6 +386,7 @@ class BackupFilterTest {
                 // Verify host was copied
                 val hosts = tempDb.hostDao().getAll()
                 assertEquals(1, hosts.size)
+                assertEquals(HostConstants.PUBKEYID_NEVER, hosts.single().pubkeyId)
 
                 // Verify NO pubkeys were copied
                 val pubkeys = tempDb.pubkeyDao().getAll()
@@ -397,10 +404,12 @@ class BackupFilterTest {
     // Helper function to create test pubkeys
     private fun createPubkey(
         nickname: String,
+        id: Long = 0L,
         allowBackup: Boolean,
         storageType: KeyStorageType
     ): Pubkey {
         return Pubkey(
+            id = id,
             nickname = nickname,
             type = "RSA",
             privateKey = ByteArray(16),

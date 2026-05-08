@@ -88,7 +88,7 @@ interface PubkeyDao {
     /**
      * Get all keys marked for automatic unlocking at startup.
      */
-    @Query("SELECT * FROM pubkeys WHERE startup = 1")
+    @Query("SELECT * FROM pubkeys WHERE startup = 1 AND storage_type = 'EXPORTABLE' AND private_key IS NOT NULL")
     suspend fun getStartupKeys(): List<Pubkey>
 
     /**

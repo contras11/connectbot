@@ -381,6 +381,7 @@ fun ColorsScreenContent(
         if (scheme != null) {
             DeleteSchemeDialog(
                 schemeName = scheme.name,
+                error = uiState.dialogError,
                 onConfirm = { onDeleteScheme(scheme.id) },
                 onDismiss = onHideDeleteDialog
             )
@@ -721,6 +722,7 @@ private fun NewSchemeDialog(
 @Composable
 private fun DeleteSchemeDialog(
     schemeName: String,
+    error: String?,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -732,6 +734,15 @@ private fun DeleteSchemeDialog(
         dismissLabel = stringResource(R.string.button_cancel),
         destructiveConfirm = true
     ) {
-        Text(stringResource(R.string.dialog_message_delete_scheme, schemeName))
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.dialog_message_delete_scheme, schemeName))
+            if (error != null) {
+                Text(
+                    text = error,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
     }
 }

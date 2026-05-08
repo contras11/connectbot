@@ -25,6 +25,7 @@ import io.shellpilot.app.data.entity.ColorPalette
 import io.shellpilot.app.data.entity.ColorScheme
 import io.shellpilot.app.data.entity.KnownHost
 import io.shellpilot.app.data.entity.PortForward
+import io.shellpilot.app.util.HostConstants
 
 /**
  * Data class for hosts from the legacy database that includes
@@ -137,12 +138,23 @@ class LegacyHostDatabaseReader(private val context: Context) {
         val knownHosts = mutableListOf<KnownHost>()
 
         withReadableDatabase { db ->
-            // Join with hosts table to get hostname and port
+            val knownHostColumns = db.tableColumns("knownhosts")
+            val hasEndpointColumns = "hostname" in knownHostColumns && "port" in knownHostColumns
+            val endpointHostname = if (hasEndpointColumns) "COALESCE(kh.hostname, h.hostname)" else "h.hostname"
+            val endpointPort = if (hasEndpointColumns) "COALESCE(kh.port, h.port)" else "h.port"
+
+            // 変更理由: 孤立known hostもendpointを保持できる形式ならhostId=nullとして復旧する。
             db.rawQuery(
                 """
-                SELECT kh._id, kh.hostid, kh.hostkeyalgo, kh.hostkey, h.hostname, h.port
+                SELECT
+                    kh._id,
+                    CASE WHEN h._id IS NULL THEN NULL ELSE kh.hostid END AS hostid,
+                    kh.hostkeyalgo,
+                    kh.hostkey,
+                    $endpointHostname AS hostname,
+                    $endpointPort AS port
                 FROM knownhosts kh
-                INNER JOIN hosts h ON kh.hostid = h._id
+                LEFT JOIN hosts h ON kh.hostid = h._id
                 ORDER BY kh._id ASC
                 """.trimIndent(),
                 null
@@ -293,7 +305,7 @@ class LegacyHostDatabaseReader(private val context: Context) {
             id = cursor.getLong(idIndex),
             hostId = cursor.getLong(hostIdIndex),
             nickname = cursor.getString(nicknameIndex),
-            type = cursor.getString(typeIndex),
+            type = cursor.getString(typeIndex).normalizePortForwardType(),
             sourcePort = cursor.getInt(sourcePortIndex),
             destAddr = cursor.getString(destAddrIndex),
             destPort = cursor.getInt(destPortIndex)
@@ -310,8 +322,9 @@ class LegacyHostDatabaseReader(private val context: Context) {
 
         return KnownHost(
             id = cursor.getLong(idIndex),
-            hostId = cursor.getLong(hostIdIndex),
-            hostname = cursor.getString(hostnameIndex),
+            hostId = if (cursor.isNull(hostIdIndex)) null else cursor.getLong(hostIdIndex),
+            hostname = cursor.getStringOrNull(hostnameIndex)
+                ?: throw IllegalArgumentException("knownhost endpoint hostname is missing"),
             port = cursor.getInt(portIndex),
             hostKeyAlgo = cursor.getString(hostKeyAlgoIndex),
             hostKey = cursor.getBlob(hostKeyIndex)
@@ -377,5 +390,24 @@ class LegacyHostDatabaseReader(private val context: Context) {
 
     private fun Cursor.getStringOrNull(columnIndex: Int): String? {
         return if (isNull(columnIndex)) null else getString(columnIndex)
+    }
+
+    private fun SQLiteDatabase.tableColumns(tableName: String): Set<String> {
+        val columns = mutableSetOf<String>()
+        rawQuery("PRAGMA table_info(`$tableName`)", null).use { cursor ->
+            val nameIndex = cursor.getColumnIndexOrThrow("name")
+            while (cursor.moveToNext()) {
+                columns += cursor.getString(nameIndex)
+            }
+        }
+        return columns
+    }
+
+    private fun String.normalizePortForwardType(): String = when (this) {
+        HostConstants.PORTFORWARD_DYNAMIC4 -> HostConstants.PORTFORWARD_DYNAMIC5
+        HostConstants.PORTFORWARD_LOCAL,
+        HostConstants.PORTFORWARD_REMOTE,
+        HostConstants.PORTFORWARD_DYNAMIC5 -> this
+        else -> this
     }
 }

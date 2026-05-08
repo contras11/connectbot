@@ -20,6 +20,7 @@ package io.shellpilot.app.data.entity
 import android.net.Uri
 import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
@@ -28,9 +29,25 @@ import androidx.room.PrimaryKey
  */
 @Entity(
     tableName = "hosts",
+    foreignKeys = [
+        ForeignKey(
+            entity = Profile::class,
+            parentColumns = ["id"],
+            childColumns = ["profile_id"],
+            onDelete = ForeignKey.SET_DEFAULT
+        ),
+        ForeignKey(
+            entity = Host::class,
+            parentColumns = ["id"],
+            childColumns = ["jump_host_id"],
+            onDelete = ForeignKey.SET_NULL
+        )
+    ],
     indices = [
         Index(value = ["nickname"], unique = true),
-        Index(value = ["protocol", "username", "hostname", "port"])
+        Index(value = ["protocol", "username", "hostname", "port"]),
+        Index(value = ["profile_id"]),
+        Index(value = ["jump_host_id"])
     ]
 )
 data class Host(
@@ -96,7 +113,7 @@ data class Host(
      * Profile ID for terminal-specific settings (font, colors, encoding, etc.).
      * Defaults to 1 (the Default profile).
      */
-    @ColumnInfo(name = "profile_id")
+    @ColumnInfo(name = "profile_id", defaultValue = "1")
     val profileId: Long? = 1L,
 
     /**

@@ -44,14 +44,33 @@ class Local @VisibleForTesting constructor(private val killer: Killer) : AbsTran
     constructor() : this(AndroidKiller())
 
     override fun close() {
+        val pidToKill = shellPid
+        var closeError: IOException? = null
         try {
-            os?.close()
-            os = null
-            `is`?.close()
-            `is` = null
-            killer.killProcess(shellPid)
-        } catch (e: IOException) {
-            Timber.e(e, "Couldn't close shell")
+            try {
+                os?.close()
+            } catch (e: IOException) {
+                closeError = e
+            } finally {
+                os = null
+                try {
+                    `is`?.close()
+                } catch (e: IOException) {
+                    if (closeError == null) {
+                        closeError = e
+                    }
+                } finally {
+                    `is` = null
+                }
+            }
+            if (pidToKill > 0) {
+                // 変更理由: 未起動/close済みのpid=0をkillして別プロセスへ影響しないようにする。
+                killer.killProcess(pidToKill)
+            }
+            closeError?.let { Timber.e(it, "Couldn't close shell") }
+        } finally {
+            shellPid = 0
+            shellFd = null
         }
     }
 
