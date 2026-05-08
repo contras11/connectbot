@@ -115,4 +115,10 @@ interface HostDao {
      */
     @Query("SELECT * FROM hosts WHERE protocol = 'ssh' ORDER BY nickname ASC")
     fun observeSshHosts(): Flow<List<Host>>
+
+    /**
+     * Get count of hosts using a specific public key.
+     */
+    @Query("SELECT COUNT(*) FROM hosts WHERE pubkey_id = :pubkeyId")
+    suspend fun getHostsUsingPubkey(pubkeyId: Long): Int
 }

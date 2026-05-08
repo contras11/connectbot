@@ -104,6 +104,10 @@ class SettingsViewModel @Inject constructor(
     private val _showPermissionDeniedDialog = Channel<Unit>(Channel.CONFLATED)
     val showPermissionDeniedDialog = _showPermissionDeniedDialog.receiveAsFlow()
 
+    // 変更理由: 画面復帰時の権限再確認だけで「接続を維持」が勝手にONへ戻る
+    // 状態を避けるため、ユーザーがONにしようとした要求だけを追跡する。
+    private var pendingConnPersistEnable = false
+
     // Persist permission denial state in SharedPreferences
     private var wasPermissionDenied: Boolean
         get() = prefs.getBoolean(PreferenceConstants.NOTIFICATION_PERMISSION_DENIED, false)
@@ -117,8 +121,24 @@ class SettingsViewModel @Inject constructor(
 
     private fun loadProfiles() {
         viewModelScope.launch {
-            val profiles = profileRepository.getAll()
-            _uiState.update { it.copy(availableProfiles = profiles) }
+            profileRepository.observeAll().collect { profiles ->
+                val currentProfileId = _uiState.value.defaultProfileId
+                val normalizedProfileId = if (
+                    currentProfileId != 0L &&
+                    profiles.none { it.id == currentProfileId }
+                ) {
+                    prefs.edit { putLong("defaultProfileId", 0L) }
+                    0L
+                } else {
+                    currentProfileId
+                }
+                _uiState.update {
+                    it.copy(
+                        availableProfiles = profiles,
+                        defaultProfileId = normalizedProfileId
+                    )
+                }
+            }
         }
     }
 
@@ -198,6 +218,7 @@ class SettingsViewModel @Inject constructor(
         // If turning ON (from OFF), request notification permission
         val currentValue = _uiState.value.connPersist
         if (!currentValue && value) {
+            pendingConnPersistEnable = true
             // Turning ON - check if permission was previously denied
             if (wasPermissionDenied) {
                 // Permission was denied before, show dialog to go to settings
@@ -226,12 +247,27 @@ class SettingsViewModel @Inject constructor(
         if (isGranted) {
             Timber.d("Notification permission granted, enabling connPersist")
             wasPermissionDenied = false
-            updateBooleanPref(PreferenceConstants.CONNECTION_PERSIST, true) { copy(connPersist = true) }
+            if (pendingConnPersistEnable) {
+                updateBooleanPref(PreferenceConstants.CONNECTION_PERSIST, true) { copy(connPersist = true) }
+            }
         } else {
             // Permission denied - keep it OFF and mark as denied
             Timber.d("Notification permission denied, keeping connPersist OFF")
             wasPermissionDenied = true
-            updateBooleanPref(PreferenceConstants.CONNECTION_PERSIST, false) { copy(connPersist = false) }
+            if (pendingConnPersistEnable) {
+                updateBooleanPref(PreferenceConstants.CONNECTION_PERSIST, false) { copy(connPersist = false) }
+            }
+        }
+        pendingConnPersistEnable = false
+    }
+
+    fun onNotificationPermissionPassiveCheck(isGranted: Boolean) {
+        if (isGranted) {
+            wasPermissionDenied = false
+            if (pendingConnPersistEnable) {
+                updateBooleanPref(PreferenceConstants.CONNECTION_PERSIST, true) { copy(connPersist = true) }
+                pendingConnPersistEnable = false
+            }
         }
     }
 

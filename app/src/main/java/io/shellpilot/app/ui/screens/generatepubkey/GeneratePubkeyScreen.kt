@@ -115,7 +115,10 @@ fun GeneratePubkeyScreenContent(
         subtitle = "鍵タイプ・強度・保護設定",
         navigationIcon = {
             IconButton(onClick = onNavigateBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.button_navigate_up)
+                )
             }
         },
         modifier = modifier
@@ -219,7 +222,7 @@ fun GeneratePubkeyScreenContent(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Fingerprint,
-                            contentDescription = null,
+                            contentDescription = stringResource(R.string.pubkey_biometric_description_icon),
                             tint = if (uiState.useBiometric) {
                                 MaterialTheme.colorScheme.primary
                             } else {

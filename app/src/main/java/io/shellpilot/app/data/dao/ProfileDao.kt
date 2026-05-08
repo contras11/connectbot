@@ -108,4 +108,10 @@ interface ProfileDao {
      */
     @Query("SELECT COUNT(*) FROM hosts WHERE profile_id = :profileId")
     suspend fun getHostsUsingProfile(profileId: Long): Int
+
+    /**
+     * Get count of profiles using a specific color scheme.
+     */
+    @Query("SELECT COUNT(*) FROM profiles WHERE color_scheme_id = :schemeId")
+    suspend fun getProfilesUsingColorScheme(schemeId: Long): Int
 }

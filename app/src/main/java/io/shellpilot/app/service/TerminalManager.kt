@@ -320,7 +320,6 @@ class TerminalManager :
 
         val bridge = TerminalBridge(this, host, dispatchers)
         bridge.setOnDisconnectedListener(this)
-        bridge.startConnection()
 
         synchronized(_bridges) {
             _bridges.add(bridge)
@@ -334,6 +333,9 @@ class TerminalManager :
             _disconnected.remove(bridge.host)
             _disconnectedFlow.value = _disconnected.toList()
         }
+
+        // 変更理由: 接続開始直後に失敗しても、登録済みbridgeとしてmanager removalまで通す。
+        bridge.startConnection()
 
         if (bridge.isUsingNetwork()) {
             connectivityMonitor.incRef()
@@ -435,13 +437,13 @@ class TerminalManager :
         Timber.d("Bridge Disconnected. Removing it.")
 
         synchronized(_bridges) {
-            // remove this bridge from our list
-            _bridges.remove(bridge)
+            val removed = _bridges.remove(bridge)
 
+            // remove this bridge from our list
             hostBridgeMap.remove(bridge.host)
             nicknameBridgeMap.remove(bridge.host.nickname)
 
-            if (bridge.isUsingNetwork()) {
+            if (removed && bridge.isUsingNetwork()) {
                 connectivityMonitor.decRef()
             }
 

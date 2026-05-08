@@ -74,7 +74,7 @@
 	<!-- Instructions to user on how to provide randomness by moving their finger over the screen -->
 	<string name="pubkey_touch_hint">鍵生成に必要な乱数を確保するため、下の領域を指でランダムになぞってください。</string>
 	<!-- Progress message shown while generating a new SSH key pair -->
-	<string name="pubkey_generating">"Generating key pair…"</string>
+	<string name="pubkey_generating">"鍵ペアを生成しています…"</string>
 	<!-- Context menu action to copy the private key to clipboard in the default format -->
 	<string name="pubkey_copy_private">秘密鍵をコピー</string>
 	<!-- Context menu action to copy the private key to clipboard in OpenSSH format -->
@@ -201,13 +201,13 @@
 	<string name="alert_disconnect_msg">接続が失われました。</string>
 
 	<!-- Message shown when network connection is lost and app is waiting to reconnect -->
-	<string name="network_lost_grace_period">"Network lost, waiting to reconnect…"</string>
+	<string name="network_lost_grace_period">"ネットワークが切断されたため、再接続を待っています…"</string>
 	<!-- Message shown when the 60-second grace period expires without network restoration -->
 	<string name="network_grace_period_expired">"ネットワークが復元されなかったため切断します…"</string>
 	<!-- Message shown when network is restored and connection can continue (same IP address) -->
 	<string name="network_restored_same_ip">ネットワークが回復しました。接続は維持されています。</string>
 	<!-- Message shown when network is restored but IP address changed, requiring reconnection -->
-	<string name="network_restored_ip_changed">"Network restored but IP changed, reconnecting…"</string>
+	<string name="network_restored_ip_changed">"ネットワークは復旧しましたがIPアドレスが変わったため、再接続しています…"</string>
 	<!-- Message shown when network is restored but previous network state is unknown -->
 	<string name="network_restored_no_previous_state">"ネットワークが復元されました。接続を確認しています…"</string>
 
@@ -698,7 +698,7 @@
 	<!-- Message shown in terminal when password authentication fails -->
 	<string name="terminal_auth_pass_fail">パスワード認証に失敗しました</string>
 	<!-- Message shown in terminal when attempting saved password authentication -->
-	<string name="terminal_auth_saved_password">"Trying saved password…"</string>
+	<string name="terminal_auth_saved_password">"保存済みパスワードで認証しています…"</string>
 	<!-- Message shown in terminal when saved password authentication fails -->
 	<string name="terminal_auth_saved_password_fail">保存済みパスワード認証に失敗しました</string>
 
@@ -924,6 +924,22 @@
 	<!-- Describes the icon of the "Arrow right" button in the terminal view for accessibility
 	     purposes. -->
 	<string name="image_description_right">右矢印</string>
+	<!-- Accessibility label for the Ctrl+C shortcut button in the terminal keyboard. -->
+	<string name="terminal_key_ctrl_c_description">Ctrl+Cを送信（中断）</string>
+	<!-- Accessibility label for the Ctrl+D shortcut button in the terminal keyboard. -->
+	<string name="terminal_key_ctrl_d_description">Ctrl+Dを送信（入力終了）</string>
+	<!-- Accessibility label for the Ctrl+Z shortcut button in the terminal keyboard. -->
+	<string name="terminal_key_ctrl_z_description">Ctrl+Zを送信（一時停止）</string>
+	<!-- Accessibility label for the Home key button in the terminal keyboard. -->
+	<string name="terminal_key_home_description">Homeキーを送信</string>
+	<!-- Accessibility label for the End key button in the terminal keyboard. -->
+	<string name="terminal_key_end_description">Endキーを送信</string>
+	<!-- Accessibility label for the Page Up key button in the terminal keyboard. -->
+	<string name="terminal_key_page_up_description">Page Upキーを送信</string>
+	<!-- Accessibility label for the Page Down key button in the terminal keyboard. -->
+	<string name="terminal_key_page_down_description">Page Downキーを送信</string>
+	<!-- Accessibility label for function key buttons in the terminal keyboard. Parameter is the function key number. -->
+	<string name="terminal_key_function_description">F%1$dキーを送信</string>
 
 	<!-- Text for the "Esc" button in virtual keyboard. -->
 	<string name="button_key_esc">Esc</string>
@@ -1106,6 +1122,8 @@
 	<string name="portforward_enabled">ポート転送が有効です</string>
 	<!-- Content description for disabled port forward visual indicator -->
 	<string name="portforward_disabled">ポート転送が無効です</string>
+	<!-- Accessibility label for the per-port-forward overflow menu. Parameter is the port forward nickname. -->
+	<string name="portforward_item_more_options">「%1$s」のその他の操作</string>
 
 	<!-- Label for spinner which allows user to select SSH/Telnet/Local. -->
 	<string name="protocol_spinner_label">プロトコル</string>
@@ -1310,9 +1328,9 @@
 	<!-- Dialog title for managing custom terminal types -->
 	<string name="dialog_manage_customterminal_title">カスタムTERMを管理</string>
 	<!-- Button to add a custom item -->
-	<string name="button_add_custom">Add custom…</string>
+	<string name="button_add_custom">カスタムを追加…</string>
 	<!-- Button to manage custom items -->
-	<string name="button_manage_custom">Manage custom…</string>
+	<string name="button_manage_custom">カスタムを管理…</string>
 	<!-- Label for custom value input in list preference dialogs -->
 	<string name="dialog_custom_value_label">カスタム値を入力</string>
 	<!-- Summary description for Ctrl+A then Space camera button action -->

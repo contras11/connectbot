@@ -22,6 +22,7 @@ import androidx.room.Room
 import io.shellpilot.app.data.ColorSchemeRepository
 import io.shellpilot.app.data.ShellPilotDatabase
 import io.shellpilot.app.data.HostRepository
+import io.shellpilot.app.data.ProfileRepository
 import io.shellpilot.app.data.PubkeyRepository
 import io.shellpilot.app.data.entity.KeyStorageType
 import timber.log.Timber
@@ -36,6 +37,7 @@ import java.io.File
 class BackupFilter(
     private val context: Context,
     private val hostRepository: HostRepository,
+    private val profileRepository: ProfileRepository,
     private val colorSchemeRepository: ColorSchemeRepository,
     private val pubkeyRepository: PubkeyRepository
 ) {
@@ -59,6 +61,7 @@ class BackupFilter(
 
         try {
             // Get all data from main database
+            val allProfiles = profileRepository.getAll()
             val allHosts = hostRepository.getHosts()
             val allColorSchemes = colorSchemeRepository.getAllSchemes()
 
@@ -70,9 +73,13 @@ class BackupFilter(
                 emptyList()
             }
 
-            Timber.d("Backing up ${allHosts.size} hosts, ${backupablePubkeys.size} pubkeys, ${allColorSchemes.size} color schemes")
+            Timber.d("Backing up ${allProfiles.size} profiles, ${allHosts.size} hosts, ${backupablePubkeys.size} pubkeys, ${allColorSchemes.size} color schemes")
 
             // Insert all backupable data into temp database
+            allProfiles.forEach { profile ->
+                tempDb.profileDao().insert(profile)
+            }
+
             allHosts.forEach { host ->
                 tempDb.hostDao().insert(host)
                 // Also backup port forwards and known hosts for this host

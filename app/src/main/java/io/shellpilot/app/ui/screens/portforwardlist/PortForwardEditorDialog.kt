@@ -81,20 +81,22 @@ fun PortForwardEditorDialog(
     // Dynamic SOCKS proxy doesn't need destination
     val needsDestination = typeIndex != 2
 
-    // Validation
-    val sourcePortValue = sourcePort.ifEmpty { "8080" }.toIntOrNull()
+    // 変更理由: 空入力を既定値で補完して保存せず、ユーザーが明示した値だけを保存する。
+    val sourcePortValue = sourcePort.trim().toIntOrNull()
     val isSourcePortValid = sourcePortValue != null && sourcePortValue in 1..65535
 
     val isDestinationValid = if (needsDestination) {
-        val dest = destination.ifEmpty { "localhost:80" }
+        val dest = destination.trim()
         // Basic validation: should contain a colon and have non-empty parts
         val parts = dest.split(":")
-        parts.size == 2 && parts[0].isNotEmpty() && parts[1].toIntOrNull() != null
+        val destPort = parts.getOrNull(1)?.toIntOrNull()
+        parts.size == 2 && parts[0].isNotBlank() && destPort != null && destPort in 1..65535
     } else {
         true // Destination not needed for dynamic SOCKS
     }
 
-    val canSave = isSourcePortValid && isDestinationValid
+    val canSave = sourcePort.isNotBlank() && isSourcePortValid &&
+        (!needsDestination || destination.isNotBlank() && isDestinationValid)
 
     ShellPilotActionDialog(
         modifier = Modifier.fillMaxWidth(0.96f),
@@ -104,13 +106,7 @@ fun PortForwardEditorDialog(
         confirmLabel = stringResource(if (isEditing) R.string.portforward_save else R.string.portforward_pos),
         confirmEnabled = canSave,
         onConfirm = {
-            val finalSourcePort = sourcePort.ifEmpty { "8080" }
-            val finalDestination = if (needsDestination) {
-                destination.ifEmpty { "localhost:80" }
-            } else {
-                destination
-            }
-            onSave(nickname, typeString, finalSourcePort, finalDestination)
+            onSave(nickname.trim(), typeString, sourcePort.trim(), if (needsDestination) destination.trim() else "")
         },
         dismissLabel = stringResource(R.string.delete_neg)
     ) {
@@ -164,10 +160,18 @@ fun PortForwardEditorDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    isError = sourcePort.isNotEmpty() && !isSourcePortValid,
-                    supportingText = if (sourcePort.isNotEmpty() && !isSourcePortValid) {
-                        { Text(stringResource(R.string.portforward_port_range_error)) }
-                    } else null
+                    isError = sourcePort.isBlank() || !isSourcePortValid,
+                    supportingText = {
+                        Text(
+                            if (sourcePort.isBlank()) {
+                                "待受ポートを入力してください"
+                            } else if (!isSourcePortValid) {
+                                stringResource(R.string.portforward_port_range_error)
+                            } else {
+                                "1〜65535"
+                            }
+                        )
+                    }
                 )
 
             OutlinedTextField(
@@ -178,10 +182,22 @@ fun PortForwardEditorDialog(
                 enabled = needsDestination,
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                isError = needsDestination && destination.isNotEmpty() && !isDestinationValid,
-                supportingText = if (needsDestination && destination.isNotEmpty() && !isDestinationValid) {
-                    { Text(stringResource(R.string.portforward_destination_format_error)) }
-                } else null
+                isError = needsDestination && (destination.isBlank() || !isDestinationValid),
+                supportingText = if (needsDestination) {
+                    {
+                        Text(
+                            if (destination.isBlank()) {
+                                "転送先を host:port 形式で入力してください"
+                            } else if (!isDestinationValid) {
+                                stringResource(R.string.portforward_destination_format_error)
+                            } else {
+                                "例: localhost:80"
+                            }
+                        )
+                    }
+                } else {
+                    { Text("Dynamic転送では転送先を使用しません") }
+                }
             )
         }
     }

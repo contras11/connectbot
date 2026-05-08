@@ -17,14 +17,18 @@
 
 package io.shellpilot.app
 
+import androidx.annotation.StringRes
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
-import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
@@ -89,6 +93,12 @@ class HostEditorScreenTest {
         }
     }
 
+    private fun text(@StringRes resId: Int): String = composeTestRule.activity.getString(resId)
+
+    private fun quickConnectField() = composeTestRule.onNode(
+        hasSetTextAction() and hasText(text(R.string.host_editor_quick_connect_label))
+    )
+
     @Test
     fun hostEditorScreen_newHost_displaysAddTitle() {
         navigateToHostEditorScreen(-1L)
@@ -114,9 +124,8 @@ class HostEditorScreenTest {
     fun hostEditorScreen_newHost_saveButtonEnabledAfterInput() {
         navigateToHostEditorScreen(-1L)
 
-        // Enter text in quick connect field
-        composeTestRule
-            .onNodeWithText("Quick connect")
+        // 変更理由: UI文言は日本語リソース化しているため、テストもリソース名で追従する。
+        quickConnectField()
             .performClick()
             .performTextInput("test@example.com")
 
@@ -133,9 +142,7 @@ class HostEditorScreenTest {
     fun hostEditorScreen_newHost_callsNavigateBackOnSave() {
         navigateToHostEditorScreen(-1L)
 
-        // Enter text in quick connect field
-        composeTestRule
-            .onNodeWithText("Quick connect")
+        quickConnectField()
             .performClick()
             .performTextInput("test@example.com")
 
@@ -156,9 +163,8 @@ class HostEditorScreenTest {
     fun hostEditorScreen_hasBackButton() {
         navigateToHostEditorScreen(-1L)
 
-        // Click back button
         composeTestRule
-            .onNodeWithContentDescription("Navigate up")
+            .onNodeWithContentDescription(text(R.string.button_navigate_up))
             .performClick()
 
         // Verify navigateBack was called (by checking if the navController popped back to start)
@@ -171,57 +177,54 @@ class HostEditorScreenTest {
     fun hostEditorScreen_localProtocol_hidesUserHostPortFields() {
         navigateToHostEditorScreen(-1L)
 
-        // Click "Show advanced options" to enter expanded mode
         composeTestRule
-            .onNodeWithText("Show advanced options")
+            .onNodeWithText(text(R.string.host_editor_show_advanced))
             .performClick()
 
         composeTestRule.waitForIdle()
 
         // Initially, with default protocol (ssh), fields should be visible
         composeTestRule
-            .onNodeWithText("Username")
+            .onNodeWithText(text(R.string.hostpref_username_title))
             .assertIsDisplayed()
         composeTestRule
-            .onNodeWithText("Host")
+            .onNodeWithText(text(R.string.hostpref_hostname_title))
             .assertIsDisplayed()
         composeTestRule
-            .onNodeWithText("Port")
+            .onNodeWithText(text(R.string.hostpref_port_title))
             .assertIsDisplayed()
 
         // Click on protocol dropdown
         composeTestRule
-            .onNodeWithText("ssh")
+            .onNodeWithText("SSH")
             .performClick()
 
         composeTestRule.waitForIdle()
 
-        // Select "local" protocol
         composeTestRule
-            .onNodeWithText("local")
+            .onNodeWithText("Local")
             .performClick()
 
         composeTestRule.waitForIdle()
 
         // Now username, hostname, and port fields should be hidden
         composeTestRule
-            .onNodeWithText("Username")
-            .assertIsNotDisplayed()
+            .onAllNodesWithText(text(R.string.hostpref_username_title))
+            .assertCountEquals(0)
         composeTestRule
-            .onNodeWithText("Host")
-            .assertIsNotDisplayed()
+            .onAllNodesWithText(text(R.string.hostpref_hostname_title))
+            .assertCountEquals(0)
         composeTestRule
-            .onNodeWithText("Port")
-            .assertIsNotDisplayed()
+            .onAllNodesWithText(text(R.string.hostpref_port_title))
+            .assertCountEquals(0)
     }
 
     @Test
     fun hostEditorScreen_localProtocol_saveButtonEnabled() {
         navigateToHostEditorScreen(-1L)
 
-        // Click "Show advanced options" to enter expanded mode
         composeTestRule
-            .onNodeWithText("Show advanced options")
+            .onNodeWithText(text(R.string.host_editor_show_advanced))
             .performClick()
 
         composeTestRule.waitForIdle()
@@ -233,14 +236,13 @@ class HostEditorScreenTest {
 
         // Click on protocol dropdown
         composeTestRule
-            .onNodeWithText("ssh")
+            .onNodeWithText("SSH")
             .performClick()
 
         composeTestRule.waitForIdle()
 
-        // Select "local" protocol
         composeTestRule
-            .onNodeWithText("local")
+            .onNodeWithText("Local")
             .performClick()
 
         composeTestRule.waitForIdle()

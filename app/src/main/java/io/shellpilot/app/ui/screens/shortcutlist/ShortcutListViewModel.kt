@@ -79,12 +79,11 @@ class ShortcutListViewModel @Inject constructor(
 
     private fun loadShortcuts() {
         viewModelScope.launch {
-            val result = shortcutRepository.syncOfficialTemplates()
+            // 変更理由: 画面へ遷移するだけで公式テンプレート同期を走らせると、
+            // 古いショートカットJSONを持つ環境で毎回項目が増えたように見える。
+            // 起動時は読み込みに限定し、同期はユーザが「公式テンプレートを更新」を
+            // 押したときだけ実行する。
             _shortcuts.value = shortcutRepository.loadAll()
-            if (result.added > 0 || result.updated > 0 || result.tagged > 0) {
-                _templateSyncMessage.value =
-                    "公式テンプレートを更新しました（追加${result.added}件・更新${result.updated}件）"
-            }
         }
         // StateFlowの更新を監視
         viewModelScope.launch {
@@ -97,7 +96,19 @@ class ShortcutListViewModel @Inject constructor(
     /** ショートカットを追加または更新する */
     fun save(shortcut: Shortcut) {
         viewModelScope.launch {
-            shortcutRepository.save(shortcut)
+            val all = shortcutRepository.loadAll()
+            val existing = all.firstOrNull { it.id == shortcut.id }
+            val normalized = if (existing == null) {
+                val nextOrder = all
+                    .filter { it.hostId == shortcut.hostId && it.category == shortcut.category }
+                    .maxOfOrNull { it.order }
+                    ?.plus(1)
+                    ?: 0
+                shortcut.copy(order = nextOrder)
+            } else {
+                shortcut.copy(order = existing.order)
+            }
+            shortcutRepository.save(normalized)
         }
     }
 
@@ -235,7 +246,7 @@ class ShortcutListViewModel @Inject constructor(
             val result = shortcutRepository.syncOfficialTemplates()
             _shortcuts.value = shortcutRepository.loadAll()
             _templateSyncMessage.value =
-                "公式テンプレートを更新しました（追加${result.added}件・更新${result.updated}件）"
+                "公式テンプレートを更新しました（追加${result.added}件・更新${result.updated}件・識別${result.tagged}件）"
         }
     }
 

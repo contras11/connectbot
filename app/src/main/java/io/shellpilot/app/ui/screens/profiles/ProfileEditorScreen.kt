@@ -293,7 +293,7 @@ private fun ProfileTerminalPreview(
             StatusChip(label = emulation.ifBlank { "xterm" })
         }
         Text(
-            text = "contras11@100.80.83.120:~$ claude",
+            text = "user@example:~$ shellpilot",
             style = MaterialTheme.typography.bodySmall,
             fontFamily = FontFamily.Monospace,
             color = MaterialTheme.colorScheme.onSurface

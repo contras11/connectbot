@@ -50,6 +50,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -88,6 +89,13 @@ fun HostEditorScreen(
     viewModel: HostEditorViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(uiState.saveSucceeded) {
+        if (uiState.saveSucceeded) {
+            viewModel.consumeSaveSucceeded()
+            onNavigateBack()
+        }
+    }
 
     HostEditorScreenContent(
         hostId = uiState.hostId,
@@ -168,14 +176,13 @@ fun HostEditorScreenContent(
             IconButton(
                 onClick = {
                     onSaveHost(expandedMode)
-                    onNavigateBack()
                 },
                 modifier = Modifier.testTag("add_host_button"),
-                enabled = if (expandedMode) {
+                enabled = !uiState.isSaving && if (expandedMode) {
                     // For local protocol, hostname can be blank
                     uiState.protocol == "local" || uiState.hostname.isNotBlank()
                 } else {
-                    uiState.quickConnect.isNotBlank()
+                    uiState.quickConnect.isNotBlank() && uiState.quickConnectError == null
                 }
             ) {
                 Icon(
@@ -201,6 +208,21 @@ fun HostEditorScreenContent(
                 .imePadding(),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
+            uiState.error?.let { error ->
+                CommandSurfaceCard(accent = MaterialTheme.colorScheme.error) {
+                    Text(
+                        text = "保存または読み込みに失敗しました",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    Text(
+                        text = error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
             if (!expandedMode) {
                 // 変更理由: 初回入力の意図を明確にするためクイック接続をカード化する。
                 CommandSurfaceCard(accent = MaterialTheme.colorScheme.secondary) {
@@ -213,7 +235,10 @@ fun HostEditorScreenContent(
                         onValueChange = onQuickConnectChange,
                         label = { Text(stringResource(R.string.host_editor_quick_connect_label)) },
                         placeholder = { Text(stringResource(R.string.host_editor_quick_connect_placeholder)) },
-                        supportingText = { Text(stringResource(R.string.host_editor_quick_connect_example)) },
+                        supportingText = {
+                            Text(uiState.quickConnectError ?: stringResource(R.string.host_editor_quick_connect_example))
+                        },
+                        isError = uiState.quickConnectError != null,
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )

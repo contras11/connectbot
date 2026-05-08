@@ -29,7 +29,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import io.shellpilot.app.R
 import io.shellpilot.app.ui.ScreenPreviews
 import io.shellpilot.app.ui.components.CommandSurfaceCard
 import io.shellpilot.app.ui.components.ShellPilotScaffold
@@ -46,7 +48,10 @@ fun EulaScreen(
         subtitle = "ConnectBot attribution / Apache License 2.0",
         navigationIcon = {
             IconButton(onClick = onNavigateBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.button_navigate_up)
+                )
             }
         },
         modifier = modifier

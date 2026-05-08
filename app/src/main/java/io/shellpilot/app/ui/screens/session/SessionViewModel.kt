@@ -63,6 +63,7 @@ class SessionViewModel @Inject constructor(
     val hostId: Long = savedStateHandle.get<Long>(NavArgs.HOST_ID) ?: -1L
 
     private var sessionController: SessionController? = null
+    private var shortcutCollectionStarted = false
 
     private val _sessionState = MutableStateFlow<SessionController.SessionState>(
         SessionController.SessionState.Idle
@@ -151,8 +152,8 @@ class SessionViewModel @Inject constructor(
         // ショートカットを読込
         loadShortcuts()
 
-        // hostIdが指定されていれば自動接続
-        if (hostId > 0L) {
+        // 変更理由: URI/ショートカット由来のtemporary host(負ID)も既存bridgeを拾う。
+        if (hostId != -1L) {
             connect()
         }
     }
@@ -237,14 +238,15 @@ class SessionViewModel @Inject constructor(
 
     /** ホストIDに対応するショートカットを読込む */
     private fun loadShortcuts() {
+        if (shortcutCollectionStarted) return
+        shortcutCollectionStarted = true
         viewModelScope.launch {
+            // 変更理由: 公式テンプレートを最新化しつつ、以後はRepositoryのFlowを
+            // 購読してショートカット設定画面の編集・削除・並び替えを即時反映する。
             shortcutRepository.syncOfficialTemplates()
-            val list = if (hostId > 0L) {
-                shortcutRepository.getForHost(hostId)
-            } else {
-                shortcutRepository.loadAll()
+            shortcutRepository.shortcuts.collect { list ->
+                _shortcuts.value = filterShortcutsForHost(list)
             }
-            _shortcuts.value = list
         }
     }
 
@@ -252,7 +254,10 @@ class SessionViewModel @Inject constructor(
     fun reloadShortcuts() {
         _profileOrder.value = profileOrderRepository.getOrder()
         _hiddenProfileIds.value = profileOrderRepository.getHiddenProfileIds()
-        loadShortcuts()
+        viewModelScope.launch {
+            val list = shortcutRepository.loadAll()
+            _shortcuts.value = filterShortcutsForHost(list)
+        }
     }
 
     /**
@@ -302,6 +307,15 @@ class SessionViewModel @Inject constructor(
                     )
                 }
             loadShortcuts()
+        }
+    }
+
+    private fun filterShortcutsForHost(list: List<Shortcut>): List<Shortcut> {
+        return if (hostId > 0L) {
+            list.filter { it.hostId == null || it.hostId == hostId }
+                .sortedWith(compareBy<Shortcut> { it.hostId != null }.thenBy { it.order })
+        } else {
+            list.sortedBy { it.order }
         }
     }
 

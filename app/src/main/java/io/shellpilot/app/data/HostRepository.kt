@@ -114,6 +114,11 @@ class HostRepository @Inject constructor(
     fun observeSshHosts(): Flow<List<Host>> = hostDao.observeSshHosts()
 
     /**
+     * Get the count of hosts using a specific public key.
+     */
+    suspend fun getHostsUsingPubkey(pubkeyId: Long): Int = hostDao.getHostsUsingPubkey(pubkeyId)
+
+    /**
      * Find a host by its unique ID (blocking version for Java interop).
      *
      * @param hostId The host ID

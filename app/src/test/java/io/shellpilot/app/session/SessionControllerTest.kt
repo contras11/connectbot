@@ -100,6 +100,23 @@ class SessionControllerTest {
     }
 
     @Test
+    fun connectByHostId_temporaryHost_reusesExistingBridge() = runTest(testDispatcher) {
+        val host = createHost(-1L, "temporary-host")
+        val mockBridge = createMockBridge(host)
+        bridgesFlow.value = listOf(mockBridge)
+
+        val controller = SessionController(terminalManager, dispatchers, backgroundScope)
+        advanceUntilIdle()
+
+        controller.connectByHostId(-1L)
+        advanceUntilIdle()
+
+        val state = controller.sessionState.value
+        assertTrue("Should be Active", state is SessionController.SessionState.Active)
+        assertEquals(mockBridge, (state as SessionController.SessionState.Active).bridge)
+    }
+
+    @Test
     fun connectByHostId_newBridge_createsViaManager() = runTest(testDispatcher) {
         val host = createHost(1L, "test-host")
         val mockBridge = createMockBridge(host)

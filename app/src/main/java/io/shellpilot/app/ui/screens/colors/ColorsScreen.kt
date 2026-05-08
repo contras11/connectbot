@@ -495,6 +495,7 @@ private fun SchemeItem(
     onDuplicate: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val schemeName = getLocalizedColorSchemeName(scheme)
     CommandSurfaceCard(
         modifier = modifier.fillMaxWidth(),
         onClick = onClick,
@@ -510,7 +511,7 @@ private fun SchemeItem(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = getLocalizedColorSchemeName(scheme),
+                    text = schemeName,
                     style = MaterialTheme.typography.titleMedium
                 )
                 val localizedDescription = getLocalizedColorSchemeDescription(scheme)
@@ -547,7 +548,7 @@ private fun SchemeItem(
                 IconButton(onClick = { showMenu = true }) {
                     Icon(
                         Icons.Default.MoreVert,
-                        contentDescription = stringResource(R.string.button_more_options)
+                        contentDescription = "「$schemeName」のその他の操作"
                     )
                 }
 

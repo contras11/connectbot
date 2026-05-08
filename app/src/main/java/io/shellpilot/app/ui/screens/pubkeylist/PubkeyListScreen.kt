@@ -273,7 +273,7 @@ fun PubkeyListScreenContent(
         subtitle = "認証キー・暗号化・ロード状態",
         navigationIcon = {
             IconButton(onClick = onNavigateBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
             }
         },
         actions = {
@@ -383,7 +383,7 @@ fun PubkeyListScreenContent(
                                     onExportPrivateKeyEncrypted(pubkey, onPasswordRequired, onExportPassphraseRequired)
                                 },
                                 onEdit = { onNavigateToEdit(pubkey) },
-                                onClick = { onToggleKeyLoaded(pubkey, it) }
+                                onClick = { onNavigateToEdit(pubkey) }
                             )
                         }
                     }
@@ -408,7 +408,7 @@ private fun PubkeyListItem(
     onExportPrivateKeyPem: ((Pubkey, (String) -> Unit) -> Unit) -> Unit,
     onExportPrivateKeyEncrypted: ((Pubkey, (String) -> Unit) -> Unit, (Pubkey, (String) -> Unit) -> Unit) -> Unit,
     onEdit: () -> Unit,
-    onClick: ((Pubkey, (String) -> Unit) -> Unit) -> Unit,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -420,13 +420,7 @@ private fun PubkeyListItem(
 
     CommandSurfaceCard(
         modifier = modifier.fillMaxWidth(),
-        onClick = {
-            onClick { _, callback ->
-                // 変更理由: カード化後も鍵ロード時のパスワード要求導線を維持する。
-                passwordCallback = callback
-                showPasswordDialog = true
-            }
-        },
+        onClick = onClick,
         accent = MaterialTheme.colorScheme.outlineVariant
     ) {
         Row(
@@ -487,9 +481,25 @@ private fun PubkeyListItem(
                 }
             }
 
+            TextButton(
+                onClick = {
+                    // 変更理由: カードタップで鍵のロード状態が変わると誤操作に見えるため、
+                    // ロード/解除は明示的な操作ボタンへ分離する。
+                    onToggleLoaded { _, callback ->
+                        passwordCallback = callback
+                        showPasswordDialog = true
+                    }
+                }
+            ) {
+                Text(if (isLoaded) "解除" else "ロード")
+            }
+
             Box {
                 IconButton(onClick = { showMenu = true }) {
-                    Icon(Icons.Default.MoreVert, stringResource(R.string.button_more_options))
+                    Icon(
+                        Icons.Default.MoreVert,
+                        "「${pubkey.nickname}」のその他の操作"
+                    )
                 }
                 DropdownMenu(
                     expanded = showMenu,

@@ -125,7 +125,7 @@ class SettingsViewModelPermissionTest {
 
         assertEquals("Should request permission", 1, permissionRequests.size)
         // Should optimistically update preference to ON while waiting for permission result
-        verify(prefsEditor).putBoolean(eq(PreferenceConstants.CONNECTION_PERSIST), eq(true))
+        verify(prefsEditor, atLeastOnce()).putBoolean(eq(PreferenceConstants.CONNECTION_PERSIST), eq(true))
 
         job.cancel()
     }
@@ -181,7 +181,7 @@ class SettingsViewModelPermissionTest {
         viewModel.updateConnPersist(true)
         advanceUntilIdle()
 
-        verify(prefsEditor).putBoolean(eq(PreferenceConstants.CONNECTION_PERSIST), eq(true))
+        verify(prefsEditor, atLeastOnce()).putBoolean(eq(PreferenceConstants.CONNECTION_PERSIST), eq(true))
         verify(prefsEditor).apply()
     }
 
@@ -192,20 +192,26 @@ class SettingsViewModelPermissionTest {
     @Test
     fun onNotificationPermissionResult_Granted_EnablesConnPersistAndClearsDenialState() = runTest {
         // First deny permission to set the denial state
+        viewModel.updateConnPersist(true)
+        advanceUntilIdle()
         viewModel.onNotificationPermissionResult(false)
         advanceUntilIdle()
 
         // Then grant permission (simulating user going to settings)
+        whenever(prefs.getBoolean(eq(PreferenceConstants.NOTIFICATION_PERMISSION_DENIED), any())).thenReturn(true)
+        viewModel.updateConnPersist(true)
+        advanceUntilIdle()
         viewModel.onNotificationPermissionResult(true)
         advanceUntilIdle()
 
-        verify(prefsEditor).putBoolean(eq(PreferenceConstants.NOTIFICATION_PERMISSION_DENIED), eq(false))
-        verify(prefsEditor).putBoolean(eq(PreferenceConstants.CONNECTION_PERSIST), eq(true))
+        verify(prefsEditor, atLeastOnce()).putBoolean(eq(PreferenceConstants.NOTIFICATION_PERMISSION_DENIED), eq(false))
+        verify(prefsEditor, atLeastOnce()).putBoolean(eq(PreferenceConstants.CONNECTION_PERSIST), eq(true))
         verify(prefsEditor, atLeastOnce()).apply()
 
         // Verify denial state is persisted by recreating ViewModel
         whenever(prefs.getBoolean(eq(PreferenceConstants.CONNECTION_PERSIST), any())).thenReturn(false)
-        // The NOTIFICATION_PERMISSION_DENIED flag is still false in SharedPreferences
+        // The NOTIFICATION_PERMISSION_DENIED flag is false after permission is granted.
+        whenever(prefs.getBoolean(eq(PreferenceConstants.NOTIFICATION_PERMISSION_DENIED), any())).thenReturn(false)
         viewModel = SettingsViewModel(prefs, profileRepository, context, dispatchers)
         advanceUntilIdle()
 
@@ -227,6 +233,8 @@ class SettingsViewModelPermissionTest {
 
     @Test
     fun onNotificationPermissionResult_Denied_KeepsConnPersistOffAndSetsDenialState() = runTest {
+        viewModel.updateConnPersist(true)
+        advanceUntilIdle()
         viewModel.onNotificationPermissionResult(false)
         advanceUntilIdle()
 

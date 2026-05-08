@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import io.shellpilot.app.data.ColorSchemeRepository
+import io.shellpilot.app.data.ProfileRepository
 import io.shellpilot.app.data.entity.ColorScheme
 import javax.inject.Inject
 
@@ -42,7 +43,8 @@ data class SchemeManagerUiState(
 
 @HiltViewModel
 class ColorSchemeManagerViewModel @Inject constructor(
-    val repository: ColorSchemeRepository
+    val repository: ColorSchemeRepository,
+    private val profileRepository: ProfileRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SchemeManagerUiState())
@@ -160,6 +162,14 @@ class ColorSchemeManagerViewModel @Inject constructor(
                 if (scheme?.isBuiltIn == true) {
                     _uiState.update {
                         it.copy(dialogError = "内蔵スキームは削除できません")
+                    }
+                    return@launch
+                }
+
+                val usageCount = profileRepository.getProfilesUsingColorScheme(schemeId)
+                if (usageCount > 0) {
+                    _uiState.update {
+                        it.copy(dialogError = "このカラースキームは $usageCount 件のプロファイルで使用中のため削除できません")
                     }
                     return@launch
                 }

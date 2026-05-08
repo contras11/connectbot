@@ -18,6 +18,7 @@
 package io.shellpilot.app.ui.screens.shortcutlist
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -28,31 +29,30 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -117,7 +117,11 @@ fun ShortcutListScreen(
     var editingShortcut by remember { mutableStateOf<Shortcut?>(null) }
     var showAddDialog by remember { mutableStateOf(false) }
     var showImportDialog by remember { mutableStateOf(false) }
+    var pendingDelete by remember { mutableStateOf<Shortcut?>(null) }
+    var commandQuery by remember { mutableStateOf("") }
     var selectedMode by remember { mutableIntStateOf(0) }
+    var profileActionTarget by remember { mutableStateOf<ProfileActionTarget?>(null) }
+    var shortcutActionTarget by remember { mutableStateOf<ShortcutActionTarget?>(null) }
 
     // 変更理由: ホストグループとカテゴリグループの折り畳み状態を管理する。
     // キー: "host:${hostId}" または "cat:${hostId}:${categoryId}"
@@ -126,8 +130,28 @@ fun ShortcutListScreen(
     // 変更理由: グローバル（hostId=null）とホスト別でグルーピングし、
     // さらにcategoryでサブグルーピングする。
     // グローバルは "GLOBAL" キーで、ホスト別は hostId の文字列でグルーピング。
-    val grouped: Map<String, Map<String, List<Shortcut>>> = remember(shortcuts) {
-        val hostGroups = shortcuts.groupBy { it.hostId?.toString() ?: "GLOBAL" }
+    val filteredShortcuts = remember(shortcuts, commandQuery) {
+        val query = commandQuery.trim()
+        if (query.isEmpty()) {
+            shortcuts
+        } else {
+            shortcuts.filter { shortcut ->
+                val categoryName = shortcut.category?.let {
+                    CliCommandRegistry.findCategory(it)?.displayName ?: it
+                }.orEmpty()
+                listOf(
+                    shortcut.label,
+                    shortcut.command,
+                    shortcut.category.orEmpty(),
+                    categoryName,
+                    shortcut.hostId?.toString().orEmpty()
+                ).any { it.contains(query, ignoreCase = true) }
+            }
+        }
+    }
+
+    val grouped: Map<String, Map<String, List<Shortcut>>> = remember(filteredShortcuts) {
+        val hostGroups = filteredShortcuts.groupBy { it.hostId?.toString() ?: "GLOBAL" }
         hostGroups.mapValues { (_, hostShortcuts) ->
             hostShortcuts.groupBy { it.category ?: "UNCATEGORIZED" }
         }
@@ -193,7 +217,7 @@ fun ShortcutListScreen(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "右下の＋ボタンから個別追加、または右上のインポートボタンから" +
+                    text = "上部の＋ボタンから個別追加、またはインポートボタンから" +
                         "テンプレートを一括追加できます。\n\n" +
                         "コマンド内で {{hostname}} などのプレースホルダが使えます。",
                     style = MaterialTheme.typography.bodyMedium,
@@ -224,7 +248,7 @@ fun ShortcutListScreen(
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             StatusChip(label = "タブ ${profileOrder.size}")
                             StatusChip(label = "コマンド ${shortcuts.size}")
-                            StatusChip(label = "公式テンプレート")
+                            StatusChip(label = "公式 ${CliCommandRegistry.OFFICIAL_COMMANDS_REVIEWED_DATE}")
                         }
                     }
                 }
@@ -261,23 +285,32 @@ fun ShortcutListScreen(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "セッション画面に出すカテゴリと並び順を設定します。",
+                                text = "セッション画面に出すカテゴリと並び順を設定します。各行をタップすると表示切替と並び替えを行えます。",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
-                    items(
+                    itemsIndexed(
                         items = profileOrder,
-                        key = { "profile_${it ?: "custom"}" }
-                    ) { profileId ->
+                        key = { _, item -> "profile_${item ?: "custom"}" }
+                    ) { index, profileId ->
                         val profileLabel = if (profileId == null) {
                             "カスタム"
                         } else {
                             CliCommandRegistry.findCategory(profileId)?.displayName
                                 ?: profileId
                         }
-                        CommandSurfaceCard {
+                        val visible = profileId == null || profileId !in hiddenProfileIds
+                        CommandSurfaceCard(
+                            onClick = {
+                                profileActionTarget = ProfileActionTarget(
+                                    id = profileId,
+                                    label = profileLabel,
+                                    index = index
+                                )
+                            }
+                        ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -296,7 +329,7 @@ fun ShortcutListScreen(
                                         style = MaterialTheme.typography.titleSmall
                                     )
                                     Text(
-                                        text = if (profileId == null || profileId !in hiddenProfileIds) {
+                                        text = if (visible) {
                                             "セッション画面に表示"
                                         } else {
                                             "セッション画面では非表示"
@@ -305,34 +338,8 @@ fun ShortcutListScreen(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
-                                Row {
-                                    if (profileId != null) {
-                                        Switch(
-                                            checked = profileId !in hiddenProfileIds,
-                                            onCheckedChange = { checked ->
-                                                viewModel.setProfileVisible(profileId, checked)
-                                            }
-                                        )
-                                    }
-                                    IconButton(
-                                        onClick = { viewModel.moveProfileUp(profileId) }
-                                    ) {
-                                        Icon(
-                                            Icons.Default.KeyboardArrowUp,
-                                            contentDescription = "上へ移動",
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                    IconButton(
-                                        onClick = { viewModel.moveProfileDown(profileId) }
-                                    ) {
-                                        Icon(
-                                            Icons.Default.KeyboardArrowDown,
-                                            contentDescription = "下へ移動",
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
+                                StatusChip(label = if (visible) "表示" else "非表示")
+                                StatusChip(label = "管理")
                             }
                         }
                     }
@@ -348,10 +355,52 @@ fun ShortcutListScreen(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "コマンドの追加・編集・並び替えを行います。カスタム項目は公式更新後も保持されます。",
+                                text = "コマンドの追加・編集・並び替えを行います。各行をタップすると編集、移動、削除を選べます。",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                StatusChip(label = "表示 ${filteredShortcuts.size}件")
+                                StatusChip(label = "削除済み公式は復活しません")
+                            }
+                        }
+                    }
+
+                    item(key = "command_list_search") {
+                        OutlinedTextField(
+                            value = commandQuery,
+                            onValueChange = { commandQuery = it },
+                            label = { Text("コマンドを検索") },
+                            placeholder = { Text("例: codex, /status, Ctrl+C") },
+                            singleLine = true,
+                            leadingIcon = {
+                                Icon(Icons.Default.Search, contentDescription = null)
+                            },
+                            trailingIcon = {
+                                if (commandQuery.isNotEmpty()) {
+                                    IconButton(onClick = { commandQuery = "" }) {
+                                        Icon(Icons.Default.Close, contentDescription = "検索語を消去")
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    if (filteredShortcuts.isEmpty()) {
+                        item(key = "command_list_empty_result") {
+                            CommandSurfaceCard {
+                                Text(
+                                    text = "一致するコマンドがありません",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "検索語を短くするか、上部のインポートから公式テンプレートを追加してください。",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
 
@@ -393,18 +442,22 @@ fun ShortcutListScreen(
                                 }
 
                                 if (catExpanded) {
-                                    items(
-                                        items = categoryShortcuts.sortedBy { it.order },
-                                        key = { it.id }
-                                    ) { shortcut ->
-                                        // 変更理由: 上下移動ボタンを追加し
-                                        // ショートカットの表示順を変更可能にする
+                                    val sortedShortcuts = categoryShortcuts.sortedBy { it.order }
+                                    itemsIndexed(
+                                        items = sortedShortcuts,
+                                        key = { _, item -> item.id }
+                                    ) { index, shortcut ->
                                         ShortcutListItem(
                                             shortcut = shortcut,
-                                            onClick = { editingShortcut = shortcut },
-                                            onDelete = { viewModel.delete(shortcut.id) },
-                                            onMoveUp = { viewModel.moveUp(shortcut) },
-                                            onMoveDown = { viewModel.moveDown(shortcut) }
+                                            onClick = {
+                                                shortcutActionTarget = ShortcutActionTarget(
+                                                    shortcut = shortcut,
+                                                    canMoveUp = commandQuery.isBlank() && index > 0,
+                                                    canMoveDown = commandQuery.isBlank() &&
+                                                        index < sortedShortcuts.lastIndex,
+                                                    reorderBlocked = commandQuery.isNotBlank()
+                                                )
+                                            }
                                         )
                                     }
                                 }
@@ -451,6 +504,7 @@ fun ShortcutListScreen(
             // 変更理由: label単独ではClaude CodeとCodexで"/help"等が衝突するため
             // (label, category)ペアで重複判定に変更。異なるカテゴリなら同名ラベルも追加可。
             existingPairs = shortcuts.map { it.label to it.category }.toSet(),
+            existingTemplateKeys = shortcuts.mapNotNull { it.templateKey }.toSet(),
             onDismiss = { showImportDialog = false },
             onImport = { category ->
                 viewModel.importCategory(category.id)
@@ -458,7 +512,96 @@ fun ShortcutListScreen(
             }
         )
     }
+
+    profileActionTarget?.let { target ->
+        val visible = target.id == null || target.id !in hiddenProfileIds
+        ProfileActionDialog(
+            target = target,
+            visible = visible,
+            canMoveUp = target.index > 0,
+            canMoveDown = target.index < profileOrder.lastIndex,
+            onDismiss = { profileActionTarget = null },
+            onToggleVisible = {
+                target.id?.let { viewModel.setProfileVisible(it, !visible) }
+                profileActionTarget = null
+            },
+            onMoveUp = {
+                viewModel.moveProfileUp(target.id)
+                profileActionTarget = null
+            },
+            onMoveDown = {
+                viewModel.moveProfileDown(target.id)
+                profileActionTarget = null
+            }
+        )
+    }
+
+    shortcutActionTarget?.let { target ->
+        ShortcutActionDialog(
+            target = target,
+            onDismiss = { shortcutActionTarget = null },
+            onEdit = {
+                editingShortcut = target.shortcut
+                shortcutActionTarget = null
+            },
+            onMoveUp = {
+                viewModel.moveUp(target.shortcut)
+                shortcutActionTarget = null
+            },
+            onMoveDown = {
+                viewModel.moveDown(target.shortcut)
+                shortcutActionTarget = null
+            },
+            onDelete = {
+                pendingDelete = target.shortcut
+                shortcutActionTarget = null
+            }
+        )
+    }
+
+    pendingDelete?.let { shortcut ->
+        ShellPilotActionDialog(
+            title = "ショートカットを削除",
+            subtitle = "この操作はすぐに保存されます。公式テンプレートの場合も自動復活しません。",
+            onDismiss = { pendingDelete = null },
+            dismissLabel = "キャンセル",
+            confirmLabel = "削除",
+            destructiveConfirm = true,
+            onConfirm = {
+                viewModel.delete(shortcut.id)
+                pendingDelete = null
+            }
+        ) {
+            CommandSurfaceCard {
+                Text(
+                    text = shortcut.label,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = shortcut.command.toPreviewCommand(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
 }
+
+private data class ProfileActionTarget(
+    val id: String?,
+    val label: String,
+    val index: Int
+)
+
+private data class ShortcutActionTarget(
+    val shortcut: Shortcut,
+    val canMoveUp: Boolean,
+    val canMoveDown: Boolean,
+    val reorderBlocked: Boolean
+)
 
 /**
  * ホストグループのセクションヘッダー。
@@ -486,13 +629,13 @@ private fun HostGroupHeader(
                 imageVector = if (expanded) Icons.Default.KeyboardArrowDown
                 else Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = if (expanded) "折り畳む" else "展開する",
-                tint = MaterialTheme.colorScheme.primary
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = label,
                 style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary,
+                color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f)
             )
             Text(
@@ -530,13 +673,13 @@ private fun CategoryGroupHeader(
             imageVector = if (expanded) Icons.Default.KeyboardArrowDown
             else Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = if (expanded) "折り畳む" else "展開する",
-            tint = MaterialTheme.colorScheme.secondary
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(modifier = Modifier.width(6.dp))
         Text(
             text = label,
             style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.secondary,
+            color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f)
         )
         Text(
@@ -550,27 +693,18 @@ private fun CategoryGroupHeader(
 
 /**
  * ショートカットの1行表示。
- * ラベル、コマンドプレビュー、上下移動ボタン、削除ボタンを表示する。
+ * ラベルとコマンドプレビューを表示する。
  *
- * 変更理由: 上下移動ボタンを追加し、ショートカットの表示順を
- * ユーザが自由に変更できるようにする。orderフィールドがスワップされ
- * JSON永続化後も順序が保持される。SSH接続後のShortcutBarにも反映。
+ * 変更理由: 上下移動・削除などの低頻度操作を行内に常時表示すると
+ * 画面が窮屈になるため、タップ後の管理シートへ集約する。
  */
 @Composable
 private fun ShortcutListItem(
     shortcut: Shortcut,
-    onClick: () -> Unit,
-    onDelete: () -> Unit,
-    onMoveUp: () -> Unit = {},
-    onMoveDown: () -> Unit = {}
+    onClick: () -> Unit
 ) {
     // コマンドの改行・制御文字を視覚的に表示
-    val commandPreview = shortcut.command
-        .replace("\n", "\\n")
-        .replace("\u0003", "^C")
-        .replace("\u0004", "^D")
-        .replace("\u001A", "^Z")
-        .take(60)
+    val commandPreview = shortcut.command.toPreviewCommand()
 
     CommandSurfaceCard(onClick = onClick) {
         Row(
@@ -593,33 +727,151 @@ private fun ShortcutListItem(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            // 変更理由: 削除だけが強い赤面に見えないよう、通常時は中立アイコンに揃える。
-            Row {
-                IconButton(onClick = onMoveUp) {
-                    Icon(
-                        Icons.Default.KeyboardArrowUp,
-                        contentDescription = "上へ移動",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                IconButton(onClick = onMoveDown) {
-                    Icon(
-                        Icons.Default.KeyboardArrowDown,
-                        contentDescription = "下へ移動",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = "削除",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+            StatusChip(label = if (shortcut.templateKey != null) "公式" else "カスタム")
+            StatusChip(label = "管理")
         }
     }
 }
+
+@Composable
+private fun ProfileActionDialog(
+    target: ProfileActionTarget,
+    visible: Boolean,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
+    onDismiss: () -> Unit,
+    onToggleVisible: () -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit
+) {
+    ShellPilotActionDialog(
+        title = "表示タブを管理",
+        subtitle = target.label,
+        onDismiss = onDismiss,
+        dismissLabel = "閉じる"
+    ) {
+        CommandSurfaceCard {
+            Text(
+                text = target.label,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = if (target.id == null) {
+                    "カスタムタブはユーザー作成ショートカットの入口として常に表示されます。"
+                } else if (visible) {
+                    "現在はセッション画面に表示されています。"
+                } else {
+                    "現在はセッション画面で非表示です。"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        if (target.id != null) {
+            FilledTonalButton(
+                onClick = onToggleVisible,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (visible) "セッション画面で非表示にする" else "セッション画面に表示する")
+            }
+        }
+        FilledTonalButton(
+            onClick = onMoveUp,
+            enabled = canMoveUp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("上へ移動")
+        }
+        FilledTonalButton(
+            onClick = onMoveDown,
+            enabled = canMoveDown,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("下へ移動")
+        }
+    }
+}
+
+@Composable
+private fun ShortcutActionDialog(
+    target: ShortcutActionTarget,
+    onDismiss: () -> Unit,
+    onEdit: () -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+    onDelete: () -> Unit
+) {
+    ShellPilotActionDialog(
+        title = "コマンドを管理",
+        subtitle = target.shortcut.label,
+        onDismiss = onDismiss,
+        dismissLabel = "閉じる"
+    ) {
+        CommandSurfaceCard {
+            Text(
+                text = target.shortcut.label,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = target.shortcut.command.toPreviewCommand(),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                StatusChip(
+                    label = target.shortcut.category?.let {
+                        CliCommandRegistry.findCategory(it)?.displayName ?: it
+                    } ?: "未分類"
+                )
+                StatusChip(label = if (target.shortcut.templateKey != null) "公式" else "カスタム")
+            }
+        }
+        if (target.reorderBlocked) {
+            Text(
+                text = "検索中は並び替えできません。検索を解除してから操作してください。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        FilledTonalButton(
+            onClick = onEdit,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("編集")
+        }
+        FilledTonalButton(
+            onClick = onMoveUp,
+            enabled = target.canMoveUp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("上へ移動")
+        }
+        FilledTonalButton(
+            onClick = onMoveDown,
+            enabled = target.canMoveDown,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("下へ移動")
+        }
+        FilledTonalButton(
+            onClick = onDelete,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("削除")
+        }
+    }
+}
+
+private fun String.toPreviewCommand(): String = replace("\n", "\\n")
+    .replace("\u0003", "^C")
+    .replace("\u0004", "^D")
+    .replace("\u001A", "^Z")
+    .replace("\u001B", "Esc")
+    .take(80)
 
 /**
  * カテゴリ別テンプレートインポートダイアログ。
@@ -634,6 +886,7 @@ private fun ShortcutListItem(
 @Composable
 private fun ImportCategoryDialog(
     existingPairs: Set<Pair<String, String?>>,
+    existingTemplateKeys: Set<String>,
     onDismiss: () -> Unit,
     onImport: (CliCommandRegistry.ToolCategory) -> Unit
 ) {
@@ -644,7 +897,11 @@ private fun ImportCategoryDialog(
     ) {
         LazyColumn {
             items(CliCommandRegistry.categories) { category ->
-                val newCount = category.commands.count { (it.label to category.id) !in existingPairs }
+                val newCount = category.commands.count {
+                    val key = it.templateKey
+                    (key == null || key !in existingTemplateKeys) &&
+                        (it.label to category.id) !in existingPairs
+                }
                 CommandSurfaceCard {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -688,30 +945,38 @@ private fun ShortcutEditDialog(
     onSave: (Shortcut) -> Unit
 ) {
     var label by remember { mutableStateOf(shortcut?.label ?: "") }
-    var command by remember { mutableStateOf(shortcut?.command ?: "") }
+    var command by remember { mutableStateOf(shortcut?.command?.replace("\n", "\\n") ?: "") }
     var hostIdText by remember {
         mutableStateOf(shortcut?.hostId?.toString() ?: "")
     }
     // 変更理由: カテゴリ入力フィールドを追加
     var categoryText by remember { mutableStateOf(shortcut?.category ?: "") }
+    val hostIdHasError = hostIdText.isNotBlank() && hostIdText.toLongOrNull() == null
 
     ShellPilotActionDialog(
         title = title,
         onDismiss = onDismiss,
         dismissLabel = "キャンセル",
         confirmLabel = "保存",
-        confirmEnabled = label.isNotBlank() && command.isNotBlank(),
+        confirmEnabled = label.isNotBlank() && command.isNotBlank() && !hostIdHasError,
         onConfirm = {
-            if (label.isNotBlank() && command.isNotBlank()) {
+            if (label.isNotBlank() && command.isNotBlank() && !hostIdHasError) {
                 val hostId = hostIdText.toLongOrNull()
                 // 変更理由: 空文字列はnullとして扱い未分類グループに表示
                 val category = categoryText.trim().ifBlank { null }
+                val normalizedCommand = command.replace("\\n", "\n")
+                val unchangedOfficialTemplate = shortcut?.templateKey != null &&
+                    label.trim() == shortcut.label &&
+                    normalizedCommand == shortcut.command &&
+                    hostId == shortcut.hostId &&
+                    category == shortcut.category
                 val newShortcut = Shortcut(
                     id = shortcut?.id ?: java.util.UUID.randomUUID().toString(),
                     label = label.trim(),
-                    command = command,
+                    command = normalizedCommand,
                     hostId = hostId,
                     category = category,
+                    templateKey = if (unchangedOfficialTemplate) shortcut.templateKey else null,
                     order = shortcut?.order ?: 0
                 )
                 onSave(newShortcut)
@@ -739,7 +1004,7 @@ private fun ShortcutEditDialog(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "末尾に \\n を付けると自動実行されます\n" +
+                text = "末尾に \\n を付けると保存時に改行へ変換され、送信時にEnter相当になります\n" +
                     "プレースホルダ: {{hostname}}, {{username}}, {{port}} 等",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.outline
@@ -750,6 +1015,12 @@ private fun ShortcutEditDialog(
                 onValueChange = { hostIdText = it },
                 label = { Text("ホストID (空欄=グローバル)") },
                 placeholder = { Text("空欄でグローバル") },
+                isError = hostIdHasError,
+                supportingText = {
+                    if (hostIdHasError) {
+                        Text("ホストIDは数字で入力してください")
+                    }
+                },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -769,6 +1040,24 @@ private fun ShortcutEditDialog(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                CommandChipButton(
+                    label = "カスタム",
+                    onClick = { categoryText = "" },
+                    emphasized = categoryText.isBlank()
+                )
+                CliCommandRegistry.categories.forEach { category ->
+                    CommandChipButton(
+                        label = category.displayName,
+                        onClick = { categoryText = category.id },
+                        emphasized = categoryText == category.id
+                    )
+                }
+            }
         }
     }
 }

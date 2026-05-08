@@ -50,9 +50,14 @@ class ProfileOrderRepository @Inject constructor(
         val json = prefs.getString(PREF_KEY, null) ?: return defaultOrder()
         return try {
             val array = JSONArray(json)
-            (0 until array.length()).map { i ->
+            val savedOrder = (0 until array.length()).map { i ->
                 val value = array.getString(i)
                 if (value == NULL_MARKER) null else value
+            }
+            normalizeOrder(savedOrder).also { normalized ->
+                if (normalized != savedOrder) {
+                    saveOrder(normalized)
+                }
             }
         } catch (_: Exception) {
             defaultOrder()
@@ -113,6 +118,29 @@ class ProfileOrderRepository @Inject constructor(
             add(null) // カスタムタブ
             CliCommandRegistry.categories.forEach { add(it.id) }
         }
+    }
+
+    /**
+     * 保存済み順序を現在のカテゴリ定義へ合わせて正規化する。
+     *
+     * 変更理由: アプリ更新で Claude Code / Codex などのカテゴリが増減しても、
+     * 設定画面で表示・非表示や並び替えができないタブを残さないようにする。
+     */
+    private fun normalizeOrder(savedOrder: List<String?>): List<String?> {
+        val validIds = CliCommandRegistry.categories.map { it.id }.toSet()
+        val normalized = mutableListOf<String?>()
+        savedOrder.forEach { id ->
+            val valid = id == null || id in validIds
+            if (valid && id !in normalized) {
+                normalized.add(id)
+            }
+        }
+        defaultOrder().forEach { id ->
+            if (id !in normalized) {
+                normalized.add(id)
+            }
+        }
+        return normalized
     }
 
     companion object {

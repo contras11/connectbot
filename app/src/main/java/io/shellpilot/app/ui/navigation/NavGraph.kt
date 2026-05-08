@@ -168,6 +168,18 @@ fun ShellPilotNavHost(
                 onNavigateBack = { navController.safePopBackStack() },
                 onNavigateToShortcuts = {
                     navController.navigateSafely(NavDestinations.SHORTCUT_LIST)
+                },
+                onNavigateToPubkeys = {
+                    navController.navigateSafely(NavDestinations.PUBKEY_LIST)
+                },
+                onNavigateToProfiles = {
+                    navController.navigateSafely(NavDestinations.PROFILES)
+                },
+                onNavigateToColors = {
+                    navController.navigateSafely(NavDestinations.COLORS)
+                },
+                onNavigateToHelp = {
+                    navController.navigateSafely(NavDestinations.HELP)
                 }
             )
         }

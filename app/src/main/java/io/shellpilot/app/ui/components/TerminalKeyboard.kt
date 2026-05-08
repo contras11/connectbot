@@ -63,6 +63,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Job
@@ -234,19 +239,19 @@ private fun TerminalKeyboardContent(
                     // IME表示中でも横スクロールなしで優先操作へ届くようにする。
                     ControlSequenceButton(
                         text = "^C",
-                        contentDescription = "Ctrl+Cを送信",
+                        contentDescription = stringResource(R.string.terminal_key_ctrl_c_description),
                         onClick = { onControlSequence("\u0003") }
                     )
 
                     ControlSequenceButton(
                         text = "^D",
-                        contentDescription = "Ctrl+Dを送信",
+                        contentDescription = stringResource(R.string.terminal_key_ctrl_d_description),
                         onClick = { onControlSequence("\u0004") }
                     )
 
                     ControlSequenceButton(
                         text = "^Z",
-                        contentDescription = "Ctrl+Zを送信",
+                        contentDescription = stringResource(R.string.terminal_key_ctrl_z_description),
                         onClick = { onControlSequence("\u001A") }
                     )
 
@@ -300,99 +305,99 @@ private fun TerminalKeyboardContent(
                     // Home/End
                     KeyButton(
                         text = stringResource(R.string.button_key_home),
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.terminal_key_home_description),
                         onClick = { onKeyPress(VTermKey.HOME) }
                     )
 
                     KeyButton(
                         text = stringResource(R.string.button_key_end),
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.terminal_key_end_description),
                         onClick = { onKeyPress(VTermKey.END) }
                     )
 
                     // Page Up/Down
                     KeyButton(
                         text = stringResource(R.string.button_key_pgup),
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.terminal_key_page_up_description),
                         onClick = { onKeyPress(VTermKey.PAGEUP) }
                     )
 
                     KeyButton(
                         text = stringResource(R.string.button_key_pgdn),
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.terminal_key_page_down_description),
                         onClick = { onKeyPress(VTermKey.PAGEDOWN) }
                     )
 
                     // Function keys F1-F12
                     KeyButton(
                         text = stringResource(R.string.button_key_f1),
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.terminal_key_function_description, 1),
                         onClick = { onKeyPress(VTermKey.FUNCTION_1) }
                     )
 
                     KeyButton(
                         text = stringResource(R.string.button_key_f2),
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.terminal_key_function_description, 2),
                         onClick = { onKeyPress(VTermKey.FUNCTION_2) }
                     )
 
                     KeyButton(
                         text = stringResource(R.string.button_key_f3),
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.terminal_key_function_description, 3),
                         onClick = { onKeyPress(VTermKey.FUNCTION_3) }
                     )
 
                     KeyButton(
                         text = stringResource(R.string.button_key_f4),
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.terminal_key_function_description, 4),
                         onClick = { onKeyPress(VTermKey.FUNCTION_4) }
                     )
 
                     KeyButton(
                         text = stringResource(R.string.button_key_f5),
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.terminal_key_function_description, 5),
                         onClick = { onKeyPress(VTermKey.FUNCTION_5) }
                     )
 
                     KeyButton(
                         text = stringResource(R.string.button_key_f6),
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.terminal_key_function_description, 6),
                         onClick = { onKeyPress(VTermKey.FUNCTION_6) }
                     )
 
                     KeyButton(
                         text = stringResource(R.string.button_key_f7),
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.terminal_key_function_description, 7),
                         onClick = { onKeyPress(VTermKey.FUNCTION_7) }
                     )
 
                     KeyButton(
                         text = stringResource(R.string.button_key_f8),
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.terminal_key_function_description, 8),
                         onClick = { onKeyPress(VTermKey.FUNCTION_8) }
                     )
 
                     KeyButton(
                         text = stringResource(R.string.button_key_f9),
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.terminal_key_function_description, 9),
                         onClick = { onKeyPress(VTermKey.FUNCTION_9) }
                     )
 
                     KeyButton(
                         text = stringResource(R.string.button_key_f10),
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.terminal_key_function_description, 10),
                         onClick = { onKeyPress(VTermKey.FUNCTION_10) }
                     )
 
                     KeyButton(
                         text = stringResource(R.string.button_key_f11),
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.terminal_key_function_description, 11),
                         onClick = { onKeyPress(VTermKey.FUNCTION_11) }
                     )
 
                     KeyButton(
                         text = stringResource(R.string.button_key_f12),
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.terminal_key_function_description, 12),
                         onClick = { onKeyPress(VTermKey.FUNCTION_12) }
                     )
                 }
@@ -487,6 +492,18 @@ private fun KeyButton(
 ) {
     val surfaceModifier = modifier
         .size(width = TERMINAL_KEYBOARD_WIDTH_DP.dp, height = TERMINAL_KEYBOARD_HEIGHT_DP.dp)
+        .semantics {
+            contentDescription?.let { description ->
+                this.contentDescription = description
+            }
+            role = Role.Button
+            onClick?.let { click ->
+                onClick {
+                    click()
+                    true
+                }
+            }
+        }
 
     val content: @Composable () -> Unit = {
         Box(
@@ -542,13 +559,23 @@ private fun ControlSequenceButton(
         onClick = onClick,
         modifier = modifier
             .width(36.dp)
-            .height(TERMINAL_KEYBOARD_HEIGHT_DP.dp),
+            .height(TERMINAL_KEYBOARD_HEIGHT_DP.dp)
+            .semantics {
+                contentDescription?.let { description ->
+                    this.contentDescription = description
+                }
+                role = Role.Button
+                onClick {
+                    onClick()
+                    true
+                }
+            },
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
         shape = RoundedCornerShape(8.dp),
         // 変更理由: ^Cなどは重要だが危険色ではないため、白黒テーマに馴染む
         // primaryContainerの控えめな強調に留める。
         border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
-        color = MaterialTheme.colorScheme.primaryContainer,
-        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        color = MaterialTheme.colorScheme.primaryContainer
     ) {
         Box(
             contentAlignment = Alignment.Center,
@@ -594,35 +621,46 @@ private fun RepeatableKeyButton(
         icon = icon,
         contentDescription = contentDescription,
         onClick = null,
-        modifier = modifier.pointerInput(Unit) {
-            detectTapGestures(
-                onPress = {
-                    isPressed = true
+        modifier = modifier
+            .semantics {
+                contentDescription?.let { description ->
+                    this.contentDescription = description
+                }
+                role = Role.Button
+                onClick {
+                    onPress()
+                    true
+                }
+            }
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        isPressed = true
 
-                    val tapTimeout = ViewConfiguration.getTapTimeout().toLong()
-                    repeatJob = coroutineScope.launch {
-                        delay(tapTimeout)
-                        if (!isPressed) return@launch
-                        onPress()
-                        delay(500 - tapTimeout)
-                        while (isPressed) {
+                        val tapTimeout = ViewConfiguration.getTapTimeout().toLong()
+                        repeatJob = coroutineScope.launch {
+                            delay(tapTimeout)
+                            if (!isPressed) return@launch
                             onPress()
-                            delay(50)
+                            delay(500 - tapTimeout)
+                            while (isPressed) {
+                                onPress()
+                                delay(50)
+                            }
+                        }
+
+                        val released = tryAwaitRelease()
+                        isPressed = false
+
+                        if (released && repeatJob?.isActive == true) {
+                            repeatJob?.cancel()
+                            onPress()
+                        } else {
+                            repeatJob?.cancel()
                         }
                     }
-
-                    val released = tryAwaitRelease()
-                    isPressed = false
-
-                    if (released && repeatJob?.isActive == true) {
-                        repeatJob?.cancel()
-                        onPress()
-                    } else {
-                        repeatJob?.cancel()
-                    }
-                }
-            )
-        },
+                )
+            },
         backgroundColor = backgroundColor
     )
 }

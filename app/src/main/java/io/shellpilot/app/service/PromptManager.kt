@@ -22,6 +22,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Modern prompt manager using Kotlin coroutines instead of semaphores and blocking.
@@ -31,6 +33,8 @@ class PromptManager {
     private val _promptState = MutableStateFlow<PromptRequest?>(null)
     val promptState: StateFlow<PromptRequest?> = _promptState.asStateFlow()
 
+    private val promptMutex = Mutex()
+    private val deferredLock = Any()
     private var currentDeferred: CompletableDeferred<PromptResponse>? = null
 
     /**
@@ -40,20 +44,14 @@ class PromptManager {
         instructions: String?,
         message: String
     ): Boolean {
-        val deferred = CompletableDeferred<PromptResponse>()
-        currentDeferred = deferred
-
-        _promptState.update {
-            PromptRequest.BooleanPrompt(
+        return awaitPrompt(
+            request = PromptRequest.BooleanPrompt(
                 instructions = instructions,
                 message = message
             )
+        ) { response ->
+            (response as? PromptResponse.BooleanResponse)?.value ?: false
         }
-
-        val response = deferred.await()
-        _promptState.update { null }
-
-        return (response as? PromptResponse.BooleanResponse)?.value ?: false
     }
 
     /**
@@ -64,21 +62,15 @@ class PromptManager {
         hint: String?,
         isPassword: Boolean = false
     ): String? {
-        val deferred = CompletableDeferred<PromptResponse>()
-        currentDeferred = deferred
-
-        _promptState.update {
-            PromptRequest.StringPrompt(
+        return awaitPrompt(
+            request = PromptRequest.StringPrompt(
                 instructions = instructions,
                 hint = hint,
                 isPassword = isPassword
             )
+        ) { response ->
+            (response as? PromptResponse.StringResponse)?.value
         }
-
-        val response = deferred.await()
-        _promptState.update { null }
-
-        return (response as? PromptResponse.StringResponse)?.value
     }
 
     /**
@@ -88,20 +80,14 @@ class PromptManager {
         keyNickname: String,
         keystoreAlias: String
     ): Boolean {
-        val deferred = CompletableDeferred<PromptResponse>()
-        currentDeferred = deferred
-
-        _promptState.update {
-            PromptRequest.BiometricPrompt(
+        return awaitPrompt(
+            request = PromptRequest.BiometricPrompt(
                 keyNickname = keyNickname,
                 keystoreAlias = keystoreAlias
             )
+        ) { response ->
+            (response as? PromptResponse.BiometricResponse)?.success ?: false
         }
-
-        val response = deferred.await()
-        _promptState.update { null }
-
-        return (response as? PromptResponse.BiometricResponse)?.success ?: false
     }
 
     /**
@@ -117,11 +103,8 @@ class PromptManager {
         sha256: String,
         md5: String
     ): Boolean {
-        val deferred = CompletableDeferred<PromptResponse>()
-        currentDeferred = deferred
-
-        _promptState.update {
-            PromptRequest.HostKeyFingerprintPrompt(
+        return awaitPrompt(
+            request = PromptRequest.HostKeyFingerprintPrompt(
                 hostname = hostname,
                 keyType = keyType,
                 keySize = keySize,
@@ -131,28 +114,56 @@ class PromptManager {
                 sha256 = sha256,
                 md5 = md5
             )
+        ) { response ->
+            (response as? PromptResponse.BooleanResponse)?.value ?: false
+        }
+    }
+
+    /**
+     * 変更理由: 同時promptでcurrentDeferredが上書きされないよう、表示と応答を直列化する。
+     */
+    private suspend fun <T> awaitPrompt(
+        request: PromptRequest,
+        mapResponse: (PromptResponse) -> T
+    ): T = promptMutex.withLock {
+        val deferred = CompletableDeferred<PromptResponse>()
+        synchronized(deferredLock) {
+            currentDeferred?.cancel()
+            currentDeferred = deferred
         }
 
-        val response = deferred.await()
-        _promptState.update { null }
+        _promptState.update { request }
 
-        return (response as? PromptResponse.BooleanResponse)?.value ?: false
+        try {
+            mapResponse(deferred.await())
+        } finally {
+            synchronized(deferredLock) {
+                if (currentDeferred == deferred) {
+                    currentDeferred = null
+                }
+            }
+            _promptState.update { null }
+        }
     }
 
     /**
      * Respond to the current prompt
      */
     fun respond(response: PromptResponse) {
-        currentDeferred?.complete(response)
-        currentDeferred = null
+        synchronized(deferredLock) {
+            currentDeferred?.complete(response)
+            currentDeferred = null
+        }
     }
 
     /**
      * Cancel the current prompt
      */
     fun cancelPrompt() {
-        currentDeferred?.cancel()
-        currentDeferred = null
+        synchronized(deferredLock) {
+            currentDeferred?.cancel()
+            currentDeferred = null
+        }
         _promptState.update { null }
     }
 }

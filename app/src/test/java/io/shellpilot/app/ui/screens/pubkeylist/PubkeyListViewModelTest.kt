@@ -27,6 +27,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import io.shellpilot.app.data.HostRepository
 import io.shellpilot.app.data.PubkeyRepository
 import io.shellpilot.app.data.entity.Pubkey
 import io.shellpilot.app.di.CoroutineDispatchers
@@ -60,6 +61,7 @@ class PubkeyListViewModelTest {
         main = testDispatcher
     )
     private lateinit var context: Context
+    private lateinit var hostRepository: HostRepository
     private lateinit var repository: PubkeyRepository
     private lateinit var pubkeysFlow: MutableStateFlow<List<Pubkey>>
     private lateinit var viewModel: PubkeyListViewModel
@@ -92,6 +94,7 @@ class PubkeyListViewModelTest {
         })
 
         context = mock()
+        hostRepository = mock()
         repository = mock()
         pubkeysFlow = MutableStateFlow(emptyList())
 
@@ -105,7 +108,7 @@ class PubkeyListViewModelTest {
     }
 
     private fun createViewModel(): PubkeyListViewModel {
-        return PubkeyListViewModel(context, repository, dispatchers)
+        return PubkeyListViewModel(context, hostRepository, repository, dispatchers)
     }
 
     // ========== Tests for encrypted key import with re-encryption ==========
@@ -360,6 +363,30 @@ class PubkeyListViewModelTest {
         viewModel.clearError()
 
         assertNull("Error should be cleared", viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun deletePubkey_WhenUsedByHost_DoesNotDeleteAndSetsError() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        val pubkey = Pubkey(
+            id = 7L,
+            nickname = "used-key",
+            type = "RSA",
+            privateKey = byteArrayOf(1),
+            publicKey = byteArrayOf(2),
+            encrypted = false,
+            startup = false,
+            confirmation = false,
+            createdDate = 0L
+        )
+        whenever(hostRepository.getHostsUsingPubkey(pubkey.id)).thenReturn(2)
+
+        viewModel.deletePubkey(pubkey)
+        advanceUntilIdle()
+
+        verify(repository, never()).delete(any())
+        assertTrue(viewModel.uiState.value.error?.contains("2 件のホスト") == true)
     }
 
     // ========== Helper methods ==========

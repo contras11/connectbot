@@ -481,6 +481,42 @@ class PortForwardListViewModelTest {
     }
 
     @Test
+    fun addPortForward_WithBlankSourcePort_DoesNotSave() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.addPortForward(
+            nickname = "test",
+            type = "local",
+            sourcePort = "",
+            destination = "example.com:443"
+        )
+        advanceUntilIdle()
+
+        verify(repository, org.mockito.kotlin.never()).savePortForward(any())
+        val state = viewModel.uiState.value
+        assertTrue("Should have error for blank source port", state.error?.contains("待受ポートは数値で入力してください") == true)
+    }
+
+    @Test
+    fun addPortForward_WithBlankDestination_DoesNotSave() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.addPortForward(
+            nickname = "test",
+            type = "local",
+            sourcePort = "8080",
+            destination = ""
+        )
+        advanceUntilIdle()
+
+        verify(repository, org.mockito.kotlin.never()).savePortForward(any())
+        val state = viewModel.uiState.value
+        assertTrue("Should have error for blank destination", state.error?.contains("host:port") == true)
+    }
+
+    @Test
     fun validatePort_WithOutOfRangePort_SetsError() = runTest {
         viewModel = createViewModel()
         advanceUntilIdle()

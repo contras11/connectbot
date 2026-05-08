@@ -80,7 +80,7 @@ object HostConfigJson {
      */
     fun exportToJson(context: Context, database: RoomDatabase, pretty: Boolean = true): Pair<String, ExportCounts> {
         val schema = DatabaseSchema.load(context)
-        val exporter = SchemaBasedExporter(database, schema)
+        val exporter = createExporter(database, schema)
         val json = exporter.exportToJson(EXPORT_TABLES, pretty)
 
         // Parse the JSON to count hosts and profiles
@@ -101,7 +101,7 @@ object HostConfigJson {
      */
     fun importFromJson(context: Context, database: RoomDatabase, jsonString: String): ImportCounts {
         val schema = DatabaseSchema.load(context)
-        val exporter = SchemaBasedExporter(database, schema)
+        val exporter = createExporter(database, schema)
         val results = exporter.importFromJson(jsonString, EXPORT_TABLES)
 
         val hostCounts = results["hosts"] ?: Pair(0, 0)
@@ -112,6 +112,40 @@ object HostConfigJson {
             hostsSkipped = hostCounts.second,
             profilesImported = profileCounts.first,
             profilesSkipped = profileCounts.second
+        )
+    }
+
+    /**
+     * Host import/export用の参照定義を明示する。
+     *
+     * 変更理由: Room schemaにFKが無い host.profileId / pubkeyId / jumpHostId を
+     * 汎用推定で処理すると、別IDへ誤って紐づくため。
+     */
+    private fun createExporter(database: RoomDatabase, schema: DatabaseSchema): SchemaBasedExporter {
+        return SchemaBasedExporter(
+            database = database,
+            schema = schema,
+            importReferences = listOf(
+                SchemaBasedExporter.ImportReference(
+                    tableName = "hosts",
+                    fieldPath = "profileId",
+                    referencedTableName = "profiles",
+                    missingValue = 1L
+                ),
+                SchemaBasedExporter.ImportReference(
+                    tableName = "hosts",
+                    fieldPath = "jumpHostId",
+                    referencedTableName = "hosts",
+                    missingValue = JSONObject.NULL
+                )
+            ),
+            droppedReferences = listOf(
+                SchemaBasedExporter.DroppedReference(
+                    tableName = "hosts",
+                    fieldPath = "pubkeyId",
+                    replacementValue = -1L
+                )
+            )
         )
     }
 }

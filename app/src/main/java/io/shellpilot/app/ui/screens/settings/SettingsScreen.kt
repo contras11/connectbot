@@ -34,11 +34,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.FontDownload
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
@@ -59,6 +61,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -70,15 +73,13 @@ import io.shellpilot.app.BuildConfig
 import io.shellpilot.app.R
 import io.shellpilot.app.ui.ObservePermissionOnResume
 import io.shellpilot.app.ui.ScreenPreviews
-import io.shellpilot.app.ui.common.getLocalizedFontDisplayName
 import io.shellpilot.app.ui.components.CommandSurfaceCard
 import io.shellpilot.app.ui.components.FontDownloadProgressDialog
 import io.shellpilot.app.ui.components.ShellPilotActionDialog
 import io.shellpilot.app.ui.components.ShellPilotScaffold
+import io.shellpilot.app.ui.components.StatusChip
 import io.shellpilot.app.ui.theme.ShellPilotTheme
-import io.shellpilot.app.util.LocalFontProvider
 import io.shellpilot.app.util.NotificationPermissionHelper
-import io.shellpilot.app.util.TerminalFont
 import org.xmlpull.v1.XmlPullParser
 import java.util.Locale
 
@@ -87,6 +88,10 @@ import java.util.Locale
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
     onNavigateToShortcuts: () -> Unit = {},
+    onNavigateToPubkeys: () -> Unit = {},
+    onNavigateToProfiles: () -> Unit = {},
+    onNavigateToColors: () -> Unit = {},
+    onNavigateToHelp: () -> Unit = {},
     modifier: Modifier = Modifier,
     // 変更理由: MainScreenのタブとして使用する際はナビゲーションアイコンを非表示にする。
     showNavigationIcon: Boolean = true,
@@ -134,9 +139,10 @@ fun SettingsScreen(
         }
     }
 
-    // Re-check permission status when screen resumes (e.g., user grants/revokes in Settings)
+    // 変更理由: resume時の確認は受動チェックとして扱い、ユーザー操作なしに
+    // CONNECTION_PERSIST をfalseへ書き戻さない。
     ObservePermissionOnResume { isGranted ->
-        viewModel.onNotificationPermissionResult(isGranted)
+        viewModel.onNotificationPermissionPassiveCheck(isGranted)
     }
 
     // Show permission denied dialog if needed
@@ -160,6 +166,10 @@ fun SettingsScreen(
         uiState = uiState,
         onNavigateBack = onNavigateBack,
         onNavigateToShortcuts = onNavigateToShortcuts,
+        onNavigateToPubkeys = onNavigateToPubkeys,
+        onNavigateToProfiles = onNavigateToProfiles,
+        onNavigateToColors = onNavigateToColors,
+        onNavigateToHelp = onNavigateToHelp,
         showNavigationIcon = showNavigationIcon,
         onAuthOnLaunchChange = viewModel::updateAuthOnLaunch,
         onMemkeysChange = viewModel::updateMemkeys,
@@ -169,7 +179,6 @@ fun SettingsScreen(
         onScrollbackChange = viewModel::updateScrollback,
         onAddCustomTerminalType = viewModel::addCustomTerminalType,
         onRemoveCustomTerminalType = viewModel::removeCustomTerminalType,
-        onFontFamilyChange = viewModel::updateFontFamily,
         onAddCustomFont = viewModel::addCustomFont,
         onRemoveCustomFont = viewModel::removeCustomFont,
         onClearFontError = viewModel::clearFontValidationError,
@@ -178,12 +187,9 @@ fun SettingsScreen(
         onClearImportError = viewModel::clearFontImportError,
         onDefaultProfileChange = viewModel::updateDefaultProfile,
         onLanguageChange = viewModel::updateLanguage,
-        onRotationChange = viewModel::updateRotation,
         onFullscreenChange = viewModel::updateFullscreen,
         onTitleBarHideChange = viewModel::updateTitleBarHide,
-        onPgUpDnGestureChange = viewModel::updatePgUpDnGesture,
         onVolumeFontChange = viewModel::updateVolumeFont,
-        onKeepAliveChange = viewModel::updateKeepAlive,
         onAlwaysVisibleChange = viewModel::updateAlwaysVisible,
         onShiftFkeysChange = viewModel::updateShiftFkeys,
         onCtrlFkeysChange = viewModel::updateCtrlFkeys,
@@ -205,6 +211,10 @@ fun SettingsScreenContent(
     uiState: SettingsUiState,
     onNavigateBack: () -> Unit,
     onNavigateToShortcuts: () -> Unit = {},
+    onNavigateToPubkeys: () -> Unit = {},
+    onNavigateToProfiles: () -> Unit = {},
+    onNavigateToColors: () -> Unit = {},
+    onNavigateToHelp: () -> Unit = {},
     // 変更理由: MainScreenのタブ表示時はArrowBackアイコンを非表示にする
     showNavigationIcon: Boolean = true,
     onAuthOnLaunchChange: (Boolean) -> Unit,
@@ -215,7 +225,6 @@ fun SettingsScreenContent(
     onScrollbackChange: (String) -> Unit,
     onAddCustomTerminalType: (String) -> Unit,
     onRemoveCustomTerminalType: (String) -> Unit,
-    onFontFamilyChange: (String) -> Unit,
     onAddCustomFont: (String) -> Unit,
     onRemoveCustomFont: (String) -> Unit,
     onClearFontError: () -> Unit,
@@ -224,12 +233,9 @@ fun SettingsScreenContent(
     onClearImportError: () -> Unit,
     onDefaultProfileChange: (Long) -> Unit,
     onLanguageChange: (String) -> Unit,
-    onRotationChange: (String) -> Unit,
     onFullscreenChange: (Boolean) -> Unit,
     onTitleBarHideChange: (Boolean) -> Unit,
-    onPgUpDnGestureChange: (Boolean) -> Unit,
     onVolumeFontChange: (Boolean) -> Unit,
-    onKeepAliveChange: (Boolean) -> Unit,
     onAlwaysVisibleChange: (Boolean) -> Unit,
     onShiftFkeysChange: (Boolean) -> Unit,
     onCtrlFkeysChange: (Boolean) -> Unit,
@@ -243,14 +249,30 @@ fun SettingsScreenContent(
     onBellNotificationChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // 変更理由: ボタンに見えるカテゴリカードを実際の詳細画面切替に接続し、
+    // モック由来の押せない装飾カードを残さない。
+    var selectedCategoryName by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedCategory = selectedCategoryName?.let { SettingsCategory.valueOf(it) }
+
     ShellPilotScaffold(
-        title = stringResource(R.string.title_settings),
-        subtitle = "接続・ターミナル・AIショートカット",
+        title = selectedCategory?.title ?: stringResource(R.string.title_settings),
+        subtitle = selectedCategory?.summary ?: "接続・ターミナル・AIショートカット",
         navigationIcon = {
-            // 変更理由: タブ表示時はArrowBackを非表示にする
-            if (showNavigationIcon) {
-                IconButton(onClick = onNavigateBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+            // 変更理由: タブ表示時でもカテゴリ詳細からは設定トップへ戻れるようにする。
+            if (showNavigationIcon || selectedCategory != null) {
+                IconButton(
+                    onClick = {
+                        if (selectedCategory != null) {
+                            selectedCategoryName = null
+                        } else {
+                            onNavigateBack()
+                        }
+                    }
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = if (selectedCategory != null) "設定カテゴリに戻る" else "戻る"
+                    )
                 }
             }
         },
@@ -266,483 +288,403 @@ fun SettingsScreenContent(
                 bottom = 24.dp
             )
         ) {
-            item {
-                CommandSurfaceCard(accent = MaterialTheme.colorScheme.secondary) {
-                    Text(
-                        text = "ShellPilot設定",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        text = "接続維持、ターミナル表示、AI CLIショートカット、通知とバックアップを作業単位で調整します。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            item {
-                PreferenceCategory(title = "設定カテゴリ")
-            }
-            item {
-                SettingsCategoryCard(
-                    icon = Icons.Default.Link,
-                    title = "接続",
-                    summary = "認証、接続維持、Wi-Fi、バックアップ"
-                )
-            }
-            item {
-                SettingsCategoryCard(
-                    icon = Icons.Default.Terminal,
-                    title = "ターミナル",
-                    summary = "スクロールバック、TERM、フォント、プロファイル"
-                )
-            }
-            item {
-                SettingsCategoryCard(
-                    icon = Icons.Default.Keyboard,
-                    title = "AIショートカット",
-                    summary = "Claude Code / Codex コマンド、表示タブ",
-                    onClick = onNavigateToShortcuts
-                )
-            }
-            item {
-                SettingsCategoryCard(
-                    icon = Icons.Default.Palette,
-                    title = "表示",
-                    summary = "言語、画面の向き、全画面、補助キー"
-                )
-            }
-            item {
-                SettingsCategoryCard(
-                    icon = Icons.Default.Notifications,
-                    title = "通知とバックアップ",
-                    summary = "ベル、通知、端末のバックグラウンド状態"
-                )
-            }
-            item {
-                SettingsCategoryCard(
-                    icon = Icons.Default.Storage,
-                    title = "データ管理",
-                    summary = "鍵、ホスト情報、プロファイル、インポート/復元"
-                )
-            }
-            item {
-                SettingsCategoryCard(
-                    icon = Icons.Default.Info,
-                    title = "アプリ情報",
-                    summary = "バージョン、ライセンス、フォーク元情報"
-                )
-            }
-            if (uiState.canAuthenticate) {
+            if (selectedCategory == null) {
                 item {
-                    PreferenceCategory(title = stringResource(R.string.pref_security_category))
-                }
-
-                item {
-                    SwitchPreference(
-                        title = stringResource(R.string.pref_auth_on_launch_title),
-                        summary = stringResource(R.string.pref_auth_on_launch_summary),
-                        checked = uiState.authOnLaunch,
-                        onCheckedChange = onAuthOnLaunchChange
-                    )
-                }
-            }
-
-            item {
-                SwitchPreference(
-                    title = stringResource(R.string.pref_memkeys_title),
-                    summary = stringResource(R.string.pref_memkeys_summary),
-                    checked = uiState.memkeys,
-                    onCheckedChange = onMemkeysChange
-                )
-            }
-
-            item {
-                SwitchPreference(
-                    title = stringResource(R.string.pref_conn_persist_title),
-                    summary = stringResource(R.string.pref_conn_persist_summary),
-                    checked = uiState.connPersist,
-                    onCheckedChange = onConnPersistChange
-                )
-            }
-
-            item {
-                SwitchPreference(
-                    title = stringResource(R.string.pref_wifilock_title),
-                    summary = stringResource(R.string.pref_wifilock_summary),
-                    checked = uiState.wifilock,
-                    onCheckedChange = onWifilockChange
-                )
-            }
-
-            item {
-                SwitchPreference(
-                    title = stringResource(R.string.pref_backupkeys_title),
-                    summary = stringResource(R.string.pref_backupkeys_summary),
-                    checked = uiState.backupkeys,
-                    onCheckedChange = onBackupkeysChange
-                )
-            }
-
-            item {
-                PreferenceCategory(title = stringResource(R.string.pref_emulation_category))
-            }
-
-            item {
-                TextPreference(
-                    title = stringResource(R.string.pref_scrollback_title),
-                    summary = stringResource(R.string.pref_scrollback_summary),
-                    value = uiState.scrollback,
-                    onValueChange = onScrollbackChange
-                )
-            }
-
-            item {
-                AddCustomTerminalTypePreference(
-                    customTerminalTypes = uiState.customTerminalTypes,
-                    onAddTerminalType = onAddCustomTerminalType,
-                    onRemoveTerminalType = onRemoveCustomTerminalType
-                )
-            }
-
-            item {
-                // Build combined font list: presets + custom fonts + local fonts
-                // Only show downloadable preset fonts if Google Play Services is available
-                val presetEntries = if (BuildConfig.HAS_DOWNLOADABLE_FONTS) {
-                    TerminalFont.entries.map { it.displayName to it.name }
-                } else {
-                    // In OSS builds, only show System Default (which doesn't require download)
-                    listOf(TerminalFont.SYSTEM_DEFAULT.displayName to TerminalFont.SYSTEM_DEFAULT.name)
-                }
-                val customEntries = if (BuildConfig.HAS_DOWNLOADABLE_FONTS) {
-                    uiState.customFonts.map { it to TerminalFont.createCustomFontValue(it) }
-                } else {
-                    emptyList()
-                }
-                val localEntries = uiState.localFonts.map { (displayName, fileName) ->
-                    displayName to LocalFontProvider.createLocalFontValue(fileName)
-                }
-                val allEntries = presetEntries + customEntries + localEntries
-
-                ListPreference(
-                    title = stringResource(R.string.pref_fontfamily_title),
-                    summary = getLocalizedFontDisplayName(uiState.fontFamily),
-                    value = uiState.fontFamily,
-                    entries = allEntries,
-                    onValueChange = onFontFamilyChange
-                )
-            }
-
-            // Only show downloadable fonts UI if Google Play Services is available
-            if (BuildConfig.HAS_DOWNLOADABLE_FONTS) {
-                item {
-                    AddCustomFontPreference(
-                        customFonts = uiState.customFonts,
-                        validationInProgress = uiState.fontValidationInProgress,
-                        validationError = uiState.fontValidationError,
-                        onAddFont = onAddCustomFont,
-                        onRemoveFont = onRemoveCustomFont,
-                        onClearError = onClearFontError
-                    )
-                }
-            }
-
-            item {
-                LocalFontPreference(
-                    localFonts = uiState.localFonts,
-                    importInProgress = uiState.fontImportInProgress,
-                    importError = uiState.fontImportError,
-                    onImportFont = onImportLocalFont,
-                    onDeleteFont = onDeleteLocalFont,
-                    onClearError = onClearImportError
-                )
-            }
-
-            item {
-                PreferenceCategory(title = stringResource(R.string.pref_profiles_category))
-            }
-
-            item {
-                val selectedProfile = if (uiState.defaultProfileId == 0L) {
-                    null
-                } else {
-                    uiState.availableProfiles.find { it.id == uiState.defaultProfileId }
-                }
-                val noneLabel = stringResource(R.string.pref_default_profile_none)
-                val defaultProfileLabel = stringResource(R.string.profile_default_name)
-                fun profileDisplayName(name: String): String =
-                    if (name == "Default") defaultProfileLabel else name
-                val profileEntries = listOf(noneLabel to "0") +
-                    uiState.availableProfiles.map { profileDisplayName(it.name) to it.id.toString() }
-                ListPreference(
-                    title = stringResource(R.string.pref_default_profile_title),
-                    summary = selectedProfile?.let { profileDisplayName(it.name) } ?: noneLabel,
-                    value = uiState.defaultProfileId.toString(),
-                    entries = profileEntries,
-                    onValueChange = { onDefaultProfileChange(it.toLong()) }
-                )
-            }
-
-            item {
-                PreferenceCategory(title = stringResource(R.string.pref_ui_category))
-            }
-
-            item {
-                val context = LocalContext.current
-                val systemDefaultLabel = stringResource(R.string.pref_language_system_default)
-                val languageEntries = remember {
-                    listOf("" to systemDefaultLabel) + buildAvailableLanguageList(context)
-                }
-                val currentLabel = if (uiState.language.isEmpty()) {
-                    systemDefaultLabel
-                } else {
-                    languageEntries.find { it.first == uiState.language }?.second
-                        ?: uiState.language
-                }
-                ListPreference(
-                    title = stringResource(R.string.pref_language_title),
-                    summary = currentLabel,
-                    value = uiState.language,
-                    entries = languageEntries.map { (tag, label) -> label to tag },
-                    onValueChange = onLanguageChange
-                )
-            }
-
-            item {
-                ListPreference(
-                    title = stringResource(R.string.pref_rotation_title),
-                    summary = when (uiState.rotation) {
-                        "Default" -> stringResource(R.string.list_rotation_default)
-                        "Force landscape" -> stringResource(R.string.list_rotation_land)
-                        "Force portrait" -> stringResource(R.string.list_rotation_port)
-                        "Automatic" -> stringResource(R.string.list_rotation_auto)
-                        else -> uiState.rotation
-                    },
-                    value = uiState.rotation,
-                    entries = listOf(
-                        stringResource(R.string.list_rotation_default) to "Default",
-                        stringResource(R.string.list_rotation_land) to "Force landscape",
-                        stringResource(R.string.list_rotation_port) to "Force portrait",
-                        stringResource(R.string.list_rotation_auto) to "Automatic"
-                    ),
-                    onValueChange = onRotationChange
-                )
-            }
-
-            item {
-                SwitchPreference(
-                    title = stringResource(R.string.pref_fullscreen_title),
-                    summary = stringResource(R.string.pref_fullscreen_summary),
-                    checked = uiState.fullscreen,
-                    onCheckedChange = onFullscreenChange
-                )
-            }
-
-            item {
-                SwitchPreference(
-                    title = stringResource(R.string.pref_titlebarhide_title),
-                    summary = stringResource(R.string.pref_titlebarhide_summary),
-                    checked = uiState.titlebarhide,
-                    onCheckedChange = onTitleBarHideChange
-                )
-            }
-
-            item {
-                SwitchPreference(
-                    title = stringResource(R.string.pref_pg_updn_gesture_title),
-                    summary = stringResource(R.string.pref_pg_updn_gesture_summary),
-                    checked = uiState.pgupdngesture,
-                    onCheckedChange = onPgUpDnGestureChange
-                )
-            }
-
-            item {
-                SwitchPreference(
-                    title = stringResource(R.string.pref_volumefont_title),
-                    summary = stringResource(R.string.pref_volumefont_summary),
-                    checked = uiState.volumefont,
-                    onCheckedChange = onVolumeFontChange
-                )
-            }
-
-            item {
-                SwitchPreference(
-                    title = stringResource(R.string.pref_keepalive_title),
-                    summary = stringResource(R.string.pref_keepalive_summary),
-                    checked = uiState.keepalive,
-                    onCheckedChange = onKeepAliveChange
-                )
-            }
-
-            // 変更理由: ショートカット設定画面への導線を追加
-            item {
-                PreferenceCategory(title = "ショートカット")
-            }
-
-            item {
-                CommandSurfaceCard(onClick = onNavigateToShortcuts) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.Terminal,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    CommandSurfaceCard(accent = MaterialTheme.colorScheme.secondary) {
+                        Text(
+                            text = "ShellPilot設定",
+                            style = MaterialTheme.typography.titleMedium
                         )
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("ショートカット設定", style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                "コマンドショートカットの追加・編集・削除",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        Text(
+                            text = "必要なカテゴリを選ぶと、該当する設定だけを編集できます。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                item {
+                    PreferenceCategory(title = "設定カテゴリ")
+                }
+                SettingsCategory.entries.forEach { category ->
+                    item(key = category.name) {
+                        SettingsCategoryCard(
+                            icon = category.icon,
+                            title = category.title,
+                            summary = category.summary,
+                            onClick = { selectedCategoryName = category.name }
+                        )
                     }
                 }
             }
 
-            item {
-                PreferenceCategory(title = stringResource(R.string.pref_keyboard_category))
-            }
-
-            item {
-                SwitchPreference(
-                    title = stringResource(R.string.pref_alwaysvisible_title),
-                    summary = stringResource(R.string.pref_alwaysvisible_summary),
-                    checked = uiState.alwaysvisible,
-                    onCheckedChange = onAlwaysVisibleChange
-                )
-            }
-
-            item {
-                SwitchPreference(
-                    title = stringResource(R.string.pref_shiftfkeys_title),
-                    summary = stringResource(R.string.pref_shiftfkeys_summary),
-                    checked = uiState.shiftfkeys,
-                    onCheckedChange = onShiftFkeysChange
-                )
-            }
-
-            item {
-                SwitchPreference(
-                    title = stringResource(R.string.pref_ctrlfkeys_title),
-                    summary = stringResource(R.string.pref_ctrlfkeys_summary),
-                    checked = uiState.ctrlfkeys,
-                    onCheckedChange = onCtrlFkeysChange
-                )
-            }
-
-            item {
-                ListPreference(
-                    title = stringResource(R.string.pref_stickymodifiers_title),
-                    summary = when (uiState.stickymodifiers) {
-                        "no" -> stringResource(R.string.no)
-                        "alt" -> stringResource(R.string.only_alt)
-                        "yes" -> stringResource(R.string.yes)
-                        else -> uiState.stickymodifiers
-                    },
-                    value = uiState.stickymodifiers,
-                    entries = listOf(
-                        stringResource(R.string.no) to "no",
-                        stringResource(R.string.only_alt) to "alt",
-                        stringResource(R.string.yes) to "yes"
-                    ),
-                    onValueChange = onStickyModifiersChange
-                )
-            }
-
-            item {
-                ListPreference(
-                    title = stringResource(R.string.pref_keymode_title),
-                    summary = when (uiState.keymode) {
-                        "Use right-side keys" -> stringResource(R.string.list_keymode_right)
-                        "Use left-side keys" -> stringResource(R.string.list_keymode_left)
-                        "none" -> stringResource(R.string.list_keymode_none)
-                        else -> uiState.keymode
-                    },
-                    value = uiState.keymode,
-                    entries = listOf(
-                        stringResource(R.string.list_keymode_right) to "Use right-side keys",
-                        stringResource(R.string.list_keymode_left) to "Use left-side keys",
-                        stringResource(R.string.list_keymode_none) to "none"
-                    ),
-                    onValueChange = onKeyModeChange
-                )
-            }
-
-            item {
-                val cameraSummary = when (uiState.camera) {
-                    "Ctrl+A then Space" -> stringResource(R.string.list_camera_ctrlaspace_description)
-                    "Ctrl+A" -> stringResource(R.string.list_camera_ctrla_description)
-                    "Esc" -> stringResource(R.string.list_camera_esc_description)
-                    "Esc+A" -> stringResource(R.string.list_camera_esc_a_description)
-                    "None" -> stringResource(R.string.list_camera_none_description)
-                    "text_input" -> stringResource(R.string.list_camera_text_input_description)
-                    else -> uiState.camera
+            if (selectedCategory == SettingsCategory.CONNECTION) {
+                item {
+                    SettingsDetailIntro(category = SettingsCategory.CONNECTION)
                 }
-                ListPreference(
-                    title = stringResource(R.string.pref_camera_title),
-                    summary = cameraSummary,
-                    value = uiState.camera,
-                    entries = listOf(
-                        stringResource(R.string.list_camera_ctrlaspace) to "Ctrl+A then Space",
-                        stringResource(R.string.list_camera_ctrla) to "Ctrl+A",
-                        stringResource(R.string.list_camera_esc) to "Esc",
-                        stringResource(R.string.list_camera_esc_a) to "Esc+A",
-                        stringResource(R.string.list_camera_none) to "None",
-                        stringResource(R.string.list_camera_text_input) to "text_input"
-                    ),
-                    onValueChange = onCameraChange
-                )
+                if (uiState.canAuthenticate) {
+                    item {
+                        SwitchPreference(
+                            title = stringResource(R.string.pref_auth_on_launch_title),
+                            summary = stringResource(R.string.pref_auth_on_launch_summary),
+                            checked = uiState.authOnLaunch,
+                            onCheckedChange = onAuthOnLaunchChange
+                        )
+                    }
+                }
+                item {
+                    SwitchPreference(
+                        title = stringResource(R.string.pref_memkeys_title),
+                        summary = stringResource(R.string.pref_memkeys_summary),
+                        checked = uiState.memkeys,
+                        onCheckedChange = onMemkeysChange
+                    )
+                }
+                item {
+                    SwitchPreference(
+                        title = stringResource(R.string.pref_conn_persist_title),
+                        summary = stringResource(R.string.pref_conn_persist_summary),
+                        checked = uiState.connPersist,
+                        onCheckedChange = onConnPersistChange
+                    )
+                }
+                item {
+                    SwitchPreference(
+                        title = stringResource(R.string.pref_wifilock_title),
+                        summary = stringResource(R.string.pref_wifilock_summary),
+                        checked = uiState.wifilock,
+                        onCheckedChange = onWifilockChange
+                    )
+                }
             }
 
-            item {
-                SwitchPreference(
-                    title = stringResource(R.string.pref_bumpyarrows_title),
-                    summary = stringResource(R.string.pref_bumpyarrows_summary),
-                    checked = uiState.bumpyarrows,
-                    onCheckedChange = onBumpyArrowsChange
-                )
+            if (selectedCategory == SettingsCategory.TERMINAL) {
+                item {
+                    SettingsDetailIntro(category = SettingsCategory.TERMINAL)
+                }
+                item {
+                    TextPreference(
+                        title = stringResource(R.string.pref_scrollback_title),
+                        summary = stringResource(R.string.pref_scrollback_summary),
+                        value = uiState.scrollback,
+                        onValueChange = onScrollbackChange
+                    )
+                }
+                item {
+                    AddCustomTerminalTypePreference(
+                        customTerminalTypes = uiState.customTerminalTypes,
+                        onAddTerminalType = onAddCustomTerminalType,
+                        onRemoveTerminalType = onRemoveCustomTerminalType
+                    )
+                }
+                if (BuildConfig.HAS_DOWNLOADABLE_FONTS) {
+                    item {
+                        AddCustomFontPreference(
+                            customFonts = uiState.customFonts,
+                            validationInProgress = uiState.fontValidationInProgress,
+                            validationError = uiState.fontValidationError,
+                            onAddFont = onAddCustomFont,
+                            onRemoveFont = onRemoveCustomFont,
+                            onClearError = onClearFontError
+                        )
+                    }
+                }
+                item {
+                    LocalFontPreference(
+                        localFonts = uiState.localFonts,
+                        importInProgress = uiState.fontImportInProgress,
+                        importError = uiState.fontImportError,
+                        onImportFont = onImportLocalFont,
+                        onDeleteFont = onDeleteLocalFont,
+                        onClearError = onClearImportError
+                    )
+                }
+                item {
+                    SettingActionCard(
+                        icon = Icons.Default.Terminal,
+                        title = "端末プロファイルを編集",
+                        summary = "実際の端末フォント、文字サイズ、配色はプロファイルで適用します。",
+                        onClick = onNavigateToProfiles
+                    )
+                }
+                item {
+                    val selectedProfile = if (uiState.defaultProfileId == 0L) {
+                        null
+                    } else {
+                        uiState.availableProfiles.find { it.id == uiState.defaultProfileId }
+                    }
+                    val noneLabel = stringResource(R.string.pref_default_profile_none)
+                    val defaultProfileLabel = stringResource(R.string.profile_default_name)
+                    fun profileDisplayName(name: String): String =
+                        if (name == "Default") defaultProfileLabel else name
+                    val profileEntries = listOf(noneLabel to "0") +
+                        uiState.availableProfiles.map { profileDisplayName(it.name) to it.id.toString() }
+                    ListPreference(
+                        title = stringResource(R.string.pref_default_profile_title),
+                        summary = selectedProfile?.let { profileDisplayName(it.name) } ?: noneLabel,
+                        value = uiState.defaultProfileId.toString(),
+                        entries = profileEntries,
+                        onValueChange = { onDefaultProfileChange(it.toLong()) }
+                    )
+                }
             }
 
-            item {
-                PreferenceCategory(title = stringResource(R.string.pref_bell_category))
+            if (selectedCategory == SettingsCategory.SHORTCUTS) {
+                item {
+                    SettingsDetailIntro(category = SettingsCategory.SHORTCUTS)
+                }
+                item {
+                    SettingActionCard(
+                        icon = Icons.Default.Keyboard,
+                        title = "ショートカット設定を開く",
+                        summary = "Claude Code / Codex の表示タブ、コマンド、公式テンプレートを管理します。",
+                        onClick = onNavigateToShortcuts
+                    )
+                }
             }
 
-            item {
-                SwitchPreference(
-                    title = stringResource(R.string.pref_bell_title),
-                    summary = stringResource(R.string.pref_bell_summary),
-                    checked = uiState.bell,
-                    onCheckedChange = onBellChange
-                )
+            if (selectedCategory == SettingsCategory.DISPLAY) {
+                item {
+                    SettingsDetailIntro(category = SettingsCategory.DISPLAY)
+                }
+                item {
+                    val context = LocalContext.current
+                    val systemDefaultLabel = stringResource(R.string.pref_language_system_default)
+                    val languageEntries = remember {
+                        listOf("" to systemDefaultLabel) + buildAvailableLanguageList(context)
+                    }
+                    val currentLabel = if (uiState.language.isEmpty()) {
+                        systemDefaultLabel
+                    } else {
+                        languageEntries.find { it.first == uiState.language }?.second
+                            ?: uiState.language
+                    }
+                    ListPreference(
+                        title = stringResource(R.string.pref_language_title),
+                        summary = currentLabel,
+                        value = uiState.language,
+                        entries = languageEntries.map { (tag, label) -> label to tag },
+                        onValueChange = onLanguageChange
+                    )
+                }
+                item {
+                    SwitchPreference(
+                        title = stringResource(R.string.pref_fullscreen_title),
+                        summary = stringResource(R.string.pref_fullscreen_summary),
+                        checked = uiState.fullscreen,
+                        onCheckedChange = onFullscreenChange
+                    )
+                }
+                item {
+                    SwitchPreference(
+                        title = stringResource(R.string.pref_titlebarhide_title),
+                        summary = stringResource(R.string.pref_titlebarhide_summary),
+                        checked = uiState.titlebarhide,
+                        onCheckedChange = onTitleBarHideChange
+                    )
+                }
+                item {
+                    SwitchPreference(
+                        title = stringResource(R.string.pref_volumefont_title),
+                        summary = stringResource(R.string.pref_volumefont_summary),
+                        checked = uiState.volumefont,
+                        onCheckedChange = onVolumeFontChange
+                    )
+                }
+                item {
+                    PreferenceCategory(title = stringResource(R.string.pref_keyboard_category))
+                }
+                item {
+                    SwitchPreference(
+                        title = stringResource(R.string.pref_alwaysvisible_title),
+                        summary = stringResource(R.string.pref_alwaysvisible_summary),
+                        checked = uiState.alwaysvisible,
+                        onCheckedChange = onAlwaysVisibleChange
+                    )
+                }
+                item {
+                    SwitchPreference(
+                        title = stringResource(R.string.pref_shiftfkeys_title),
+                        summary = stringResource(R.string.pref_shiftfkeys_summary),
+                        checked = uiState.shiftfkeys,
+                        onCheckedChange = onShiftFkeysChange
+                    )
+                }
+                item {
+                    SwitchPreference(
+                        title = stringResource(R.string.pref_ctrlfkeys_title),
+                        summary = stringResource(R.string.pref_ctrlfkeys_summary),
+                        checked = uiState.ctrlfkeys,
+                        onCheckedChange = onCtrlFkeysChange
+                    )
+                }
+                item {
+                    ListPreference(
+                        title = stringResource(R.string.pref_stickymodifiers_title),
+                        summary = when (uiState.stickymodifiers) {
+                            "no" -> stringResource(R.string.no)
+                            "alt" -> stringResource(R.string.only_alt)
+                            "yes" -> stringResource(R.string.yes)
+                            else -> uiState.stickymodifiers
+                        },
+                        value = uiState.stickymodifiers,
+                        entries = listOf(
+                            stringResource(R.string.no) to "no",
+                            stringResource(R.string.only_alt) to "alt",
+                            stringResource(R.string.yes) to "yes"
+                        ),
+                        onValueChange = onStickyModifiersChange
+                    )
+                }
+                item {
+                    ListPreference(
+                        title = stringResource(R.string.pref_keymode_title),
+                        summary = when (uiState.keymode) {
+                            "Use right-side keys" -> stringResource(R.string.list_keymode_right)
+                            "Use left-side keys" -> stringResource(R.string.list_keymode_left)
+                            "none" -> stringResource(R.string.list_keymode_none)
+                            else -> uiState.keymode
+                        },
+                        value = uiState.keymode,
+                        entries = listOf(
+                            stringResource(R.string.list_keymode_right) to "Use right-side keys",
+                            stringResource(R.string.list_keymode_left) to "Use left-side keys",
+                            stringResource(R.string.list_keymode_none) to "none"
+                        ),
+                        onValueChange = onKeyModeChange
+                    )
+                }
+                item {
+                    val cameraSummary = when (uiState.camera) {
+                        "Ctrl+A then Space" -> stringResource(R.string.list_camera_ctrlaspace_description)
+                        "Ctrl+A" -> stringResource(R.string.list_camera_ctrla_description)
+                        "Esc" -> stringResource(R.string.list_camera_esc_description)
+                        "Esc+A" -> stringResource(R.string.list_camera_esc_a_description)
+                        "None" -> stringResource(R.string.list_camera_none_description)
+                        "text_input" -> stringResource(R.string.list_camera_text_input_description)
+                        else -> uiState.camera
+                    }
+                    ListPreference(
+                        title = stringResource(R.string.pref_camera_title),
+                        summary = cameraSummary,
+                        value = uiState.camera,
+                        entries = listOf(
+                            stringResource(R.string.list_camera_ctrlaspace) to "Ctrl+A then Space",
+                            stringResource(R.string.list_camera_ctrla) to "Ctrl+A",
+                            stringResource(R.string.list_camera_esc) to "Esc",
+                            stringResource(R.string.list_camera_esc_a) to "Esc+A",
+                            stringResource(R.string.list_camera_none) to "None",
+                            stringResource(R.string.list_camera_text_input) to "text_input"
+                        ),
+                        onValueChange = onCameraChange
+                    )
+                }
+                item {
+                    SwitchPreference(
+                        title = stringResource(R.string.pref_bumpyarrows_title),
+                        summary = stringResource(R.string.pref_bumpyarrows_summary),
+                        checked = uiState.bumpyarrows,
+                        onCheckedChange = onBumpyArrowsChange
+                    )
+                }
             }
 
-            item {
-                SliderPreference(
-                    title = stringResource(R.string.pref_bell_volume_title),
-                    value = uiState.bellVolume,
-                    onValueChange = onBellVolumeChange
-                )
+            if (selectedCategory == SettingsCategory.NOTIFICATIONS) {
+                item {
+                    SettingsDetailIntro(category = SettingsCategory.NOTIFICATIONS)
+                }
+                item {
+                    SwitchPreference(
+                        title = stringResource(R.string.pref_bell_title),
+                        summary = stringResource(R.string.pref_bell_summary),
+                        checked = uiState.bell,
+                        onCheckedChange = onBellChange
+                    )
+                }
+                item {
+                    SliderPreference(
+                        title = stringResource(R.string.pref_bell_volume_title),
+                        value = uiState.bellVolume,
+                        onValueChange = onBellVolumeChange
+                    )
+                }
+                item {
+                    SwitchPreference(
+                        title = stringResource(R.string.pref_bell_vibrate_title),
+                        summary = stringResource(R.string.pref_bell_vibrate_summary),
+                        checked = uiState.bellVibrate,
+                        onCheckedChange = onBellVibrateChange
+                    )
+                }
+                item {
+                    SwitchPreference(
+                        title = stringResource(R.string.pref_bell_notification_title),
+                        summary = stringResource(R.string.pref_bell_notification_summary),
+                        checked = uiState.bellNotification,
+                        onCheckedChange = onBellNotificationChange
+                    )
+                }
             }
 
-            item {
-                SwitchPreference(
-                    title = stringResource(R.string.pref_bell_vibrate_title),
-                    summary = stringResource(R.string.pref_bell_vibrate_summary),
-                    checked = uiState.bellVibrate,
-                    onCheckedChange = onBellVibrateChange
-                )
+            if (selectedCategory == SettingsCategory.DATA) {
+                item {
+                    SettingsDetailIntro(category = SettingsCategory.DATA)
+                }
+                item {
+                    SwitchPreference(
+                        title = stringResource(R.string.pref_backupkeys_title),
+                        summary = stringResource(R.string.pref_backupkeys_summary),
+                        checked = uiState.backupkeys,
+                        onCheckedChange = onBackupkeysChange
+                    )
+                }
+                item {
+                    SettingActionCard(
+                        icon = Icons.Default.Key,
+                        title = "公開鍵を管理",
+                        summary = "鍵の生成、インポート、読み込み状態を確認します。",
+                        onClick = onNavigateToPubkeys
+                    )
+                }
+                item {
+                    SettingActionCard(
+                        icon = Icons.Default.Terminal,
+                        title = "プロファイルを管理",
+                        summary = "フォント、文字サイズ、端末エミュレーションを編集します。",
+                        onClick = onNavigateToProfiles
+                    )
+                }
+                item {
+                    SettingActionCard(
+                        icon = Icons.Default.Palette,
+                        title = "カラースキームを管理",
+                        summary = "ANSIパレット、端末プレビュー、色選択を開きます。",
+                        onClick = onNavigateToColors
+                    )
+                }
             }
 
-            item {
-                SwitchPreference(
-                    title = stringResource(R.string.pref_bell_notification_title),
-                    summary = stringResource(R.string.pref_bell_notification_summary),
-                    checked = uiState.bellNotification,
-                    onCheckedChange = onBellNotificationChange
-                )
+            if (selectedCategory == SettingsCategory.ABOUT) {
+                item {
+                    SettingsDetailIntro(category = SettingsCategory.ABOUT)
+                }
+                item {
+                    SettingActionCard(
+                        icon = Icons.Default.Info,
+                        title = "ヘルプとログを開く",
+                        summary = "ヒント、ログ、問い合わせ、ライセンスを確認します。",
+                        onClick = onNavigateToHelp
+                    )
+                }
+                item {
+                    CommandSurfaceCard {
+                        Text("バージョン", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
         }
     }
@@ -779,6 +721,77 @@ private fun buildAvailableLanguageList(context: android.content.Context): List<P
         .sortedBy { it.second.lowercase() }
 }
 
+private enum class SettingsCategory {
+    CONNECTION,
+    TERMINAL,
+    SHORTCUTS,
+    DISPLAY,
+    NOTIFICATIONS,
+    DATA,
+    ABOUT
+}
+
+private val SettingsCategory.title: String
+    get() = when (this) {
+        SettingsCategory.CONNECTION -> "接続"
+        SettingsCategory.TERMINAL -> "ターミナル"
+        SettingsCategory.SHORTCUTS -> "AIショートカット"
+        SettingsCategory.DISPLAY -> "表示とキー"
+        SettingsCategory.NOTIFICATIONS -> "通知"
+        SettingsCategory.DATA -> "データ管理"
+        SettingsCategory.ABOUT -> "アプリ情報"
+    }
+
+private val SettingsCategory.summary: String
+    get() = when (this) {
+        SettingsCategory.CONNECTION -> "認証、接続維持、Wi-Fi"
+        SettingsCategory.TERMINAL -> "スクロールバック、TERM、フォント、プロファイル"
+        SettingsCategory.SHORTCUTS -> "Claude Code / Codex コマンド、表示タブ"
+        SettingsCategory.DISPLAY -> "言語、全画面、タイトルバー、補助キー"
+        SettingsCategory.NOTIFICATIONS -> "ベル、振動、バックグラウンド通知"
+        SettingsCategory.DATA -> "秘密鍵バックアップ、公開鍵、プロファイル、配色"
+        SettingsCategory.ABOUT -> "ヘルプ、ログ、ライセンス、フォーク元情報"
+    }
+
+private val SettingsCategory.icon: ImageVector
+    get() = when (this) {
+        SettingsCategory.CONNECTION -> Icons.Default.Link
+        SettingsCategory.TERMINAL -> Icons.Default.Terminal
+        SettingsCategory.SHORTCUTS -> Icons.Default.Keyboard
+        SettingsCategory.DISPLAY -> Icons.Default.Palette
+        SettingsCategory.NOTIFICATIONS -> Icons.Default.Notifications
+        SettingsCategory.DATA -> Icons.Default.Storage
+        SettingsCategory.ABOUT -> Icons.Default.Info
+    }
+
+@Composable
+private fun SettingsDetailIntro(
+    category: SettingsCategory,
+    modifier: Modifier = Modifier
+) {
+    CommandSurfaceCard(modifier = modifier) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = category.icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(category.title, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    category.summary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun PreferenceCategory(
     title: String,
@@ -800,7 +813,7 @@ private fun SettingsCategoryCard(
     title: String,
     summary: String,
     modifier: Modifier = Modifier,
-    onClick: (() -> Unit)? = null
+    onClick: () -> Unit
 ) {
     CommandSurfaceCard(
         modifier = modifier,
@@ -824,8 +837,30 @@ private fun SettingsCategoryCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
+}
+
+@Composable
+private fun SettingActionCard(
+    icon: ImageVector,
+    title: String,
+    summary: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    SettingsCategoryCard(
+        icon = icon,
+        title = title,
+        summary = summary,
+        modifier = modifier,
+        onClick = onClick
+    )
 }
 
 @Composable
@@ -938,6 +973,8 @@ private fun ListPreference(
     modifier: Modifier = Modifier
 ) {
     var showDialog by remember { mutableStateOf(false) }
+    val selectedLabel = entries.firstOrNull { it.second == value }?.first
+        ?: value.ifBlank { "未設定" }
 
     CommandSurfaceCard(
         modifier = modifier,
@@ -950,6 +987,7 @@ private fun ListPreference(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        StatusChip(label = selectedLabel)
     }
 
     if (showDialog) {
@@ -1003,6 +1041,8 @@ private fun ListPreferenceWithCustom(
     customLabel: String = "カスタム..."
 ) {
     var showDialog by remember { mutableStateOf(false) }
+    val selectedLabel = entries.firstOrNull { it.second == value }?.first
+        ?: value.ifBlank { "未設定" }
 
     CommandSurfaceCard(
         modifier = modifier,
@@ -1015,6 +1055,7 @@ private fun ListPreferenceWithCustom(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        StatusChip(label = selectedLabel)
     }
 
     if (showDialog) {
@@ -1476,7 +1517,6 @@ private fun SettingsScreenPreview() {
             onScrollbackChange = {},
             onAddCustomTerminalType = {},
             onRemoveCustomTerminalType = {},
-            onFontFamilyChange = {},
             onAddCustomFont = {},
             onRemoveCustomFont = {},
             onClearFontError = {},
@@ -1485,12 +1525,9 @@ private fun SettingsScreenPreview() {
             onClearImportError = {},
             onDefaultProfileChange = {},
             onLanguageChange = {},
-            onRotationChange = {},
             onFullscreenChange = {},
             onTitleBarHideChange = {},
-            onPgUpDnGestureChange = {},
             onVolumeFontChange = {},
-            onKeepAliveChange = {},
             onAlwaysVisibleChange = {},
             onShiftFkeysChange = {},
             onCtrlFkeysChange = {},

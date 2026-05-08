@@ -647,7 +647,7 @@ private fun HostFilterDialog(
 ) {
     ShellPilotActionDialog(
         title = "表示フィルタ",
-        subtitle = "モックのフィルタパネルに合わせ、一覧をその場で絞り込みます。",
+        subtitle = "プロトコル、状態、鍵、プロファイルで一覧を絞り込みます。",
         onDismiss = onDismiss,
         confirmLabel = "閉じる",
         onConfirm = onDismiss,
@@ -743,6 +743,7 @@ private fun HostListItem(
     // 接続状態はchipと小さなdotへ分離し、色の意味を混同しないようにする。
     val hostIndicatorColor = hostAccentIndicatorColor(host.color)
     val statusColor = connectionStatusColor(connectionState)
+    val hostLabel = host.nickname.ifBlank { host.hostname.ifBlank { host.protocol } }
 
     CommandSurfaceCard(
         modifier = modifier,
@@ -804,7 +805,7 @@ private fun HostListItem(
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Text(
-                    text = host.nickname.ifBlank { host.hostname.ifBlank { host.protocol } },
+                    text = hostLabel,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1
@@ -822,29 +823,20 @@ private fun HostListItem(
                     horizontalArrangement = Arrangement.spacedBy(2.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // 変更理由: 編集・転送を常時露出させると行が窮屈になるため、
+                    // 一覧の主操作は接続とその他操作に絞る。
                     IconButton(onClick = onClick, modifier = Modifier.size(32.dp)) {
                         Icon(
                             Icons.Default.PlayArrow,
-                            contentDescription = "接続",
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
-                        Icon(
-                            Icons.Default.Edit,
-                            contentDescription = "編集",
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    IconButton(onClick = onPortForwards, modifier = Modifier.size(32.dp)) {
-                        Icon(
-                            Icons.Default.Link,
-                            contentDescription = "転送",
+                            contentDescription = "「$hostLabel」に接続",
                             modifier = Modifier.size(18.dp)
                         )
                     }
                     IconButton(onClick = { showMenu = true }, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.button_host_options))
+                        Icon(
+                            Icons.Default.MoreVert,
+                            contentDescription = "「$hostLabel」のその他の操作"
+                        )
                     }
                     DropdownMenu(
                         expanded = showMenu,

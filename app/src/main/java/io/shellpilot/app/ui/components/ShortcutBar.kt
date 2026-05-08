@@ -42,7 +42,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -136,11 +135,16 @@ fun ShortcutBar(
         }
     }
 
-    // 変更理由: 選択プロファイルに応じて表示するショートカットを切り替え
+    val sortedShortcuts = customShortcuts.sortedWith(
+        compareBy<Shortcut> { it.hostId != null }.thenBy { it.order }.thenBy { it.label }
+    )
+
+    // 変更理由: セッション画面は静的RegistryではなくRepository保存済みデータを表示し、
+    // ショートカット設定画面での編集・削除・並び替えを即時に反映する。
     val displayedShortcuts = if (effectiveSelectedProfileId == null) {
-        customShortcuts
+        sortedShortcuts.filter { it.category == null }
     } else {
-        CliCommandRegistry.findCategory(effectiveSelectedProfileId)?.commands ?: emptyList()
+        sortedShortcuts.filter { it.category == effectiveSelectedProfileId }
     }
 
     // 変更理由: Surfaceにwindow insets paddingを置くと背景色がナビゲーション
@@ -170,7 +174,7 @@ fun ShortcutBar(
                 return@Column
             }
 
-            // 変更理由: ImageGen参照モックに合わせ、Claude/Codexコマンド群は
+            // 変更理由: ImageGen参照モックに合わせ、コマンド群は
             // 端末操作を邪魔しない折りたたみ可能なパネルとして扱う。
             Surface(
                 onClick = { commandsExpanded = !commandsExpanded },
@@ -185,7 +189,7 @@ fun ShortcutBar(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Claude / Codex コマンド",
+                        text = "コマンドパネル",
                         modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,

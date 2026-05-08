@@ -98,7 +98,10 @@ fun HintsScreen(
         subtitle = "接続・端末操作・AI CLI作業のコツ",
         navigationIcon = {
             IconButton(onClick = onNavigateBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.button_navigate_up)
+                )
             }
         },
         modifier = modifier

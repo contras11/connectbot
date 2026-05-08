@@ -34,7 +34,8 @@ data class ProfileListUiState(
     val isLoading: Boolean = true,
     val showCreateDialog: Boolean = false,
     val showDeleteDialog: Profile? = null,
-    val createError: String? = null
+    val createError: String? = null,
+    val error: String? = null
 )
 
 @HiltViewModel
@@ -94,6 +95,27 @@ class ProfileListViewModel @Inject constructor(
 
     fun deleteProfile(profile: Profile) {
         viewModelScope.launch {
+            if (profile.id == 1L) {
+                _uiState.update {
+                    it.copy(
+                        showDeleteDialog = null,
+                        error = "標準プロファイルは削除できません"
+                    )
+                }
+                return@launch
+            }
+
+            val usageCount = profileRepository.getHostsUsingProfile(profile.id)
+            if (usageCount > 0) {
+                _uiState.update {
+                    it.copy(
+                        showDeleteDialog = null,
+                        error = "このプロファイルは $usageCount 件のホストで使用中のため削除できません"
+                    )
+                }
+                return@launch
+            }
+
             profileRepository.delete(profile.id)
             _uiState.update { it.copy(showDeleteDialog = null) }
         }
@@ -101,11 +123,12 @@ class ProfileListViewModel @Inject constructor(
 
     fun duplicateProfile(profile: Profile) {
         viewModelScope.launch {
-            var newName = "${profile.name} (Copy)"
+            val baseName = if (profile.name == "Default") "標準" else profile.name
+            var newName = "$baseName のコピー"
             var counter = 1
             while (profileRepository.nameExists(newName)) {
                 counter++
-                newName = "${profile.name} (Copy $counter)"
+                newName = "$baseName のコピー $counter"
             }
             profileRepository.duplicate(profile.id, newName)
         }

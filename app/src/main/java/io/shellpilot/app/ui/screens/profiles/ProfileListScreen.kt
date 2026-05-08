@@ -124,6 +124,17 @@ fun ProfileListScreen(
                     contentPadding = PaddingValues(10.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    uiState.error?.let { error ->
+                        item {
+                            CommandSurfaceCard(accent = MaterialTheme.colorScheme.error) {
+                                Text(
+                                    text = error,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                    }
                     item {
                         CommandSurfaceCard(accent = MaterialTheme.colorScheme.outlineVariant) {
                             Text(
@@ -186,6 +197,11 @@ private fun ProfileListItem(
     onDelete: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    val profileDisplayName = if (profile.name == "Default") {
+        stringResource(R.string.profile_default_name)
+    } else {
+        profile.name
+    }
 
     CommandSurfaceCard(
         modifier = Modifier.fillMaxWidth(),
@@ -199,11 +215,7 @@ private fun ProfileListItem(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (profile.name == "Default") {
-                        stringResource(R.string.profile_default_name)
-                    } else {
-                        profile.name
-                    },
+                    text = profileDisplayName,
                     style = MaterialTheme.typography.titleMedium
                 )
                 Spacer(modifier = Modifier.height(4.dp))
@@ -219,7 +231,7 @@ private fun ProfileListItem(
                 IconButton(onClick = { showMenu = true }) {
                     Icon(
                         imageVector = Icons.Default.MoreVert,
-                        contentDescription = stringResource(R.string.profile_list_more_options)
+                        contentDescription = "「$profileDisplayName」のその他の操作"
                     )
                 }
                 DropdownMenu(

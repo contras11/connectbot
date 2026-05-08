@@ -33,13 +33,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Computer
-import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.Icon
@@ -147,7 +145,8 @@ fun MainScreen(
                 )
 
                 1 -> SessionOverviewTab(
-                    onNavigateToHosts = { selectedTab = 0 }
+                    onNavigateToHosts = { selectedTab = 0 },
+                    onNavigateToConsole = onNavigateToConsole
                 )
 
                 2 -> ShortcutListScreen(
@@ -161,6 +160,7 @@ fun MainScreen(
                     onNavigateToProfiles = onNavigateToProfiles,
                     onNavigateToColors = onNavigateToColors,
                     onNavigateToHelp = onNavigateToHelp,
+                    onNavigateToShortcuts = { selectedTab = 2 },
                     onNavigateToHosts = { selectedTab = 0 }
                 )
 
@@ -168,6 +168,10 @@ fun MainScreen(
                     // 変更理由: タブ表示ではArrowBackアイコンを非表示にする
                     onNavigateBack = { selectedTab = 0 },
                     onNavigateToShortcuts = { selectedTab = 2 },
+                    onNavigateToPubkeys = onNavigateToPubkeys,
+                    onNavigateToProfiles = onNavigateToProfiles,
+                    onNavigateToColors = onNavigateToColors,
+                    onNavigateToHelp = onNavigateToHelp,
                     showNavigationIcon = false
                 )
             }
@@ -177,7 +181,8 @@ fun MainScreen(
 
 @Composable
 private fun SessionOverviewTab(
-    onNavigateToHosts: () -> Unit
+    onNavigateToHosts: () -> Unit,
+    onNavigateToConsole: (Host) -> Unit
 ) {
     val terminalManager = LocalTerminalManager.current
     val bridges by terminalManager?.bridgesFlow?.collectAsState(initial = emptyList())
@@ -192,17 +197,8 @@ private fun SessionOverviewTab(
     ShellPilotScaffold(
         title = "ShellPilot",
         actions = {
-            IconButton(onClick = {}) {
-                Icon(Icons.Default.Search, contentDescription = "セッションを検索")
-            }
-            IconButton(onClick = {}) {
-                Icon(Icons.Default.FilterList, contentDescription = "セッションを絞り込み")
-            }
             IconButton(onClick = onNavigateToHosts) {
                 Icon(Icons.Default.Add, contentDescription = "ホストを開く")
-            }
-            IconButton(onClick = {}) {
-                Icon(Icons.Default.MoreVert, contentDescription = "その他")
             }
         }
     ) { padding ->
@@ -245,7 +241,9 @@ private fun SessionOverviewTab(
                 }
             }
             items(bridges, key = { it.host.id }) { bridge ->
-                CommandSurfaceCard {
+                // 変更理由: 再開できそうに見えるセッションカードを実際の遷移へ接続し、
+                // 見た目だけの再生アイコンを残さない。
+                CommandSurfaceCard(onClick = { onNavigateToConsole(bridge.host) }) {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
@@ -284,7 +282,7 @@ private fun SessionOverviewTab(
                     )
                 }
                 items(disconnected, key = { it.id }) { host ->
-                    CommandSurfaceCard {
+                    CommandSurfaceCard(onClick = { onNavigateToConsole(host) }) {
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
@@ -316,22 +314,14 @@ private fun ToolsHubTab(
     onNavigateToProfiles: () -> Unit,
     onNavigateToColors: () -> Unit,
     onNavigateToHelp: () -> Unit,
+    onNavigateToShortcuts: () -> Unit,
     onNavigateToHosts: () -> Unit
 ) {
     ShellPilotScaffold(
         title = "ShellPilot",
         actions = {
-            IconButton(onClick = {}) {
-                Icon(Icons.Default.Search, contentDescription = "ツールを検索")
-            }
-            IconButton(onClick = {}) {
-                Icon(Icons.Default.FilterList, contentDescription = "ツールを絞り込み")
-            }
             IconButton(onClick = onNavigateToHosts) {
                 Icon(Icons.Default.Add, contentDescription = "ホストを開く")
-            }
-            IconButton(onClick = {}) {
-                Icon(Icons.Default.MoreVert, contentDescription = "その他")
             }
         }
     ) { padding ->
@@ -361,7 +351,7 @@ private fun ToolsHubTab(
                 ToolHubCard(
                     icon = Icons.Default.Link,
                     title = "ポート転送",
-                    summary = "対象ホストのカードにある転送ボタンから設定します。",
+                    summary = "ホスト一覧を開き、対象ホストのその他の操作から転送ルールを設定します。",
                     onClick = onNavigateToHosts
                 )
             }
@@ -369,16 +359,16 @@ private fun ToolsHubTab(
                 ToolHubCard(
                     icon = Icons.Default.Terminal,
                     title = "Claude Code",
-                    summary = "Claude Code CLIでAI開発ワークフローを加速します。",
-                    onClick = onNavigateToHosts
+                    summary = "Claude Code用コマンドと表示タブを管理します。",
+                    onClick = onNavigateToShortcuts
                 )
             }
             item {
                 ToolHubCard(
                     icon = Icons.Default.Terminal,
                     title = "Codex",
-                    summary = "OpenAI Codex CLIでコーディング支援を行います。",
-                    onClick = onNavigateToHosts
+                    summary = "Codex CLI用コマンドと表示タブを管理します。",
+                    onClick = onNavigateToShortcuts
                 )
             }
             item {
@@ -417,9 +407,15 @@ private fun ToolHubCard(
     onClick: () -> Unit
 ) {
     CommandSurfaceCard(onClick = onClick) {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+        ) {
             ShellPilotIconTile(icon = icon, contentDescription = null)
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
                 Text(title, style = MaterialTheme.typography.titleMedium)
                 Text(
                     summary,

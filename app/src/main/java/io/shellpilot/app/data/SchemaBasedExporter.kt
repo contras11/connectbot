@@ -40,7 +40,9 @@ import org.json.JSONObject
  */
 class SchemaBasedExporter(
     private val database: RoomDatabase,
-    private val schema: DatabaseSchema
+    private val schema: DatabaseSchema,
+    private val importReferences: List<ImportReference> = emptyList(),
+    private val droppedReferences: List<DroppedReference> = emptyList()
 ) {
 
     /**
@@ -105,53 +107,62 @@ class SchemaBasedExporter(
         // Track ID mappings for foreign key remapping: tableName -> (oldId -> newId)
         val idMappings = mutableMapOf<String, MutableMap<Long, Long>>()
 
-        // Process tables in order (parent tables first for foreign key resolution)
-        for (tableName in tableNames) {
-            val entitySchema = schema.getEntity(tableName) ?: continue
-            val rows = json.optJSONArray(tableName) ?: continue
-            val idMapping = mutableMapOf<Long, Long>()
-            idMappings[tableName] = idMapping
+        db.beginTransaction()
+        try {
+            // Process tables in order (parent tables first for foreign key resolution)
+            for (tableName in tableNames) {
+                val entitySchema = schema.getEntity(tableName) ?: continue
+                val rows = json.optJSONArray(tableName) ?: continue
+                val idMapping = mutableMapOf<Long, Long>()
+                idMappings[tableName] = idMapping
 
-            var insertedCount = 0
-            var skippedCount = 0
+                var insertedCount = 0
+                var skippedCount = 0
 
-            // Find unique constraint for conflict detection
-            val uniqueFields = entitySchema.uniqueIndices
-                .firstOrNull()
-                ?.columnNames
-                ?: listOf("id")
+                // Find unique constraint for conflict detection
+                val uniqueFields = entitySchema.uniqueIndices
+                    .firstOrNull()
+                    ?.columnNames
+                    ?: listOf("id")
 
-            // Find foreign keys that need remapping
-            val foreignKeys = entitySchema.foreignKeys
+                // Find foreign keys that need remapping
+                val foreignKeys = entitySchema.foreignKeys
 
-            for (i in 0 until rows.length()) {
-                val row = rows.getJSONObject(i)
-                val oldId = row.optLong("id", 0)
+                for (i in 0 until rows.length()) {
+                    val row = rows.getJSONObject(i)
+                    val oldId = row.optLong("id", 0)
 
-                // Remap foreign key values using previously imported ID mappings
-                val remappedRow = remapForeignKeys(row, foreignKeys, idMappings, entitySchema)
+                    // Remap foreign key values using previously imported ID mappings
+                    val remappedRow = remapForeignKeys(row, foreignKeys, idMappings, entitySchema)
+                        .let { applyExplicitReferences(tableName, it, idMappings, postponeSelfRefs = true) }
+                        .let { applyDroppedReferences(tableName, it) }
 
-                // Check for existing row by unique constraint
-                val existingId = findExistingId(db, tableName, remappedRow, uniqueFields, entitySchema)
+                    // Check for existing row by unique constraint
+                    val existingId = findExistingId(db, tableName, remappedRow, uniqueFields, entitySchema)
 
-                val newId = if (existingId != null) {
-                    // Skip existing row - do not update
-                    skippedCount++
-                    existingId
-                } else {
-                    // Insert new row
-                    val id = insertRow(db, tableName, remappedRow, entitySchema)
-                    insertedCount++
-                    id
+                    val newId = if (existingId != null) {
+                        // Skip existing row - do not update
+                        skippedCount++
+                        existingId
+                    } else {
+                        // Insert new row
+                        val id = insertRow(db, tableName, remappedRow, entitySchema)
+                        insertedCount++
+                        id
+                    }
+
+                    idMapping[oldId] = newId
                 }
 
-                idMapping[oldId] = newId
+                // Second pass: update explicitly configured self-referencing keys.
+                updateSelfReferences(db, tableName, entitySchema, idMapping, rows)
+
+                results[tableName] = Pair(insertedCount, skippedCount)
             }
 
-            // Second pass: update self-referencing foreign keys
-            updateSelfReferences(db, tableName, entitySchema, idMapping, rows)
-
-            results[tableName] = Pair(insertedCount, skippedCount)
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
         }
 
         // Notify Room's InvalidationTracker that tables have changed
@@ -269,20 +280,6 @@ class SchemaBasedExporter(
     }
 
     /**
-     * Update an existing row in the database.
-     */
-    private fun updateRow(
-        db: androidx.sqlite.db.SupportSQLiteDatabase,
-        tableName: String,
-        id: Long,
-        row: JSONObject,
-        entitySchema: EntitySchema
-    ) {
-        val values = jsonToContentValues(row, entitySchema, excludeId = true)
-        db.update(tableName, 0, values, "id = ?", arrayOf(id.toString()))
-    }
-
-    /**
      * Update self-referencing foreign keys after all rows are imported.
      */
     private fun updateSelfReferences(
@@ -292,33 +289,21 @@ class SchemaBasedExporter(
         idMapping: Map<Long, Long>,
         originalRows: JSONArray
     ) {
-        // Find self-referencing fields (foreign keys that reference the same table)
-        val selfRefFields = entitySchema.fields.filter { field ->
-            entitySchema.foreignKeys.none { fk ->
-                fk.columns.contains(field.columnName)
-            } && field.fieldPath.endsWith("Id") && field.fieldPath != "id" &&
-                field.affinity == "INTEGER"
-        }
-
-        // Also check for explicit self-referencing foreign keys
-        val explicitSelfRefs = entitySchema.foreignKeys
-            .filter { it.table == tableName }
-            .flatMap { fk ->
-                fk.columns.mapNotNull { col ->
-                    entitySchema.fields.find { it.columnName == col }
-                }
+        val explicitSelfRefs = importReferences
+            .filter { it.tableName == tableName && it.referencedTableName == tableName }
+            .mapNotNull { reference ->
+                entitySchema.getField(reference.fieldPath)
             }
+            .distinctBy { it.fieldPath }
 
-        val allSelfRefFields = (selfRefFields + explicitSelfRefs).distinctBy { it.fieldPath }
-
-        if (allSelfRefFields.isEmpty()) return
+        if (explicitSelfRefs.isEmpty()) return
 
         for (i in 0 until originalRows.length()) {
             val row = originalRows.getJSONObject(i)
             val oldId = row.optLong("id", 0)
             val newId = idMapping[oldId] ?: continue
 
-            for (field in allSelfRefFields) {
+            for (field in explicitSelfRefs) {
                 if (!row.has(field.fieldPath)) continue
                 val oldRefId = row.optLong(field.fieldPath, 0)
                 if (oldRefId == 0L) continue
@@ -331,6 +316,62 @@ class SchemaBasedExporter(
                 )
             }
         }
+    }
+
+    /**
+     * Room schemaだけでは表現されていない参照を明示的に変換する。
+     *
+     * 変更理由: hosts.profileId / pubkeyId / jumpHostId は Room FK ではないため、
+     * fieldPath の接尾辞だけで推定すると別テーブル参照を自己参照として誤変換する。
+     */
+    private fun applyExplicitReferences(
+        tableName: String,
+        row: JSONObject,
+        idMappings: Map<String, Map<Long, Long>>,
+        postponeSelfRefs: Boolean
+    ): JSONObject {
+        val remapped = JSONObject(row.toString())
+        importReferences
+            .filter { it.tableName == tableName }
+            .forEach { reference ->
+                if (!remapped.has(reference.fieldPath) || remapped.isNull(reference.fieldPath)) {
+                    return@forEach
+                }
+
+                if (postponeSelfRefs && reference.tableName == reference.referencedTableName) {
+                    remapped.put(reference.fieldPath, JSONObject.NULL)
+                    return@forEach
+                }
+
+                val oldValue = remapped.optLong(reference.fieldPath, 0L)
+                if (oldValue <= 0L) return@forEach
+
+                val newValue = idMappings[reference.referencedTableName]?.get(oldValue)
+                if (newValue != null) {
+                    remapped.put(reference.fieldPath, newValue)
+                } else {
+                    remapped.put(reference.fieldPath, reference.missingValue ?: JSONObject.NULL)
+                }
+            }
+        return remapped
+    }
+
+    /**
+     * import対象外テーブルへの参照を安全な値に落とす。
+     *
+     * 変更理由: ホスト設定JSONは秘密鍵を含めないため、旧 pubkey_id をそのまま残すと
+     * 別端末の既存鍵IDへ偶然紐づく危険がある。
+     */
+    private fun applyDroppedReferences(tableName: String, row: JSONObject): JSONObject {
+        val remapped = JSONObject(row.toString())
+        droppedReferences
+            .filter { it.tableName == tableName }
+            .forEach { reference ->
+                if (remapped.has(reference.fieldPath) && !remapped.isNull(reference.fieldPath)) {
+                    remapped.put(reference.fieldPath, reference.replacementValue)
+                }
+            }
+        return remapped
     }
 
     /**
@@ -379,4 +420,17 @@ class SchemaBasedExporter(
 
         return values
     }
+
+    data class ImportReference(
+        val tableName: String,
+        val fieldPath: String,
+        val referencedTableName: String,
+        val missingValue: Any? = JSONObject.NULL
+    )
+
+    data class DroppedReference(
+        val tableName: String,
+        val fieldPath: String,
+        val replacementValue: Any
+    )
 }

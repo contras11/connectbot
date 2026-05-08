@@ -32,12 +32,14 @@ import io.shellpilot.app.data.PubkeyRepository
 import io.shellpilot.app.data.entity.Host
 import io.shellpilot.app.data.entity.Profile
 import io.shellpilot.app.data.entity.Pubkey
+import io.shellpilot.app.util.HostConstants
 import io.shellpilot.app.util.SecurePasswordStorage
 import javax.inject.Inject
 
 data class HostEditorUiState(
     val hostId: Long = -1L,
     val quickConnect: String = "",
+    val quickConnectError: String? = null,
     val nickname: String = "",
     val protocol: String = "ssh",
     val username: String = "",
@@ -60,6 +62,8 @@ data class HostEditorUiState(
     val password: String = "",
     val hasExistingPassword: Boolean = false,
     val isLoading: Boolean = false,
+    val isSaving: Boolean = false,
+    val saveSucceeded: Boolean = false,
     val error: String? = null
 )
 
@@ -167,7 +171,7 @@ class HostEditorViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 _uiState.update {
-                    it.copy(isLoading = false, error = e.message ?: "Failed to load host")
+                    it.copy(isLoading = false, error = e.message ?: "ホストを読み込めませんでした")
                 }
             }
         }
@@ -178,7 +182,15 @@ class HostEditorViewModel @Inject constructor(
     }
 
     fun updateProtocol(value: String) {
-        _uiState.update { it.copy(protocol = value) }
+        _uiState.update {
+            it.copy(
+                protocol = value,
+                pubkeyId = if (value == "ssh") it.pubkeyId else HostConstants.PUBKEYID_NEVER,
+                useAuthAgent = if (value == "ssh") it.useAuthAgent else HostConstants.AUTHAGENT_NO,
+                compression = if (value == "ssh") it.compression else false,
+                jumpHostId = if (value == "ssh") it.jumpHostId else null
+            )
+        }
     }
 
     fun updateUsername(value: String) {
@@ -198,44 +210,140 @@ class HostEditorViewModel @Inject constructor(
 
     fun updateQuickConnect(value: String) {
         val trimmed = value.trim()
-        val localNickname = parseLocalQuickConnect(trimmed)
-        if (localNickname != null) {
-            // 変更理由: local://ReviewLocal をSSHホストとして保存しないよう、
-            // クイック接続段階でLocalプロトコルへ明示的に正規化する。
+        if (trimmed.isEmpty()) {
             _uiState.update {
                 it.copy(
                     quickConnect = value,
-                    nickname = localNickname,
-                    protocol = "local",
+                    quickConnectError = null,
+                    nickname = "",
+                    protocol = "ssh",
                     username = "",
                     hostname = "",
-                    port = "0",
-                    pubkeyId = -2L,
-                    useAuthAgent = "no",
-                    compression = false,
-                    jumpHostId = null
+                    port = "22"
                 )
             }
             return
         }
 
-        _uiState.update { it.copy(quickConnect = value, protocol = "ssh") }
+        when (val parsed = parseQuickConnect(trimmed)) {
+            is QuickConnectParseResult.Valid -> {
+                // 変更理由: local/telnet/ssh URIの意図を保存前に正規化し、
+                // 不正な入力をSSHホストとして保存しない。
+                val isSsh = parsed.protocol == "ssh"
+                val isLocal = parsed.protocol == "local"
+                _uiState.update {
+                    it.copy(
+                        quickConnect = value,
+                        quickConnectError = null,
+                        nickname = parsed.nickname,
+                        protocol = parsed.protocol,
+                        username = if (isSsh) parsed.username else "",
+                        hostname = if (isLocal) "" else parsed.hostname,
+                        port = parsed.port.toString(),
+                        pubkeyId = if (isSsh) it.pubkeyId else HostConstants.PUBKEYID_NEVER,
+                        useAuthAgent = if (isSsh) it.useAuthAgent else HostConstants.AUTHAGENT_NO,
+                        compression = if (isSsh) it.compression else false,
+                        jumpHostId = if (isSsh) it.jumpHostId else null
+                    )
+                }
+            }
 
-        // Parse quick connect string: [user@]hostname[:port]
-        val regex = Regex("^(?:([^@]+)@)?([^:]+)(?::(\\d+))?$")
-        val match = regex.find(trimmed)
-
-        if (match != null) {
-            val (username, hostname, port) = match.destructured
-            _uiState.update {
-                it.copy(
-                    nickname = trimmed,
-                    username = username.ifBlank { "" },
-                    hostname = hostname,
-                    port = port.ifBlank { "22" }
-                )
+            is QuickConnectParseResult.Invalid -> {
+                _uiState.update {
+                    it.copy(
+                        quickConnect = value,
+                        quickConnectError = parsed.message,
+                        hostname = "",
+                        username = "",
+                        nickname = "",
+                        protocol = "ssh"
+                    )
+                }
             }
         }
+    }
+
+    private sealed interface QuickConnectParseResult {
+        data class Valid(
+            val protocol: String,
+            val nickname: String,
+            val username: String,
+            val hostname: String,
+            val port: Int
+        ) : QuickConnectParseResult
+
+        data class Invalid(val message: String) : QuickConnectParseResult
+    }
+
+    private fun parseQuickConnect(value: String): QuickConnectParseResult {
+        parseLocalQuickConnect(value)?.let { nickname ->
+            return QuickConnectParseResult.Valid(
+                protocol = "local",
+                nickname = nickname,
+                username = "",
+                hostname = "",
+                port = 0
+            )
+        }
+
+        val schemeMatch = Regex("^([a-zA-Z][a-zA-Z0-9+.-]*):").find(value)
+        val scheme = schemeMatch?.groupValues?.get(1)?.lowercase()
+        if (scheme != null && scheme !in setOf("ssh", "telnet")) {
+            return QuickConnectParseResult.Invalid("ssh://、telnet://、local://、または [user@]host[:port] 形式で入力してください")
+        }
+
+        return if (scheme == "ssh" || scheme == "telnet") {
+            parseNetworkUriQuickConnect(value, scheme)
+        } else {
+            parseImplicitSshQuickConnect(value)
+        }
+    }
+
+    private fun parseNetworkUriQuickConnect(value: String, protocol: String): QuickConnectParseResult {
+        val match = Regex("^[a-zA-Z][a-zA-Z0-9+.-]*://(?:([^@/?#]+)@)?([^:/?#]+)(?::(\\d+))?(?:/[^#?]*)?(?:\\?[^#]*)?(?:#(.+))?$")
+            .find(value)
+            ?: return QuickConnectParseResult.Invalid("${protocol}://host[:port] 形式で入力してください")
+
+        val username = match.groupValues[1]
+        val hostname = match.groupValues[2]
+        val portText = match.groupValues[3]
+        val fragment = match.groupValues[4]
+        val port = parsePortOrError(portText, if (protocol == "ssh") 22 else 23)
+            ?: return QuickConnectParseResult.Invalid("ポートは1〜65535の数値で入力してください")
+        val nickname = fragment.ifBlank { value }
+
+        return QuickConnectParseResult.Valid(
+            protocol = protocol,
+            nickname = nickname,
+            username = if (protocol == "ssh") username else "",
+            hostname = hostname,
+            port = port
+        )
+    }
+
+    private fun parseImplicitSshQuickConnect(value: String): QuickConnectParseResult {
+        val match = Regex("^(?:([^@\\s]+)@)?([^:@\\s]+)(?::(\\d+))?$").find(value)
+            ?: return QuickConnectParseResult.Invalid("[user@]host[:port] 形式で入力してください")
+
+        val (username, hostname, portText) = match.destructured
+        val port = parsePortOrError(portText, 22)
+            ?: return QuickConnectParseResult.Invalid("ポートは1〜65535の数値で入力してください")
+
+        return QuickConnectParseResult.Valid(
+            protocol = "ssh",
+            nickname = value,
+            username = username,
+            hostname = hostname,
+            port = port
+        )
+    }
+
+    private fun parsePortOrError(value: String, defaultPort: Int): Int? {
+        if (value.isBlank()) {
+            return defaultPort
+        }
+        val port = value.toIntOrNull() ?: return null
+        return port.takeIf { it in 1..65535 }
     }
 
     private fun parseLocalQuickConnect(value: String): String? {
@@ -310,8 +418,37 @@ class HostEditorViewModel @Inject constructor(
 
     fun saveHost(useExpandedMode: Boolean) {
         viewModelScope.launch {
+            _uiState.update {
+                it.copy(isSaving = true, saveSucceeded = false, error = null)
+            }
             try {
                 val state = _uiState.value
+                if (!useExpandedMode && state.quickConnectError != null) {
+                    _uiState.update {
+                        it.copy(isSaving = false, error = "クイック接続の入力を確認してください")
+                    }
+                    return@launch
+                }
+                if (!useExpandedMode && state.quickConnect.isBlank()) {
+                    _uiState.update {
+                        it.copy(isSaving = false, error = "クイック接続を入力してください")
+                    }
+                    return@launch
+                }
+                if (state.protocol != "local" && state.hostname.isBlank()) {
+                    _uiState.update {
+                        it.copy(isSaving = false, error = "ホスト名を入力してください")
+                    }
+                    return@launch
+                }
+                val port = state.port.toIntOrNull()
+                if (state.protocol != "local" && (port == null || port !in 1..65535)) {
+                    _uiState.update {
+                        it.copy(isSaving = false, error = "ポートは1〜65535の数値で入力してください")
+                    }
+                    return@launch
+                }
+
                 val existingHost = if (hostId != -1L) {
                     repository.findHostById(hostId)
                 } else {
@@ -320,13 +457,14 @@ class HostEditorViewModel @Inject constructor(
 
                 // In quick connect mode, use the quickConnect string as the nickname
                 val rawNickname = if (!useExpandedMode && state.quickConnect.isNotBlank()) {
-                    if (state.protocol == "local") state.nickname.ifBlank { "Local" } else state.quickConnect
+                    state.nickname.ifBlank { state.quickConnect }
                 } else {
                     state.nickname
                 }
 
                 // Only SSH hosts can have a jump host
-                val jumpHostId = if (state.protocol == "ssh") state.jumpHostId else null
+                val isSsh = state.protocol == "ssh"
+                val jumpHostId = if (isSsh) state.jumpHostId else null
                 val isLocal = state.protocol == "local"
                 val nickname = if (isLocal) {
                     parseLocalQuickConnect(rawNickname) ?: rawNickname.ifBlank { "Local" }
@@ -338,14 +476,14 @@ class HostEditorViewModel @Inject constructor(
                     id = existingHost?.id ?: 0L,
                     nickname = nickname,
                     protocol = state.protocol,
-                    username = if (isLocal) "" else state.username,
+                    username = if (isSsh) state.username else "",
                     hostname = if (isLocal) "" else state.hostname,
-                    port = if (isLocal) 0 else state.port.toIntOrNull() ?: 22,
+                    port = if (isLocal) 0 else requireNotNull(port),
                     color = state.color.takeIf { it != "gray" },
-                    pubkeyId = if (isLocal) -2L else state.pubkeyId,
+                    pubkeyId = if (isSsh) state.pubkeyId else HostConstants.PUBKEYID_NEVER,
                     profileId = state.profileId,
-                    useAuthAgent = if (isLocal) null else state.useAuthAgent.takeIf { it != "no" },
-                    compression = if (isLocal) false else state.compression,
+                    useAuthAgent = if (isSsh) state.useAuthAgent.takeIf { it != HostConstants.AUTHAGENT_NO } else null,
+                    compression = if (isSsh) state.compression else false,
                     wantSession = state.wantSession,
                     stayConnected = state.stayConnected,
                     quickDisconnect = state.quickDisconnect,
@@ -362,7 +500,7 @@ class HostEditorViewModel @Inject constructor(
                 val savedHost = repository.saveHost(host)
 
                 // Handle password storage (only for SSH protocol)
-                if (state.protocol == "ssh") {
+                if (isSsh) {
                     if (state.password.isNotEmpty()) {
                         // Save or update the password
                         securePasswordStorage.savePassword(savedHost.id, state.password)
@@ -371,12 +509,26 @@ class HostEditorViewModel @Inject constructor(
                         securePasswordStorage.deletePassword(savedHost.id)
                     }
                     // If password is empty but hasExistingPassword is true, keep existing
+                } else if (existingHost?.protocol == "ssh") {
+                    // 変更理由: SSHからLocal/Telnetへ変更したホストにSSHパスワードを残さない。
+                    securePasswordStorage.deletePassword(savedHost.id)
+                }
+                _uiState.update {
+                    it.copy(isSaving = false, saveSucceeded = true)
                 }
             } catch (e: Exception) {
                 _uiState.update {
-                    it.copy(error = e.message ?: "Failed to save host")
+                    it.copy(
+                        isSaving = false,
+                        saveSucceeded = false,
+                        error = e.message ?: "ホストを保存できませんでした"
+                    )
                 }
             }
         }
+    }
+
+    fun consumeSaveSucceeded() {
+        _uiState.update { it.copy(saveSucceeded = false) }
     }
 }

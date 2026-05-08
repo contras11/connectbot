@@ -287,7 +287,8 @@ class PortForwardListViewModel @Inject constructor(
     private fun findBridgeForHost(): TerminalBridge? = _terminalManager.value?.bridgesFlow?.value?.find { it.host.id == hostId }
 
     private fun validatePort(portString: String, portType: String): Int {
-        val port = portString.toIntOrNull()
+        val trimmedPort = portString.trim()
+        val port = trimmedPort.toIntOrNull()
             ?: throw IllegalArgumentException("${portType.toJapanesePortType()}ポートは数値で入力してください: $portString")
 
         if (port !in 1..65535) {
@@ -300,14 +301,15 @@ class PortForwardListViewModel @Inject constructor(
     private data class ParsedDestination(val address: String?, val port: Int)
 
     private fun parseDestination(destination: String): ParsedDestination {
-        val destSplit = destination.split(":")
-        val destAddr = destSplit.firstOrNull()
+        val trimmedDestination = destination.trim()
+        val destSplit = trimmedDestination.split(":")
+        val destAddr = destSplit.firstOrNull()?.trim()
 
-        val destPort = if (destSplit.size > 1) {
-            validatePort(destSplit.last(), "destination")
-        } else {
+        if (destSplit.size != 2 || destAddr.isNullOrBlank()) {
             throw IllegalArgumentException("転送先は host:port 形式でポートを含めてください")
         }
+
+        val destPort = validatePort(destSplit.last(), "destination")
 
         return ParsedDestination(destAddr, destPort)
     }

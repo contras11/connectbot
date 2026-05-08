@@ -49,6 +49,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -66,9 +67,11 @@ import io.shellpilot.app.R
 import io.shellpilot.app.data.entity.PortForward
 import io.shellpilot.app.ui.ScreenPreviews
 import io.shellpilot.app.ui.components.CommandSurfaceCard
+import io.shellpilot.app.ui.components.ShellPilotActionDialog
 import io.shellpilot.app.ui.components.ShellPilotScaffold
 import io.shellpilot.app.ui.components.StatusChip
 import io.shellpilot.app.ui.theme.ShellPilotTheme
+import io.shellpilot.app.util.HostConstants
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -111,6 +114,7 @@ fun PortForwardListScreenContent(
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
     var editingPortForward by remember { mutableStateOf<PortForward?>(null) }
+    var deletingPortForward by remember { mutableStateOf<PortForward?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Show snackbar when there's an error
@@ -128,7 +132,10 @@ fun PortForwardListScreenContent(
         subtitle = "Local / Remote / Dynamic",
         navigationIcon = {
             IconButton(onClick = onNavigateBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.button_navigate_up)
+                )
             }
         },
         actions = {
@@ -211,7 +218,7 @@ fun PortForwardListScreenContent(
                                 portForward = portForward,
                                 isEnabled = portForward.isEnabled(),
                                 onEdit = { editingPortForward = portForward },
-                                onDelete = { onDeletePortForward(portForward) },
+                                onDelete = { deletingPortForward = portForward },
                                 onEnable = { onEnablePortForward(portForward) },
                                 onDisable = { onDisablePortForward(portForward) },
                                 hasLiveConnection = uiState.hasLiveConnection
@@ -252,6 +259,25 @@ fun PortForwardListScreenContent(
             initialDestination = initialDest,
             isEditing = true
         )
+    }
+
+    deletingPortForward?.let { portForward ->
+        ShellPilotActionDialog(
+            title = "ポート転送を削除",
+            subtitle = portForward.nickname,
+            onDismiss = { deletingPortForward = null },
+            confirmLabel = stringResource(R.string.portforward_delete),
+            onConfirm = {
+                deletingPortForward = null
+                onDeletePortForward(portForward)
+            },
+            dismissLabel = stringResource(R.string.delete_neg)
+        ) {
+            Text(
+                text = "この転送ルールを削除します。接続中の場合は有効なセッションからも取り外します。",
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
     }
 }
 
@@ -416,8 +442,13 @@ private fun PortForwardListItem(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
+                val destinationLabel = if (portForward.type == HostConstants.PORTFORWARD_DYNAMIC5) {
+                    "SOCKS proxy"
+                } else {
+                    "${portForward.destAddr.orEmpty()}:${portForward.destPort}"
+                }
                 Text(
-                    text = "${portForward.sourcePort} → ${portForward.destAddr}:${portForward.destPort}",
+                    text = "${portForward.sourcePort} → $destinationLabel",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -433,9 +464,31 @@ private fun PortForwardListItem(
                 }
             }
 
+            if (hasLiveConnection) {
+                TextButton(
+                    onClick = if (isEnabled) onDisable else onEnable
+                ) {
+                    Text(
+                        text = stringResource(
+                            if (isEnabled) {
+                                R.string.portforward_disable
+                            } else {
+                                R.string.portforward_enable
+                            }
+                        )
+                    )
+                }
+            }
+
             Box {
                 IconButton(onClick = { showMenu = true }) {
-                    Icon(Icons.Default.MoreVert, stringResource(R.string.button_more_options))
+                    Icon(
+                        Icons.Default.MoreVert,
+                        contentDescription = stringResource(
+                            R.string.portforward_item_more_options,
+                            portForward.nickname
+                        )
+                    )
                 }
                 DropdownMenu(
                     expanded = showMenu,

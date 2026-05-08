@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import io.shellpilot.app.data.HostRepository
 import io.shellpilot.app.data.PubkeyRepository
 import io.shellpilot.app.data.entity.Pubkey
 import io.shellpilot.app.di.CoroutineDispatchers
@@ -99,6 +100,7 @@ data class PubkeyListUiState(
 @HiltViewModel
 class PubkeyListViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
+    private val hostRepository: HostRepository,
     private val repository: PubkeyRepository,
     private val dispatchers: CoroutineDispatchers
 ) : ViewModel() {
@@ -145,7 +147,19 @@ class PubkeyListViewModel @Inject constructor(
     fun deletePubkey(pubkey: Pubkey) {
         viewModelScope.launch {
             try {
+                val usageCount = hostRepository.getHostsUsingPubkey(pubkey.id)
+                if (usageCount > 0) {
+                    _uiState.update {
+                        it.copy(error = "この公開鍵は $usageCount 件のホストで使用中のため削除できません")
+                    }
+                    return@launch
+                }
+
                 terminalManager?.removeKey(pubkey.nickname)
+                pubkey.keystoreAlias?.let { alias ->
+                    // 変更理由: 生体認証鍵のDB行だけを消すとKeystore aliasが残るため同時に削除する。
+                    BiometricKeyManager(context).deleteKey(alias)
+                }
                 repository.delete(pubkey)
             } catch (e: Exception) {
                 _uiState.update {

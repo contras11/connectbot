@@ -17,6 +17,7 @@
 
 package io.shellpilot.app
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ShortcutInfo
@@ -25,6 +26,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.rule.GrantPermissionRule
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import kotlinx.coroutines.runBlocking
@@ -45,6 +47,10 @@ import org.junit.runner.RunWith
 class MainActivityTest {
     @get:Rule(order = 0)
     val hiltRule = HiltAndroidRule(this)
+
+    @get:Rule(order = 1)
+    val notificationPermissionRule: GrantPermissionRule =
+        GrantPermissionRule.grant(Manifest.permission.POST_NOTIFICATIONS)
 
     private val context = ApplicationProvider.getApplicationContext<Context>()
 

@@ -128,7 +128,10 @@ fun PubkeyEditorScreenContent(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         navigationIcon = {
             IconButton(onClick = onNavigateBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.button_navigate_up)
+                )
             }
         },
         modifier = modifier

@@ -32,6 +32,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import timber.log.Timber
 import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -59,6 +61,7 @@ class ShortcutRepository @Inject constructor(
     val shortcuts: StateFlow<List<Shortcut>> = _shortcuts.asStateFlow()
 
     private var loaded = false
+    private var suppressedTemplateKeys: Set<String> = emptySet()
 
     /**
      * JSONファイルからショートカットを読み込む。
@@ -67,19 +70,20 @@ class ShortcutRepository @Inject constructor(
     suspend fun loadAll(): List<Shortcut> = mutex.withLock {
         if (loaded) return@withLock _shortcuts.value
 
-        val result = withContext(dispatchers.io) {
+        val payload = withContext(dispatchers.io) {
             if (!file.exists()) {
                 // 初回起動: デフォルトショートカットを生成して保存
                 val defaults = Shortcut.createDefaults()
-                writeToFileInternal(defaults)
-                defaults
+                writeToFileInternal(defaults, emptySet())
+                ShortcutFilePayload(defaults, emptySet())
             } else {
-                readFromFileInternal()
+                readPayloadFromFileInternal()
             }
         }
-        _shortcuts.value = result
+        suppressedTemplateKeys = payload.suppressedTemplateKeys
+        _shortcuts.value = payload.shortcuts
         loaded = true
-        result
+        payload.shortcuts
     }
 
     /**
@@ -94,28 +98,56 @@ class ShortcutRepository @Inject constructor(
 
     /** ショートカットを追加または更新する */
     suspend fun save(shortcut: Shortcut) = mutex.withLock {
+        if (!loaded && file.exists()) {
+            val payload = withContext(dispatchers.io) { readPayloadFromFileInternal() }
+            _shortcuts.value = payload.shortcuts
+            suppressedTemplateKeys = payload.suppressedTemplateKeys
+            loaded = true
+        }
         val current = _shortcuts.value.toMutableList()
         val index = current.indexOfFirst { it.id == shortcut.id }
+        val nextSuppressed = suppressedTemplateKeys.toMutableSet()
         if (index >= 0) {
+            val previousTemplateKey = current[index].templateKey
+            // 変更理由: 公式テンプレートをユーザーが編集した場合はカスタム化し、
+            // 次回同期で元テンプレートが勝手に復活しないよう抑制する。
+            if (previousTemplateKey != null && shortcut.templateKey == null) {
+                nextSuppressed.add(previousTemplateKey)
+            }
             current[index] = shortcut
         } else {
+            shortcut.templateKey?.let { nextSuppressed.remove(it) }
             current.add(shortcut)
         }
-        withContext(dispatchers.io) { writeToFileInternal(current) }
+        suppressedTemplateKeys = nextSuppressed
+        withContext(dispatchers.io) { writeToFileInternal(current, suppressedTemplateKeys) }
         _shortcuts.value = current
     }
 
     /** ショートカットを削除する */
     suspend fun delete(id: String) = mutex.withLock {
+        if (!loaded && file.exists()) {
+            val payload = withContext(dispatchers.io) { readPayloadFromFileInternal() }
+            _shortcuts.value = payload.shortcuts
+            suppressedTemplateKeys = payload.suppressedTemplateKeys
+            loaded = true
+        }
+        val deleted = _shortcuts.value.firstOrNull { it.id == id }
         val current = _shortcuts.value.filter { it.id != id }
-        withContext(dispatchers.io) { writeToFileInternal(current) }
+        val nextSuppressed = suppressedTemplateKeys.toMutableSet()
+        // 変更理由: 公式テンプレート削除を「非表示」扱いとして永続化し、
+        // syncOfficialTemplates() で勝手に復活しないようにする。
+        deleted?.templateKey?.let { nextSuppressed.add(it) }
+        suppressedTemplateKeys = nextSuppressed
+        withContext(dispatchers.io) { writeToFileInternal(current, suppressedTemplateKeys) }
         _shortcuts.value = current
     }
 
     /** 全ショートカットを置き換える (並べ替え時等) */
     suspend fun replaceAll(shortcuts: List<Shortcut>) = mutex.withLock {
-        withContext(dispatchers.io) { writeToFileInternal(shortcuts) }
+        withContext(dispatchers.io) { writeToFileInternal(shortcuts, suppressedTemplateKeys) }
         _shortcuts.value = shortcuts
+        loaded = true
     }
 
     /**
@@ -126,15 +158,17 @@ class ShortcutRepository @Inject constructor(
      * テンプレートだけを安全に更新できるようにする。
      */
     suspend fun syncOfficialTemplates(): TemplateSyncResult = mutex.withLock {
-        val current = withContext(dispatchers.io) {
+        val payload = withContext(dispatchers.io) {
             if (!file.exists()) {
                 val defaults = Shortcut.createDefaults()
-                writeToFileInternal(defaults)
-                defaults
+                writeToFileInternal(defaults, emptySet())
+                ShortcutFilePayload(defaults, emptySet())
             } else {
-                readFromFileInternal()
+                readPayloadFromFileInternal()
             }
         }
+        suppressedTemplateKeys = payload.suppressedTemplateKeys
+        val current = payload.shortcuts.filterNot { it.templateKey in deprecatedTemplateKeys() }
         val templates = officialTemplates()
         val templateByKey = templates.mapNotNull { template ->
             template.templateKey?.let { it to template }
@@ -143,9 +177,11 @@ class ShortcutRepository @Inject constructor(
             template.templateKey?.let {
                 TemplateSignature(template.label, template.command, template.category) to template
             }
-        }.toMap() + legacyTemplateKeyBySignature().mapValues { (_, key) ->
-            templateByKey.getValue(key)
-        }
+        }.toMap() + legacyTemplateKeyBySignature().mapNotNull { (signature, key) ->
+            // 変更理由: deprecated化した旧テンプレートは公式一覧から消えるため、
+            // legacy変換で復元対象にしない。存在する公式テンプレートだけ補完する。
+            templateByKey[key]?.let { signature to it }
+        }.toMap()
 
         var updated = 0
         var tagged = 0
@@ -186,14 +222,14 @@ class ShortcutRepository @Inject constructor(
         var added = 0
         templates.forEach { template ->
             val key = template.templateKey
-            if (key != null && key !in existingTemplateKeys) {
+            if (key != null && key !in existingTemplateKeys && key !in suppressedTemplateKeys) {
                 merged.add(template.copy(order = nextOrder++))
                 existingTemplateKeys.add(key)
                 added++
             }
         }
 
-        withContext(dispatchers.io) { writeToFileInternal(merged) }
+        withContext(dispatchers.io) { writeToFileInternal(merged, suppressedTemplateKeys) }
         _shortcuts.value = merged
         loaded = true
         TemplateSyncResult(added = added, updated = updated, tagged = tagged)
@@ -201,29 +237,78 @@ class ShortcutRepository @Inject constructor(
 
     // --- 内部I/O (mutex保持下で呼び出すこと) ---
 
-    private fun readFromFileInternal(): List<Shortcut> {
+    private fun readPayloadFromFileInternal(): ShortcutFilePayload {
         return try {
             val text = file.readText()
             val root = JSONObject(text)
             val array = root.getJSONArray(KEY_SHORTCUTS)
-            (0 until array.length()).map { Shortcut.fromJson(array.getJSONObject(it)) }
+            val shortcuts = (0 until array.length()).map { Shortcut.fromJson(array.getJSONObject(it)) }
+            val suppressedArray = root.optJSONArray(KEY_SUPPRESSED_TEMPLATE_KEYS)
+            val suppressedKeys = if (suppressedArray == null) {
+                emptySet()
+            } else {
+                (0 until suppressedArray.length()).mapTo(mutableSetOf()) { suppressedArray.getString(it) }
+            }
+            ShortcutFilePayload(shortcuts, suppressedKeys)
         } catch (e: Exception) {
             Timber.e(e, "ShortcutRepository: JSONの読込に失敗")
-            emptyList()
+            quarantineCorruptFile()
+            val defaults = Shortcut.createDefaults()
+            writeToFileInternal(defaults, emptySet())
+            ShortcutFilePayload(defaults, emptySet())
         }
     }
 
-    private fun writeToFileInternal(shortcuts: List<Shortcut>) {
+    private fun writeToFileInternal(shortcuts: List<Shortcut>, suppressedKeys: Set<String>) {
+        val root = JSONObject().apply {
+            put(KEY_VERSION, CURRENT_VERSION)
+            put(KEY_SHORTCUTS, JSONArray().apply {
+                shortcuts.forEach { put(it.toJson()) }
+            })
+            put(KEY_SUPPRESSED_TEMPLATE_KEYS, JSONArray().apply {
+                suppressedKeys.sorted().forEach { put(it) }
+            })
+        }
+        atomicWrite(root.toString(2))
+    }
+
+    /**
+     * JSONを一時ファイルへ書いてから置換する。
+     *
+     * 変更理由: 直接 writeText すると容量不足やクラッシュで shortcuts.json が破損し、
+     * 次回起動時にユーザーのショートカットが消えるため。
+     */
+    private fun atomicWrite(text: String) {
+        file.parentFile?.mkdirs()
+        val tempFile = File(file.parentFile, "$FILE_NAME.tmp")
         try {
-            val root = JSONObject().apply {
-                put(KEY_VERSION, CURRENT_VERSION)
-                put(KEY_SHORTCUTS, JSONArray().apply {
-                    shortcuts.forEach { put(it.toJson()) }
-                })
+            FileOutputStream(tempFile).use { output ->
+                output.write(text.toByteArray(Charsets.UTF_8))
+                output.fd.sync()
             }
-            file.writeText(root.toString(2))
+            if (file.exists() && !file.delete()) {
+                throw IOException("既存のショートカットJSONを置き換えられませんでした")
+            }
+            if (!tempFile.renameTo(file)) {
+                throw IOException("ショートカットJSONの一時ファイルを反映できませんでした")
+            }
         } catch (e: Exception) {
+            tempFile.delete()
             Timber.e(e, "ShortcutRepository: JSONの書込に失敗")
+            throw e
+        }
+    }
+
+    /**
+     * 壊れたJSONを退避する。
+     *
+     * 変更理由: 破損時に空リストとして上書きすると、復旧に使える元ファイルまで失うため。
+     */
+    private fun quarantineCorruptFile() {
+        if (!file.exists()) return
+        val quarantine = File(file.parentFile, "$FILE_NAME.corrupt-${System.currentTimeMillis()}")
+        if (!file.renameTo(quarantine)) {
+            Timber.w("ShortcutRepository: 破損JSONを退避できませんでした")
         }
     }
 
@@ -254,7 +339,18 @@ class ShortcutRepository @Inject constructor(
         TemplateSignature("git status", "git status\n", "git") to "git:status",
         TemplateSignature("git diff", "git diff\n", "git") to "git:diff",
         TemplateSignature("git log", "git log --oneline -10\n", "git") to "git:log",
-        TemplateSignature("git pull", "git pull\n", "git") to "git:pull",
+        TemplateSignature("git pull", "git pull\n", "git") to "git:pull-ff-only",
+        TemplateSignature("git stash", "git stash\n", "git") to "git:stash-push",
+        TemplateSignature("docker images", "docker images\n", "docker") to "docker:images",
+        TemplateSignature("docker stats", "docker stats\n", "docker") to "docker:stats",
+        TemplateSignature("docker compose up", "docker compose up -d\n", "docker") to "docker:compose-up",
+        TemplateSignature("docker compose down", "docker compose down\n", "docker") to "docker:compose-down",
+        TemplateSignature("wrangler dev", "wrangler dev\n", "cloudflare") to "cloudflare:wrangler-dev",
+        TemplateSignature("wrangler deploy", "wrangler deploy\n", "cloudflare") to "cloudflare:wrangler-deploy",
+        TemplateSignature("wrangler tail", "wrangler tail\n", "cloudflare") to "cloudflare:wrangler-tail",
+        TemplateSignature("wrangler whoami", "wrangler whoami\n", "cloudflare") to "cloudflare:wrangler-whoami",
+        TemplateSignature("wrangler secret", "wrangler secret put ", "cloudflare") to "cloudflare:wrangler-secret",
+        TemplateSignature("wrangler kv list", "wrangler kv key list --binding=KV\n", "cloudflare") to "cloudflare:wrangler-kv-key-list",
         TemplateSignature("claude", "claude\n", "claude_code") to "claude_code:launch",
         TemplateSignature("claude --resume", "claude --resume\n", "claude_code") to "claude_code:resume",
         TemplateSignature("claude --continue", "claude --continue\n", "claude_code") to "claude_code:continue",
@@ -263,6 +359,7 @@ class ShortcutRepository @Inject constructor(
         TemplateSignature("/compact", "/compact\n", "claude_code") to "claude_code:slash-compact",
         TemplateSignature("/cost", "/cost\n", "claude_code") to "claude_code:slash-cost",
         TemplateSignature("/status", "/status\n", "claude_code") to "claude_code:slash-status",
+        TemplateSignature("/todos", "/todos\n", "claude_code") to "claude_code:slash-tasks",
         TemplateSignature("codex", "codex\n", "codex") to "codex:launch",
         TemplateSignature("codex" + " -q", "codex" + " -q \"", "codex") to "codex:exec",
         TemplateSignature(
@@ -270,9 +367,19 @@ class ShortcutRepository @Inject constructor(
             "codex --approval-mode " + "full" + "-auto \"",
             "codex"
         ) to "codex:exec",
-        TemplateSignature("/help", "/help\n", "codex") to "codex:slash-help",
-        TemplateSignature("/diff", "/diff\n", "codex") to "codex:slash-diff",
-        TemplateSignature("/undo", "/undo\n", "codex") to "codex:slash-undo"
+        TemplateSignature("/diff", "/diff\n", "codex") to "codex:slash-diff"
+    )
+
+    private fun deprecatedTemplateKeys(): Set<String> = setOf(
+        "claude_code:slash-pr-comments",
+        "claude_code:slash-vim",
+        "codex:slash-help",
+        "codex:slash-prompts",
+        "codex:slash-undo",
+        "git:stash-pop",
+        "git:add-all",
+        "docker:compose-down",
+        "cloudflare:tunnel-delete"
     )
 
     data class TemplateSyncResult(
@@ -287,10 +394,16 @@ class ShortcutRepository @Inject constructor(
         val category: String?
     )
 
+    private data class ShortcutFilePayload(
+        val shortcuts: List<Shortcut>,
+        val suppressedTemplateKeys: Set<String>
+    )
+
     companion object {
         internal const val FILE_NAME = "shortcuts.json"
         private const val KEY_VERSION = "version"
         private const val KEY_SHORTCUTS = "shortcuts"
+        private const val KEY_SUPPRESSED_TEMPLATE_KEYS = "suppressedTemplateKeys"
         private const val CURRENT_VERSION = 1
     }
 }

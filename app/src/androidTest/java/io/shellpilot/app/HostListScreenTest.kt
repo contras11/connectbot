@@ -17,6 +17,7 @@
 
 package io.shellpilot.app
 
+import androidx.annotation.StringRes
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -45,6 +46,8 @@ class HostListScreenTest {
     fun setUp() {
         hiltRule.inject()
     }
+
+    private fun text(@StringRes resId: Int): String = composeTestRule.activity.getString(resId)
 
     @Test
     fun hostListScreen_displaysTitle() {
@@ -84,7 +87,7 @@ class HostListScreenTest {
         }
 
         composeTestRule
-            .onNodeWithContentDescription("Add host", ignoreCase = true)
+            .onNodeWithContentDescription(text(R.string.hostpref_add_host), ignoreCase = true)
             .assertIsDisplayed()
     }
 
@@ -104,14 +107,12 @@ class HostListScreenTest {
             }
         }
 
-        // Click the menu button (MoreVert icon)
         composeTestRule
-            .onNodeWithContentDescription("More options")
+            .onNodeWithContentDescription(text(R.string.button_more_options))
             .performClick()
 
-        // Verify menu items are displayed
         composeTestRule
-            .onNodeWithText("Manage pubkeys")
+            .onNodeWithText(text(R.string.list_menu_pubkeys))
             .assertIsDisplayed()
     }
 
@@ -134,7 +135,7 @@ class HostListScreenTest {
         }
 
         composeTestRule
-            .onNodeWithContentDescription("Add host", ignoreCase = true)
+            .onNodeWithContentDescription(text(R.string.hostpref_add_host), ignoreCase = true)
             .performClick()
 
         assert(addHostCalled)

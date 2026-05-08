@@ -25,10 +25,12 @@ import kotlinx.coroutines.runBlocking
 import io.shellpilot.app.data.ColorSchemeRepository
 import io.shellpilot.app.data.ShellPilotDatabase
 import io.shellpilot.app.data.HostRepository
+import io.shellpilot.app.data.ProfileRepository
 import io.shellpilot.app.data.PubkeyRepository
 import io.shellpilot.app.data.entity.ColorScheme
 import io.shellpilot.app.data.entity.Host
 import io.shellpilot.app.data.entity.KeyStorageType
+import io.shellpilot.app.data.entity.Profile
 import io.shellpilot.app.data.entity.Pubkey
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -55,6 +57,7 @@ class BackupFilterTest {
 
     // Mock repositories for dependency injection
     private lateinit var mockHostRepository: HostRepository
+    private lateinit var mockProfileRepository: ProfileRepository
     private lateinit var mockColorSchemeRepository: ColorSchemeRepository
     private lateinit var mockPubkeyRepository: PubkeyRepository
 
@@ -64,12 +67,14 @@ class BackupFilterTest {
 
         // Initialize mock repositories
         mockHostRepository = mock(HostRepository::class.java)
+        mockProfileRepository = mock(ProfileRepository::class.java)
         mockColorSchemeRepository = mock(ColorSchemeRepository::class.java)
         mockPubkeyRepository = mock(PubkeyRepository::class.java)
 
         backupFilter = BackupFilter(
             context,
             mockHostRepository,
+            mockProfileRepository,
             mockColorSchemeRepository,
             mockPubkeyRepository
         )
@@ -265,8 +270,10 @@ class BackupFilterTest {
             storageType = KeyStorageType.ANDROID_KEYSTORE
         )
         val colorScheme = ColorScheme(name = "test-scheme", isBuiltIn = false)
+        val profile = Profile(id = 1, name = "Default")
 
         // Mock repository behavior
+        whenever(mockProfileRepository.getAll()).thenReturn(listOf(profile))
         whenever(mockHostRepository.getHosts()).thenReturn(listOf(host1, host2))
         whenever(mockHostRepository.getPortForwardsForHost(host1.id)).thenReturn(emptyList())
         whenever(mockHostRepository.getKnownHostsForHost(host1.id)).thenReturn(emptyList())
@@ -310,6 +317,11 @@ class BackupFilterTest {
                 assertEquals(KeyStorageType.EXPORTABLE, pubkeys[0].storageType)
                 assertTrue(pubkeys[0].allowBackup)
 
+                // Verify profiles were copied so host profile_id references survive restore
+                val profiles = tempDb.profileDao().getAll()
+                assertEquals(1, profiles.size)
+                assertEquals("Default", profiles[0].name)
+
                 // Verify non-backupable keys were NOT copied
                 assertFalse(pubkeys.any { it.nickname == "non-backupable-key" })
                 assertFalse(pubkeys.any { it.nickname == "keystore-key" })
@@ -342,6 +354,7 @@ class BackupFilterTest {
         whenever(mockHostRepository.getHosts()).thenReturn(listOf(host))
         whenever(mockHostRepository.getPortForwardsForHost(host.id)).thenReturn(emptyList())
         whenever(mockHostRepository.getKnownHostsForHost(host.id)).thenReturn(emptyList())
+        whenever(mockProfileRepository.getAll()).thenReturn(listOf(Profile(id = 1, name = "Default")))
         whenever(mockPubkeyRepository.getAll()).thenReturn(
             listOf(
                 key1,

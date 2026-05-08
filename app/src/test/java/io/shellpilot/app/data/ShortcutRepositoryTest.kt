@@ -298,6 +298,21 @@ class ShortcutRepositoryTest {
     }
 
     @Test
+    fun syncOfficialTemplates_secondRunDoesNotAddAgain() = runTest(testDispatcher) {
+        repository.replaceAll(emptyList())
+
+        val first = repository.syncOfficialTemplates()
+        val countAfterFirst = repository.shortcuts.value.size
+        val second = repository.syncOfficialTemplates()
+
+        assertTrue("First sync should add official templates", first.added > 0)
+        assertEquals("Second sync should not add templates again", 0, second.added)
+        assertEquals("Second sync should not update templates again", 0, second.updated)
+        assertEquals("Second sync should not tag templates again", 0, second.tagged)
+        assertEquals("Shortcut count should stay stable", countAfterFirst, repository.shortcuts.value.size)
+    }
+
+    @Test
     fun syncOfficialTemplates_updatesKnownTemplateWithoutChangingId() = runTest(testDispatcher) {
         val stale = Shortcut(
             id = "fixed-id",
@@ -343,5 +358,84 @@ class ShortcutRepositoryTest {
         assertEquals("Duplicate official template should be removed", 1, codexExec.size)
         assertEquals("legacy-id", codexExec.single().id)
         assertEquals("codex exec", codexExec.single().label)
+    }
+
+    @Test
+    fun delete_officialTemplate_doesNotRestoreOnSync() = runTest(testDispatcher) {
+        repository.syncOfficialTemplates()
+        val target = repository.shortcuts.value.first { it.templateKey == "codex:slash-status" }
+
+        repository.delete(target.id)
+        repository.syncOfficialTemplates()
+
+        assertTrue(
+            "Deleted official template should stay suppressed",
+            repository.shortcuts.value.none { it.templateKey == "codex:slash-status" }
+        )
+    }
+
+    @Test
+    fun save_editedOfficialTemplate_detachesAndDoesNotDuplicateOriginal() = runTest(testDispatcher) {
+        repository.syncOfficialTemplates()
+        val target = repository.shortcuts.value.first { it.templateKey == "claude_code:slash-status" }
+
+        repository.save(
+            target.copy(
+                label = "/status custom",
+                command = "/status verbose\n",
+                templateKey = null
+            )
+        )
+        repository.syncOfficialTemplates()
+
+        val custom = repository.shortcuts.value.first { it.id == target.id }
+        assertNull("Edited template should become a custom shortcut", custom.templateKey)
+        assertEquals("/status custom", custom.label)
+        assertTrue(
+            "Original official template should not be re-added after customization",
+            repository.shortcuts.value.none { it.templateKey == "claude_code:slash-status" }
+        )
+    }
+
+    @Test
+    fun syncOfficialTemplates_removesDeprecatedOfficialTemplates() = runTest(testDispatcher) {
+        repository.replaceAll(
+            listOf(
+                Shortcut(
+                    id = "old-codex-help",
+                    label = "/help",
+                    command = "/help\n",
+                    category = "codex",
+                    templateKey = "codex:slash-help"
+                ),
+                Shortcut(
+                    id = "old-claude-vim",
+                    label = "/vim",
+                    command = "/vim\n",
+                    category = "claude_code",
+                    templateKey = "claude_code:slash-vim"
+                )
+            )
+        )
+
+        repository.syncOfficialTemplates()
+
+        assertTrue(repository.shortcuts.value.none { it.templateKey == "codex:slash-help" })
+        assertTrue(repository.shortcuts.value.none { it.templateKey == "claude_code:slash-vim" })
+    }
+
+    @Test
+    fun loadAll_corruptJson_quarantinesFileAndRestoresDefaults() = runTest(testDispatcher) {
+        val jsonFile = File(tempDir, ShortcutRepository.FILE_NAME)
+        jsonFile.writeText("{ not valid json")
+
+        val restored = repository.loadAll()
+        val quarantined = tempDir.listFiles()
+            ?.filter { it.name.startsWith("${ShortcutRepository.FILE_NAME}.corrupt-") }
+            .orEmpty()
+
+        assertTrue("Defaults should be restored after corruption", restored.isNotEmpty())
+        assertTrue("Corrupt JSON should be quarantined", quarantined.isNotEmpty())
+        assertTrue("New JSON should contain shortcuts", jsonFile.readText().contains("\"shortcuts\""))
     }
 }

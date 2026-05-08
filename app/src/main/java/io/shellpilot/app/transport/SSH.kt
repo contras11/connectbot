@@ -110,8 +110,8 @@ class SSH :
 
     private val portForwards = mutableListOf<PortForward>()
 
-    private var columns: Int = 0
-    private var rows: Int = 0
+    private var columns: Int = DEFAULT_COLUMNS
+    private var rows: Int = DEFAULT_ROWS
 
     private var width: Int = 0
     private var height: Int = 0
@@ -638,7 +638,9 @@ class SSH :
                 session?.requestAuthAgentForwarding(this)
             }
 
-            session?.requestPTY(getEmulation(), columns, rows, width, height, null)
+            val safeColumns = columns.coerceAtLeast(DEFAULT_COLUMNS)
+            val safeRows = rows.coerceAtLeast(DEFAULT_ROWS)
+            session?.requestPTY(getEmulation(), safeColumns, safeRows, width, height, null)
             session?.startShell()
 
             stdin = session?.stdin
@@ -650,6 +652,8 @@ class SSH :
             bridge?.onConnected()
         } catch (e1: IOException) {
             Timber.e(e1, "Problem while trying to create PTY in finishConnection()")
+            close()
+            bridge?.failConnection(manager?.res?.getString(R.string.terminal_failed), e1)
         }
     }
 
@@ -925,8 +929,15 @@ class SSH :
                 // sleep to make sure we dont kill system
                 Thread.sleep(1000)
             }
+            if (connected && connection?.isAuthenticationComplete != true) {
+                bridge?.outputLine(manager?.res?.getString(R.string.terminal_auth_fail))
+                close()
+                onDisconnect()
+            }
         } catch (e: Exception) {
             Timber.e(e, "Problem in SSH connection thread during authentication")
+            close()
+            onDisconnect()
         }
     }
 
@@ -941,6 +952,7 @@ class SSH :
 
         session?.close()
         session = null
+        sessionOpen = false
 
         connection?.close()
         connection = null
@@ -1016,9 +1028,11 @@ class SSH :
 
     override fun connectionLost(reason: Throwable) {
         // During grace period, SSH disconnect is EXPECTED (network loss)
-        // Don't trigger disconnect - let grace period handle it
+        // Keep the loss reason so restore can choose reconnect/disconnect.
         if (bridge?.isInGracePeriod() == true) {
-            Timber.d("SSH connection lost during grace period (expected due to network loss)")
+            connected = false
+            sessionOpen = false
+            bridge?.markConnectionLostDuringGrace(reason)
             return
         }
 
@@ -1165,12 +1179,15 @@ class SSH :
     }
 
     override fun setDimensions(columns: Int, rows: Int, width: Int, height: Int) {
-        this.columns = columns
-        this.rows = rows
+        // 変更理由: UI attach前や一時的な0x0 resizeでSSH PTYを壊さない。
+        this.columns = columns.takeIf { it > 0 } ?: this.columns.coerceAtLeast(DEFAULT_COLUMNS)
+        this.rows = rows.takeIf { it > 0 } ?: this.rows.coerceAtLeast(DEFAULT_ROWS)
+        this.width = width.coerceAtLeast(0)
+        this.height = height.coerceAtLeast(0)
 
         if (sessionOpen) {
             try {
-                session?.resizePTY(columns, rows, width, height)
+                session?.resizePTY(this.columns, this.rows, this.width, this.height)
             } catch (e: IOException) {
                 Timber.e(e, "Couldn't send resize PTY packet")
             }
@@ -1388,6 +1405,8 @@ class SSH :
 
         private const val PROTOCOL = "ssh"
         private const val DEFAULT_PORT = 22
+        private const val DEFAULT_COLUMNS = 80
+        private const val DEFAULT_ROWS = 24
 
         private const val AUTH_PUBLICKEY = "publickey"
         private const val AUTH_PASSWORD = "password"

@@ -143,6 +143,13 @@ class ProfileRepository @Inject constructor(
     }
 
     /**
+     * Get the count of profiles using a specific color scheme.
+     */
+    suspend fun getProfilesUsingColorScheme(schemeId: Long): Int = withContext(dispatchers.io) {
+        profileDao.getProfilesUsingColorScheme(schemeId)
+    }
+
+    /**
      * Blocking wrapper for getById - for use from non-coroutine code.
      */
     fun getByIdBlocking(profileId: Long): Profile? = runBlocking {

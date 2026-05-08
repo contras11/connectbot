@@ -149,6 +149,7 @@ class TerminalBridge {
     private var lastKnownNetworkState: NetworkState? = null
     private var networkGracePeriodJob: Job? = null
     private var inGracePeriod: Boolean = false
+    private var connectionLostDuringGrace: Throwable? = null
 
     private val keyListener: TerminalKeyListener
 
@@ -402,6 +403,10 @@ class TerminalBridge {
         val newTransport = TransportFactory.getTransport(host.protocol)
         if (newTransport == null) {
             Timber.w("No transport found for ${host.protocol}")
+            failConnection(
+                manager.res.getString(R.string.terminal_failed),
+                IllegalArgumentException("No transport found for ${host.protocol}")
+            )
             return
         }
 
@@ -447,8 +452,18 @@ class TerminalBridge {
                         reason = e.message ?: "Connection failed"
                     )
                 )
+                failConnection(e.message ?: manager.res.getString(R.string.terminal_failed), e)
             }
         }
+    }
+
+    /**
+     * 接続開始・認証・PTY作成の失敗をmanager removalまで一貫して流す。
+     */
+    fun failConnection(message: String?, cause: Throwable? = null) {
+        cause?.let { Timber.e(it, "TerminalBridge connection failed for ${host.nickname}") }
+        outputLine(message)
+        dispatchDisconnect(immediate = true)
     }
 
     /**
@@ -593,14 +608,16 @@ class TerminalBridge {
 
         // Cancel any pending prompts
         promptManager.cancelPrompt()
+        cancelNetworkGracePeriod()
 
         // disconnection request hangs if we havent really connected to a host yet
         // temporary fix is to just spawn disconnection into a thread
+        val transportToClose = transport
         scope.launch(dispatchers.io) {
-            transport?.let {
-                if (it.isConnected()) {
-                    it.close()
-                }
+            try {
+                transportToClose?.close()
+            } catch (e: Exception) {
+                Timber.e(e, "Error closing transport for ${host.nickname}")
             }
         }
 
@@ -784,8 +801,7 @@ class TerminalBridge {
      */
     fun cleanup() {
         // Cancel grace period if active
-        networkGracePeriodJob?.cancel()
-        inGracePeriod = false
+        cancelNetworkGracePeriod()
 
         profileObservationJob?.cancel()
         transportOperations.close()
@@ -948,6 +964,7 @@ class TerminalBridge {
         networkGracePeriodJob?.cancel()
 
         inGracePeriod = true
+        connectionLostDuringGrace = null
 
         // Show status message to user
         outputLine(manager.res.getString(R.string.network_lost_grace_period))
@@ -979,6 +996,16 @@ class TerminalBridge {
         inGracePeriod = false
 
         val oldState = lastKnownNetworkState
+        val graceLostReason = connectionLostDuringGrace
+        connectionLostDuringGrace = null
+
+        if (graceLostReason != null) {
+            // 変更理由: grace period中のconnectionLostを復帰時に再接続/切断へ倒す。
+            Timber.i(graceLostReason, "Connection was lost during grace period; disconnecting after restore")
+            lastKnownNetworkState = null
+            dispatchDisconnect(immediate = false)
+            return
+        }
 
         if (oldState == null) {
             // No previous state - treat as new connection
@@ -1014,6 +1041,22 @@ class TerminalBridge {
      * @return whether bridge is in network grace period
      */
     fun isInGracePeriod(): Boolean = inGracePeriod
+
+    /**
+     * Transport側でgrace period中のconnectionLostを検知したことを記録する。
+     */
+    fun markConnectionLostDuringGrace(reason: Throwable) {
+        if (!inGracePeriod) return
+        connectionLostDuringGrace = reason
+        Timber.i(reason, "Connection lost during network grace period")
+    }
+
+    private fun cancelNetworkGracePeriod() {
+        networkGracePeriodJob?.cancel()
+        networkGracePeriodJob = null
+        inGracePeriod = false
+        connectionLostDuringGrace = null
+    }
 
     /**
      * @return
