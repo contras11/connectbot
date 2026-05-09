@@ -20,6 +20,7 @@ package io.shellpilot.app.ui.screens.console
 import android.app.Activity
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -97,14 +98,9 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.preference.PreferenceManager
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import io.shellpilot.app.R
 import io.shellpilot.app.data.entity.Host
 import io.shellpilot.app.service.PromptRequest
-import org.connectbot.terminal.ProgressState
-import org.connectbot.terminal.SelectionController
-import org.connectbot.terminal.Terminal
 import io.shellpilot.app.ui.LoadingScreen
 import io.shellpilot.app.ui.LocalTerminalManager
 import io.shellpilot.app.ui.components.FloatingTextInputDialog
@@ -116,6 +112,11 @@ import io.shellpilot.app.ui.components.TerminalKeyboard
 import io.shellpilot.app.ui.components.UrlScanDialog
 import io.shellpilot.app.util.PreferenceConstants
 import io.shellpilot.app.util.rememberTerminalTypefaceResultFromStoredValue
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import org.connectbot.terminal.ProgressState
+import org.connectbot.terminal.SelectionController
+import org.connectbot.terminal.Terminal
 import timber.log.Timber
 
 /**
@@ -275,6 +276,24 @@ fun ConsoleScreen(
     val disconnected = currentBridge?.isDisconnected == true
     val canForwardPorts = currentBridge?.canFowardPorts() == true
     val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+    val urlOpenFailedMessage = stringResource(R.string.console_url_open_failed)
+
+    fun openExternalUrl(url: String) {
+        val intent = Intent(Intent.ACTION_VIEW, url.toUri())
+        runCatching {
+            context.startActivity(intent)
+        }.onFailure { error ->
+            // 変更理由: URLハンドラが無い端末でもセッション画面を落とさず、ユーザーに失敗だけ伝える。
+            Timber.w(error, "No activity could open terminal URL: %s", url)
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar(
+                    message = urlOpenFailedMessage,
+                    withDismissAction = true
+                )
+            }
+        }
+    }
 
     // Show software keyboard when session becomes open (if no hardware keyboard)
     // Also show when switching to a different bridge that's already open
@@ -479,12 +498,8 @@ fun ConsoleScreen(
                                 imeVisible = visible
                             },
                             onHyperlinkClick = { url ->
-                                // Open OSC8 hyperlink in browser
-                                val intent = android.content.Intent(
-                                    android.content.Intent.ACTION_VIEW,
-                                    url.toUri()
-                                )
-                                context.startActivity(intent)
+                                // 変更理由: OSC8リンクは外部アプリ不在でもクラッシュさせずに開く。
+                                openExternalUrl(url)
                             }
                         )
 
@@ -554,12 +569,8 @@ fun ConsoleScreen(
                 urls = scannedUrls,
                 onDismiss = { showUrlScanDialog = false },
                 onUrlClick = { url ->
-                    // Open URL in browser
-                    val intent = android.content.Intent(
-                        android.content.Intent.ACTION_VIEW,
-                        url.toUri()
-                    )
-                    context.startActivity(intent)
+                    // 変更理由: URLスキャン結果も安全な外部起動経路を共有する。
+                    openExternalUrl(url)
                 }
             )
         }

@@ -37,19 +37,6 @@ import android.security.keystore.UserNotAuthenticatedException
 import androidx.annotation.VisibleForTesting
 import com.trilead.ssh2.crypto.PublicKeyUtils
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import io.shellpilot.app.R
 import io.shellpilot.app.data.ColorSchemeRepository
 import io.shellpilot.app.data.HostRepository
@@ -63,8 +50,20 @@ import io.shellpilot.app.util.PreferenceConstants
 import io.shellpilot.app.util.ProviderLoader
 import io.shellpilot.app.util.ProviderLoaderListener
 import io.shellpilot.app.util.PubkeyUtils
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import timber.log.Timber
-import java.io.IOException
 import java.lang.ref.WeakReference
 import java.security.KeyPair
 import java.util.concurrent.ConcurrentHashMap
@@ -562,8 +561,7 @@ class TerminalManager :
                 e is KeyPermanentlyInvalidatedException ||
                 e is UserNotAuthenticatedException
             if (isKeyInvalidated) {
-                val message = res?.getString(R.string.terminal_auth_biometric_invalidated, pubkey.nickname)
-                    ?: "Biometric key '${pubkey.nickname}' has been invalidated. Please generate a new key."
+                val message = res.getString(R.string.terminal_auth_biometric_invalidated, pubkey.nickname)
                 Timber.e(e, message)
                 return BiometricKeyResult.KeyInvalidated(message)
             } else {
@@ -765,49 +763,65 @@ class TerminalManager :
     }
 
     private fun enableMediaPlayer() {
-        mediaPlayer = MediaPlayer()
+        disableMediaPlayer()
 
-        val volume = prefs.getFloat(
-            PreferenceConstants.BELL_VOLUME,
-            PreferenceConstants.DEFAULT_BELL_VOLUME
-        )
-
-        val audioAttributes = AudioAttributes.Builder()
-            // Use USAGE_NOTIFICATION for sounds that signal an event
-            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
-            // Use CONTENT_TYPE_SONIFICATION for non-music/non-speech sounds (like notifications or alarms)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .build()
-        mediaPlayer?.setAudioAttributes(audioAttributes)
-
-        val file = res.openRawResourceFd(R.raw.bell)
+        val player = MediaPlayer()
         try {
-            mediaPlayer!!.isLooping = false
-            mediaPlayer!!.setDataSource(
-                file.fileDescriptor,
-                file
-                    .startOffset,
-                file.length
+            val volume = prefs.getFloat(
+                PreferenceConstants.BELL_VOLUME,
+                PreferenceConstants.DEFAULT_BELL_VOLUME
             )
-            file.close()
-            mediaPlayer!!.setVolume(volume, volume)
-            mediaPlayer!!.prepare()
-        } catch (e: IOException) {
-            Timber.e(e, "Error setting up bell media player")
-        }
-    }
 
-    private fun disableMediaPlayer() {
-        if (mediaPlayer != null) {
-            mediaPlayer!!.release()
+            val audioAttributes = AudioAttributes.Builder()
+                // Use USAGE_NOTIFICATION for sounds that signal an event
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                // Use CONTENT_TYPE_SONIFICATION for non-music/non-speech sounds (like notifications or alarms)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
+            player.setAudioAttributes(audioAttributes)
+
+            val file = res.openRawResourceFd(R.raw.bell)
+            try {
+                player.isLooping = false
+                player.setDataSource(
+                    file.fileDescriptor,
+                    file.startOffset,
+                    file.length
+                )
+            } finally {
+                file.close()
+            }
+            player.setVolume(volume, volume)
+            player.prepare()
+            mediaPlayer = player
+        } catch (e: Exception) {
+            Timber.e(e, "Error setting up bell media player")
+            // 変更理由: MediaPlayer初期化失敗時にサービス全体を巻き込んで落とさない。
+            runCatching { player.release() }
             mediaPlayer = null
         }
     }
 
+    private fun disableMediaPlayer() {
+        mediaPlayer?.let { player ->
+            runCatching {
+                player.release()
+            }.onFailure {
+                Timber.w(it, "Error releasing bell media player")
+            }
+        }
+        mediaPlayer = null
+    }
+
     fun playBeep() {
-        if (mediaPlayer != null) {
-            mediaPlayer!!.seekTo(0)
-            mediaPlayer!!.start()
+        mediaPlayer?.let { player ->
+            runCatching {
+                player.seekTo(0)
+                player.start()
+            }.onFailure {
+                Timber.w(it, "Error playing bell sound")
+                disableMediaPlayer()
+            }
         }
 
         if (wantBellVibration) {

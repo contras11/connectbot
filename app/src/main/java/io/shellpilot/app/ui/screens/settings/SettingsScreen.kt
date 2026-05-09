@@ -22,6 +22,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -39,8 +40,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.FontDownload
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
@@ -60,10 +61,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.Modifier
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -87,18 +88,19 @@ import java.util.Locale
 @Composable
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
+    modifier: Modifier = Modifier,
     onNavigateToShortcuts: () -> Unit = {},
     onNavigateToPubkeys: () -> Unit = {},
     onNavigateToProfiles: () -> Unit = {},
     onNavigateToColors: () -> Unit = {},
     onNavigateToHelp: () -> Unit = {},
-    modifier: Modifier = Modifier,
     // 変更理由: MainScreenのタブとして使用する際はナビゲーションアイコンを非表示にする。
     showNavigationIcon: Boolean = true,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val settingsOpenFailedMessage = stringResource(R.string.settings_open_failed)
 
     // Permission launcher for notification permission
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -157,7 +159,12 @@ fun SettingsScreen(
                 val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                     data = Uri.fromParts("package", context.packageName, null)
                 }
-                context.startActivity(intent)
+                // 変更理由: 制限端末でOS設定画面を開けない場合も設定画面自体は落とさない。
+                runCatching {
+                    context.startActivity(intent)
+                }.onFailure {
+                    Toast.makeText(context, settingsOpenFailedMessage, Toast.LENGTH_SHORT).show()
+                }
             }
         )
     }
@@ -210,13 +217,6 @@ fun SettingsScreen(
 fun SettingsScreenContent(
     uiState: SettingsUiState,
     onNavigateBack: () -> Unit,
-    onNavigateToShortcuts: () -> Unit = {},
-    onNavigateToPubkeys: () -> Unit = {},
-    onNavigateToProfiles: () -> Unit = {},
-    onNavigateToColors: () -> Unit = {},
-    onNavigateToHelp: () -> Unit = {},
-    // 変更理由: MainScreenのタブ表示時はArrowBackアイコンを非表示にする
-    showNavigationIcon: Boolean = true,
     onAuthOnLaunchChange: (Boolean) -> Unit,
     onMemkeysChange: (Boolean) -> Unit,
     onConnPersistChange: (Boolean) -> Unit,
@@ -247,7 +247,14 @@ fun SettingsScreenContent(
     onBellVolumeChange: (Float) -> Unit,
     onBellVibrateChange: (Boolean) -> Unit,
     onBellNotificationChange: (Boolean) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onNavigateToShortcuts: () -> Unit = {},
+    onNavigateToPubkeys: () -> Unit = {},
+    onNavigateToProfiles: () -> Unit = {},
+    onNavigateToColors: () -> Unit = {},
+    onNavigateToHelp: () -> Unit = {},
+    // 変更理由: MainScreenのタブ表示時はArrowBackアイコンを非表示にする
+    showNavigationIcon: Boolean = true
 ) {
     // 変更理由: ボタンに見えるカテゴリカードを実際の詳細画面切替に接続し、
     // モック由来の押せない装飾カードを残さない。
@@ -414,8 +421,7 @@ fun SettingsScreenContent(
                     }
                     val noneLabel = stringResource(R.string.pref_default_profile_none)
                     val defaultProfileLabel = stringResource(R.string.profile_default_name)
-                    fun profileDisplayName(name: String): String =
-                        if (name == "Default") defaultProfileLabel else name
+                    fun profileDisplayName(name: String): String = if (name == "Default") defaultProfileLabel else name
                     val profileEntries = listOf(noneLabel to "0") +
                         uiState.availableProfiles.map { profileDisplayName(it.name) to it.id.toString() }
                     ListPreference(
@@ -818,8 +824,8 @@ private fun SettingsCategoryCard(
     icon: ImageVector,
     title: String,
     summary: String,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     CommandSurfaceCard(
         modifier = modifier,
@@ -1378,7 +1384,9 @@ private fun LocalFontPreference(
 
     Column(modifier = modifier) {
         CommandSurfaceCard(
-            onClick = if (importInProgress) null else {
+            onClick = if (importInProgress) {
+                null
+            } else {
                 {
                     fontPickerLauncher.launch(arrayOf("font/*", "application/x-font-ttf", "application/x-font-otf"))
                 }

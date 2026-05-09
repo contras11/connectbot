@@ -1057,6 +1057,22 @@ abstract class ShellPilotDatabase : RoomDatabase() {
         private fun normalizeColorPaletteForRuntime(db: SupportSQLiteDatabase) {
             db.execSQL(
                 """
+                UPDATE `color_schemes`
+                SET `foreground` = 7
+                WHERE `foreground` < 0
+                   OR `foreground` > 15
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                UPDATE `color_schemes`
+                SET `background` = 0
+                WHERE `background` < 0
+                   OR `background` > 15
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
                 DELETE FROM `color_palette`
                 WHERE `color_index` < 0
                    OR `color_index` > 15

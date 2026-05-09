@@ -39,7 +39,8 @@ import java.util.Locale
  */
 object ShortcutExpander {
 
-    private val PLACEHOLDER_REGEX = Regex("\\{\\{(\\w+)}}")
+    // 変更理由: Android ICU Regex では閉じ波括弧も明示的にエスケープしないと初期化時に落ちる。
+    private val PLACEHOLDER_REGEX = Regex("\\{\\{(\\w+)\\}\\}")
 
     /**
      * コマンドテンプレート内のプレースホルダを展開する。
@@ -50,24 +51,20 @@ object ShortcutExpander {
      * @return プレースホルダが展開されたコマンド文字列。
      *         未知のプレースホルダはそのまま残す。
      */
-    fun expand(template: String, host: Host, now: Date = Date()): String {
-        return PLACEHOLDER_REGEX.replace(template) { match ->
-            val key = match.groupValues[1]
-            resolve(key, host, now) ?: match.value
-        }
+    fun expand(template: String, host: Host, now: Date = Date()): String = PLACEHOLDER_REGEX.replace(template) { match ->
+        val key = match.groupValues[1]
+        resolve(key, host, now) ?: match.value
     }
 
-    private fun resolve(key: String, host: Host, now: Date): String? {
-        return when (key) {
-            "hostname" -> host.hostname
-            "username" -> host.username
-            "port" -> host.port.toString()
-            "nickname" -> host.nickname
-            "protocol" -> host.protocol
-            "date" -> SimpleDateFormat("yyyy-MM-dd", Locale.US).format(now)
-            "time" -> SimpleDateFormat("HH:mm:ss", Locale.US).format(now)
-            "timestamp" -> (now.time / 1000).toString()
-            else -> null // 未知のプレースホルダはそのまま残す
-        }
+    private fun resolve(key: String, host: Host, now: Date): String? = when (key) {
+        "hostname" -> host.hostname
+        "username" -> host.username
+        "port" -> host.port.toString()
+        "nickname" -> host.nickname
+        "protocol" -> host.protocol
+        "date" -> SimpleDateFormat("yyyy-MM-dd", Locale.US).format(now)
+        "time" -> SimpleDateFormat("HH:mm:ss", Locale.US).format(now)
+        "timestamp" -> (now.time / 1000).toString()
+        else -> null // 未知のプレースホルダはそのまま残す
     }
 }

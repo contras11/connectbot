@@ -21,10 +21,6 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import io.shellpilot.app.data.ProfileOrderRepository
 import io.shellpilot.app.data.ShortcutRepository
 import io.shellpilot.app.data.entity.Host
@@ -36,6 +32,10 @@ import io.shellpilot.app.session.CliToolProbe
 import io.shellpilot.app.session.SessionController
 import io.shellpilot.app.session.ShortcutExpander
 import io.shellpilot.app.ui.navigation.NavArgs
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -243,7 +243,7 @@ class SessionViewModel @Inject constructor(
         viewModelScope.launch {
             // 変更理由: セッション開始時は保存済みショートカットの読込だけに限定し、
             // 公式テンプレート同期はショートカット設定画面の明示操作に任せる。
-            _shortcuts.value = filterShortcutsForHost(shortcutRepository.loadAll())
+            _shortcuts.value = filterShortcutsForHost(loadShortcutsOrEmpty())
             shortcutRepository.shortcuts.collect { list ->
                 _shortcuts.value = filterShortcutsForHost(list)
             }
@@ -265,7 +265,7 @@ class SessionViewModel @Inject constructor(
         _profileOrder.value = profileOrderRepository.getOrder()
         _hiddenProfileIds.value = profileOrderRepository.getHiddenProfileIds()
         viewModelScope.launch {
-            val list = shortcutRepository.loadAll()
+            val list = loadShortcutsOrEmpty()
             _shortcuts.value = filterShortcutsForHost(list)
         }
     }
@@ -301,32 +301,43 @@ class SessionViewModel @Inject constructor(
     fun importToolCommands(toolId: String) {
         val category = CliCommandRegistry.findCategory(toolId) ?: return
         viewModelScope.launch {
-            val existing = shortcutRepository.loadAll()
-            val existingTemplateKeys = existing.mapNotNull { it.templateKey }.toSet()
-            val existingPairs = existing.map { it.label to it.category }.toSet()
-            val maxOrder = existing.maxOfOrNull { it.order } ?: 0
-            category.commands
-                .filter {
-                    val key = it.templateKey
-                    (key == null || key !in existingTemplateKeys) &&
-                        (it.label to category.id) !in existingPairs
-                }
-                .forEachIndexed { index, cmd ->
-                    shortcutRepository.save(
-                        cmd.copy(order = maxOrder + index + 1, category = category.id)
-                    )
-                }
-            loadShortcuts()
+            runCatching {
+                val existing = shortcutRepository.loadAll()
+                val existingTemplateKeys = existing.mapNotNull { it.templateKey }.toSet()
+                val existingPairs = existing.map { it.label to it.category }.toSet()
+                val maxOrder = existing.maxOfOrNull { it.order } ?: 0
+                category.commands
+                    .filter {
+                        val key = it.templateKey
+                        (key == null || key !in existingTemplateKeys) &&
+                            (it.label to category.id) !in existingPairs
+                    }
+                    .forEachIndexed { index, cmd ->
+                        shortcutRepository.save(
+                            cmd.copy(order = maxOrder + index + 1, category = category.id)
+                        )
+                    }
+                loadShortcuts()
+            }.onFailure {
+                Timber.e(it, "SessionViewModel: ツールコマンドの取り込みに失敗")
+            }
         }
     }
 
-    private fun filterShortcutsForHost(list: List<Shortcut>): List<Shortcut> {
-        return if (hostId > 0L) {
-            list.filter { it.hostId == null || it.hostId == hostId }
-                .sortedWith(compareBy<Shortcut> { it.hostId != null }.thenBy { it.order })
-        } else {
-            list.sortedBy { it.order }
-        }
+    private suspend fun loadShortcutsOrEmpty(): List<Shortcut> = runCatching {
+        shortcutRepository.loadAll()
+    }.onFailure {
+        // 変更理由: ショートカットJSONの破損やI/O失敗をセッション画面の停止に波及させない。
+        Timber.e(it, "SessionViewModel: ショートカット読込に失敗")
+    }.getOrElse {
+        emptyList()
+    }
+
+    private fun filterShortcutsForHost(list: List<Shortcut>): List<Shortcut> = if (hostId > 0L) {
+        list.filter { it.hostId == null || it.hostId == hostId }
+            .sortedWith(compareBy<Shortcut> { it.hostId != null }.thenBy { it.order })
+    } else {
+        list.sortedBy { it.order }
     }
 
     override fun onCleared() {

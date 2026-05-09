@@ -1045,6 +1045,8 @@
 	<string name="empty_port_forwards_message">ポート転送はまだ設定されていません。</string>
 	<!-- Message shown when no URLs are found in the terminal buffer during URL scan -->
 	<string name="empty_urls_message">ターミナルの表示範囲にURLはありません</string>
+	<!-- Message shown when Android has no app that can open a terminal URL. -->
+	<string name="console_url_open_failed">この端末でURLを開けるアプリが見つかりません</string>
 
 	<!-- Console screen messages -->
 	<!-- Default title for console screen when no specific host is connected -->
@@ -1171,6 +1173,7 @@
 
 	<!-- Button text to open ShellPilot app settings page where user can grant notification permission. -->
 	<string name="open_settings">設定を開く</string>
+	<string name="settings_open_failed">この端末ではアプリ設定を開けません</string>
 
 	<!-- Message shown to user when they're trying to connect to a host on a local network but
 	     have not granted the permission yet. -->

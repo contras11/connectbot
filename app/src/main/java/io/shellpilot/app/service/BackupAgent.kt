@@ -130,7 +130,9 @@ class BackupAgent : BackupAgentHelper() {
     private fun backupDatabaseWithFiltering(data: BackupDataOutput, backupKeys: Boolean) {
         val dbFile = getDatabasePath(DATABASE_NAME)
         if (!dbFile.exists()) {
-            throw IllegalStateException("Database does not exist for backup: ${dbFile.path}")
+            // 変更理由: 初回起動前やDB削除直後のOSバックアップでBackupAgent自体を失敗させない。
+            Timber.i("Skipping database backup because database does not exist: %s", dbFile.path)
+            return
         }
 
         val tempDbFile = File(noBackupFilesDir, TEMP_DATABASE_NAME)

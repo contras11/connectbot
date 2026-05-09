@@ -428,6 +428,7 @@
   <string name="pubkey_not_loaded">未ロード</string>
   <string name="empty_port_forwards_message">ポート転送はまだ設定されていません。</string>
   <string name="empty_urls_message">ターミナルバッファ内にURLは見つかりませんでした</string>
+  <string name="console_url_open_failed">この端末でURLを開けるアプリが見つかりません</string>
   <string name="console_default_title">コンソール</string>
   <string name="host_editor_quick_connect_label">クイック接続</string>
   <string name="host_editor_quick_connect_placeholder">ユーザー名\@ホスト名:ポート番号</string>
@@ -479,6 +480,7 @@
   <string name="notification_permission_denied_title">パーミッションが必要です</string>
   <string name="notification_permission_denied_message">バックグラウンドで接続を維持するにはアプリの設定で通知の許可を有効にする必要があります</string>
   <string name="open_settings">設定を開く</string>
+  <string name="settings_open_failed">この端末ではアプリ設定を開けません</string>
   <string name="terminal_no_route">ローカルホストにアクセスしようとしていますか ローカルネットワークのパーミッションを付与してください</string>
   <string name="loading_message">ロード中…</string>
   <string name="migration_checking">データベースを確認中…</string>
